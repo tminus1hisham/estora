@@ -267,13 +267,18 @@ class _PaymentMethodTile extends StatelessWidget {
       _ => '',
     };
 
-    return Card(
-      color: selected
-          ? scheme.primaryContainer.withValues(alpha: 0.45)
-          : scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
+    // Animated so that choosing a method reads as a change of state rather
+    // than a repaint. The border weight carries most of it; the fill is a
+    // supporting cue for anyone who cannot see the colour shift.
+    return AnimatedContainer(
+      duration: AppMotion.fast,
+      curve: AppMotion.enter,
+      decoration: BoxDecoration(
+        color: selected
+            ? scheme.primaryContainer.withValues(alpha: 0.45)
+            : scheme.surface,
+        borderRadius: AppRadius.medium,
+        border: Border.all(
           color: selected ? scheme.primary : scheme.outlineVariant,
           width: selected ? 1.5 : 1,
         ),
@@ -284,12 +289,14 @@ class _PaymentMethodTile extends StatelessWidget {
           horizontal: Gap.md,
           vertical: Gap.xs,
         ),
-        secondary: Container(
+        secondary: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.enter,
           width: 42,
           height: 42,
           decoration: BoxDecoration(
             color: selected ? scheme.primary : scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppRadius.small,
           ),
           child: Icon(
             icon,

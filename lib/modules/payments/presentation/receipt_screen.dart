@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../components/app_bottom_action_bar.dart';
+import '../../../components/app_success_mark.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
@@ -65,32 +66,16 @@ class _Body extends ConsumerWidget {
           children: [
             Column(
               children: [
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.primary.withValues(alpha: 0.2),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.check_rounded,
-                    size: 34,
-                    color: scheme.onPrimary,
-                  ),
+                AppSuccessMark(
+                  color: scheme.primary,
+                  icon: Icons.check_rounded,
                 ),
                 Gap.h16,
                 Text(
                   'Payment received',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: AppTypography.bold,
+                  ),
                 ),
                 Gap.h4,
                 Text(
@@ -103,7 +88,7 @@ class _Body extends ConsumerWidget {
               ],
             ),
             Gap.h24,
-            Card(
+            _ReceiptPaper(
               child: Padding(
                 padding: const EdgeInsets.all(Gap.xl),
                 child: Column(
@@ -193,4 +178,74 @@ class _Body extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The receipt itself, drawn as a piece of paper rather than as a card.
+///
+/// A receipt is the one artefact in this flow the tenant may screenshot, file
+/// or send to an accountant, so it is worth it looking like a document. The
+/// torn edges are the whole of the effect — everything inside is the same
+/// DetailRow layout used on every other detail screen.
+class _ReceiptPaper extends StatelessWidget {
+  const _ReceiptPaper({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    // PhysicalShape rather than a DecoratedBox: it casts a shadow that follows
+    // the torn outline, where a box shadow would draw a rectangle behind the
+    // notches and give the illusion away.
+    return PhysicalShape(
+      clipper: const _TornPaperClipper(),
+      color: scheme.surfaceContainerLowest,
+      elevation: AppElevation.medium,
+      shadowColor: scheme.shadow.withValues(alpha: 0.16),
+      child: child,
+    );
+  }
+}
+
+/// A rectangle whose top and bottom edges are torn into semicircular notches.
+class _TornPaperClipper extends CustomClipper<Path> {
+  const _TornPaperClipper();
+
+  /// Chosen so the notches divide evenly into any width: the count is derived
+  /// from the width and the radius follows, rather than the other way round,
+  /// which would leave a clipped part-notch at one end.
+  static const double _targetNotchWidth = 18;
+
+  @override
+  Path getClip(Size size) {
+    final count = (size.width / _targetNotchWidth).round().clamp(4, 60);
+    final notch = size.width / count;
+    final radius = notch / 2;
+
+    final path = Path()..moveTo(0, radius);
+
+    for (var i = 0; i < count; i++) {
+      path.arcToPoint(
+        Offset((i + 1) * notch, radius),
+        radius: Radius.circular(radius),
+        clockwise: false,
+      );
+    }
+
+    path.lineTo(size.width, size.height - radius);
+
+    for (var i = count; i > 0; i--) {
+      path.arcToPoint(
+        Offset((i - 1) * notch, size.height - radius),
+        radius: Radius.circular(radius),
+        clockwise: false,
+      );
+    }
+
+    return path..close();
+  }
+
+  @override
+  bool shouldReclip(_TornPaperClipper oldClipper) => false;
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/app_bottom_action_bar.dart';
+import '../../../components/app_success_mark.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
@@ -284,6 +285,8 @@ class _StatusHeader extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               if (watch.isPolling)
+                // Still indeterminate: the server has not decided yet, and an
+                // animation that looks resolved would be saying otherwise.
                 SizedBox(
                   height: 88,
                   width: 88,
@@ -292,15 +295,20 @@ class _StatusHeader extends StatelessWidget {
                     color: color.withValues(alpha: 0.6),
                   ),
                 ),
-              Container(
-                height: 68,
-                width: 68,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
+              if (watch.succeeded)
+                // Drawn only once the server has reported success. This is the
+                // one celebratory moment in the app.
+                AppSuccessMark(color: color, icon: icon)
+              else
+                Container(
+                  height: 68,
+                  width: 68,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 34, color: color),
                 ),
-                child: Icon(icon, size: 34, color: color),
-              ),
             ],
           ),
         ),
@@ -310,7 +318,7 @@ class _StatusHeader extends StatelessWidget {
           textAlign: TextAlign.center,
           style: Theme.of(
             context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          ).textTheme.headlineSmall?.copyWith(fontWeight: AppTypography.bold),
         ),
         Gap.h8,
         Text(
