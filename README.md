@@ -121,12 +121,19 @@ Concretely, the app never:
 flutter test
 ```
 
-Covers §93's cases against the mock server: availability and double-booking,
-idempotent replay of booking and payment keys, expiry releasing a unit without
-deleting the booking, terms surviving a later price change, payment settling
-through to allocation and receipt, invoice generation being idempotent, the
-lease signing gate and stale-hash rejection, the auth redirect, and `Money`
-arithmetic.
+66 tests. Most run against the mock server directly, since the rules they check
+are §93's server rules — availability and double-booking, idempotent replay of
+booking and payment keys, expiry releasing a unit without deleting the booking,
+terms surviving a later price change, payment settling through to allocation and
+receipt, invoice generation being idempotent, the lease signing gate and
+stale-hash rejection.
+
+[test/acceptance_test.dart](test/acceptance_test.dart) is different: it drives
+the §94 path through the real widget tree, so "it builds" and "it works" are
+separate claims with separate evidence. It deliberately runs at phone
+proportions (420×950) rather than the 800×600 default test surface — the first
+run at phone width surfaced three real layout overflows that a wide viewport
+hides.
 
 ## Platform notes
 
@@ -138,6 +145,11 @@ Two things differ away from Android and iOS:
   [lib/storage/token_store_factory.dart](lib/storage/token_store_factory.dart)
   makes sure real devices always get keychain/keystore storage.
 * **Biometric unlock** is hidden, since there is no equivalent.
+
+`flutter_secure_storage` is held below 11.0.0 on purpose: that release requires
+`compileSdk 37`, which is newer than this Flutter SDK's own default of 36, so the
+Android build fails unless every developer installs an extra platform. 10.3.x has
+the same API surface this app uses.
 
 ## Not built
 
