@@ -106,6 +106,7 @@ class AppSkeletonList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpace.lg),
+      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: itemCount + (header ? 1 : 0),
       separatorBuilder: (_, _) => Gap.h12,
@@ -130,6 +131,7 @@ class AppSkeletonMediaList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpace.lg),
+      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: itemCount,
       separatorBuilder: (_, _) => Gap.h16,
@@ -148,6 +150,7 @@ class AppSkeletonDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(AppSpace.lg),
+      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         AppSkeleton(height: heroHeight, borderRadius: AppRadius.lg),

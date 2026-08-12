@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/app_brand_mark.dart';
 import '../../../components/app_media.dart';
+import '../../../components/app_reveal.dart';
+import '../../../components/app_skeleton.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/countdown_timer.dart';
 import '../../../components/money_text.dart';
@@ -37,55 +39,43 @@ class HomeScreen extends ConsumerWidget {
     final unread = ref.watch(unreadNotificationCountProvider).value ?? 0;
 
     return Scaffold(
-      appBar: AppBar(
-        leadingWidth: 64,
-        leading: const Padding(
-          padding: EdgeInsets.only(left: Gap.lg),
-          child: AppBrandMark(size: 40),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _greeting(),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            Text(
-              user?.firstName ?? 'Welcome',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+      body: switch (summaryAsync) {
+        // A dashboard of cards deserves a skeleton of cards. The spinner this
+        // replaced said nothing about what was coming and let the screen jump
+        // when it arrived.
+        AsyncLoading() when !summaryAsync.hasValue => CustomScrollView(
+          slivers: [
+            _HomeAppBar(unread: unread, firstName: user?.firstName),
+            const SliverToBoxAdapter(
+              child: AppSkeletonList(itemCount: 3, header: true),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: () => context.pushNamed(Routes.notifications),
-            tooltip: 'Notifications',
-            icon: Badge(
-              isLabelVisible: unread > 0,
-              label: Text('$unread'),
-              child: const Icon(Icons.notifications_none_rounded),
+        AsyncError(:final error) => CustomScrollView(
+          slivers: [
+            _HomeAppBar(unread: unread, firstName: user?.firstName),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: ErrorView(
+                failure: error is Failure
+                    ? error
+                    : UnknownFailure(error.toString()),
+                onRetry: () =>
+                    ref.read(dashboardControllerProvider.notifier).refresh(),
+              ),
             ),
-          ),
-          Gap.w8,
-        ],
-      ),
-      body: switch (summaryAsync) {
-        AsyncLoading() when !summaryAsync.hasValue => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () =>
-              ref.read(dashboardControllerProvider.notifier).refresh(),
+          ],
         ),
-        _ => _HomeBody(summary: summaryAsync.requireValue),
+        _ => _HomeBody(
+          summary: summaryAsync.requireValue,
+          unread: unread,
+          firstName: user?.firstName,
+        ),
       },
     );
   }
 
-  static String _greeting() {
+  static String greeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
@@ -93,73 +83,136 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
+/// The home header.
+///
+/// A sliver so that content scrolls under it and picks up the theme's
+/// scrolled-under elevation, which gives the bar an edge only once there is
+/// something behind it to separate from.
+class _HomeAppBar extends StatelessWidget {
+  const _HomeAppBar({required this.unread, this.firstName});
+
+  final int unread;
+  final String? firstName;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverAppBar(
+      pinned: true,
+      leadingWidth: 64,
+      leading: const Padding(
+        padding: EdgeInsets.only(left: Gap.lg),
+        child: AppBrandMark(size: 40),
+      ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            HomeScreen.greeting(),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Text(
+            firstName ?? 'Welcome',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: AppTypography.bold),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          onPressed: () => context.pushNamed(Routes.notifications),
+          tooltip: 'Notifications',
+          icon: Badge(
+            isLabelVisible: unread > 0,
+            label: Text('$unread'),
+            child: const Icon(Icons.notifications_none_rounded),
+          ),
+        ),
+        Gap.w8,
+      ],
+    );
+  }
+}
+
 class _HomeBody extends ConsumerWidget {
-  const _HomeBody({required this.summary});
+  const _HomeBody({
+    required this.summary,
+    required this.unread,
+    this.firstName,
+  });
 
   final DashboardSummary summary;
+  final int unread;
+  final String? firstName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Built as a list so each card can be given its place in the order of
+    // arrival without threading an index through by hand.
+    final cards = <Widget>[
+      // Things that need doing, first.
+      if (summary.needsSignature)
+        _ActionBanner(
+          icon: Icons.draw_outlined,
+          tone: StatusTone.progress,
+          title: 'Your lease is ready to sign',
+          message: 'Review the agreement and sign to activate your lease.',
+          actionLabel: 'Review and sign',
+          onAction: () => context.pushNamed(
+            Routes.signAgreement,
+            pathParameters: {'leaseId': summary.pendingSignatureLeaseId!},
+          ),
+        ),
+
+      if (summary.hasActiveBooking) _BookingCountdownCard(summary: summary),
+
+      if (summary.hasOverdue)
+        _ActionBanner(
+          icon: Icons.warning_amber_rounded,
+          tone: StatusTone.danger,
+          title: 'You have an overdue balance',
+          message: '${summary.overdueAmount!.format()} is past its due date.',
+          actionLabel: 'Pay now',
+          onAction: () => context.goNamed(Routes.invoices),
+        ),
+
+      // Section 44: current property, unit and lease status.
+      //
+      // The order below is the spec's, not a design choice. The balance is
+      // given its weight by how it is drawn rather than by moving it up.
+      if (summary.hasTenancy)
+        _TenancyCard(summary: summary)
+      else
+        const _NoTenancyCard(),
+
+      _BalanceCard(summary: summary),
+
+      if (summary.recentPayments.isNotEmpty)
+        _RecentPaymentsCard(summary: summary),
+
+      if (summary.isLeaseExpiringSoon) _LeaseExpiryCard(summary: summary),
+    ];
+
     return RefreshIndicator(
       onRefresh: () async {
         await ref.read(dashboardControllerProvider.notifier).refresh();
         ref.invalidate(unreadNotificationCountProvider);
       },
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-        children: [
-          // Things that need doing, first.
-          if (summary.needsSignature) ...[
-            _ActionBanner(
-              icon: Icons.draw_outlined,
-              tone: StatusTone.progress,
-              title: 'Your lease is ready to sign',
-              message: 'Review the agreement and sign to activate your lease.',
-              actionLabel: 'Review and sign',
-              onAction: () => context.pushNamed(
-                Routes.signAgreement,
-                pathParameters: {'leaseId': summary.pendingSignatureLeaseId!},
-              ),
+      child: CustomScrollView(
+        slivers: [
+          _HomeAppBar(unread: unread, firstName: firstName),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.xxl),
+            sliver: SliverList.separated(
+              itemCount: cards.length,
+              separatorBuilder: (_, _) => Gap.h12,
+              itemBuilder: (context, index) =>
+                  AppReveal(index: index, child: cards[index]),
             ),
-            Gap.h12,
-          ],
-
-          if (summary.hasActiveBooking) ...[
-            _BookingCountdownCard(summary: summary),
-            Gap.h12,
-          ],
-
-          if (summary.hasOverdue) ...[
-            _ActionBanner(
-              icon: Icons.warning_amber_rounded,
-              tone: StatusTone.danger,
-              title: 'You have an overdue balance',
-              message:
-                  '${summary.overdueAmount!.format()} is past its due date.',
-              actionLabel: 'Pay now',
-              onAction: () => context.goNamed(Routes.invoices),
-            ),
-            Gap.h12,
-          ],
-
-          // Section 44: current property, unit and lease status.
-          if (summary.hasTenancy)
-            _TenancyCard(summary: summary)
-          else
-            const _NoTenancyCard(),
-
-          Gap.h12,
-          _BalanceCard(summary: summary),
-
-          if (summary.recentPayments.isNotEmpty) ...[
-            Gap.h12,
-            _RecentPaymentsCard(summary: summary),
-          ],
-
-          if (summary.isLeaseExpiringSoon) ...[
-            Gap.h12,
-            _LeaseExpiryCard(summary: summary),
-          ],
+          ),
         ],
       ),
     );
@@ -197,13 +250,9 @@ class _TenancyCard extends StatelessWidget {
                   semanticLabel:
                       '${summary.propertyName ?? 'Current'} property',
                   fallbackIcon: Icons.storefront_rounded,
-                  overlay: const DecoratedBox(
+                  overlay: DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0x60000000)],
-                      ),
+                      gradient: AppGradients.mediaScrim(strength: 0.45),
                     ),
                   ),
                 ),
@@ -230,7 +279,7 @@ class _TenancyCard extends StatelessWidget {
                           Text(
                             summary.propertyName ?? 'Your property',
                             style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                                ?.copyWith(fontWeight: AppTypography.bold),
                           ),
                           Text(
                             'Unit ${summary.unitNumber ?? '—'}',
@@ -290,7 +339,7 @@ class _NoTenancyCard extends StatelessWidget {
           'Find your space',
           style: Theme.of(
             context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ).textTheme.titleMedium?.copyWith(fontWeight: AppTypography.bold),
         ),
         Gap.h8,
         Text(
@@ -319,13 +368,20 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final foreground = scheme.onSecondary;
+    // The hero stays dark in both themes, the way a bank card does, so the
+    // foreground is a fixed light rather than scheme.onSecondary — which is
+    // itself dark once the app is in dark mode.
+    const foreground = AppPalette.stone0;
 
     return AppSurfaceCard(
-      color: scheme.secondary,
+      gradient: AppGradients.brandHero,
       borderColor: Colors.transparent,
-      elevation: AppElevation.low,
+      padding: const EdgeInsets.all(Gap.xl),
+      shadows: AppElevation.lifted(
+        AppPalette.ink950,
+        level: 2,
+        brightness: Theme.of(context).brightness,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -350,8 +406,12 @@ class _BalanceCard extends StatelessWidget {
           Gap.h8,
           MoneyText(
             summary.outstandingBalance,
-            emphasise: true,
-            color: summary.hasOverdue ? scheme.errorContainer : foreground,
+            // A step above `emphasise`. This is the largest figure in the app
+            // and the one the screen is built around.
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              fontWeight: AppTypography.extraBold,
+            ),
+            color: summary.hasOverdue ? AppPalette.red300 : foreground,
           ),
           if (summary.nextInvoiceAmount != null) ...[
             Gap.h16,
@@ -377,8 +437,12 @@ class _BalanceCard extends StatelessWidget {
                 pathParameters: {'invoiceId': summary.nextInvoice!.id},
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: scheme.primaryContainer,
-                foregroundColor: scheme.onPrimaryContainer,
+                // Fixed, like the card it sits on. The scheme's primary
+                // container is itself dark once the app is in dark mode, which
+                // would leave this button invisible against the gradient.
+                backgroundColor: AppPalette.emerald100,
+                foregroundColor: AppPalette.emerald950,
+                minimumSize: const Size.fromHeight(AppLayout.controlHeight),
               ),
               icon: const Icon(Icons.payments_outlined),
               label: const Text('Pay now'),
@@ -390,6 +454,7 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
+/// A label/value row on the balance hero, which is dark in both themes.
 class _DarkDetail extends StatelessWidget {
   const _DarkDetail({required this.label, required this.value});
 
@@ -398,7 +463,7 @@ class _DarkDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = Theme.of(context).colorScheme.onSecondary;
+    const foreground = AppPalette.stone0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -458,7 +523,9 @@ class _RecentPaymentsCard extends StatelessWidget {
                     children: [
                       Text(
                         payment.invoiceNumber ?? payment.paymentReference,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: AppTypography.semibold,
+                        ),
                       ),
                       Text(
                         payment.paidAt == null
@@ -499,57 +566,57 @@ class _BookingCountdownCard extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final expiresAt = summary.activeBookingExpiresAt;
 
-    return Card(
-      child: InkWell(
-        onTap: () => context.pushNamed(
-          Routes.bookingStatus,
-          pathParameters: {'bookingId': summary.activeBookingId!},
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(Gap.lg),
-          child: Row(
-            children: [
-              Icon(Icons.timer_outlined, color: scheme.primary),
-              Gap.w12,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Booking ${summary.activeBookingReference ?? ''}',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    if (expiresAt != null)
-                      CountdownTimer(
-                        expiresAt: expiresAt,
-                        // Reaching zero here does not expire anything — the
-                        // server decides that (section 23). This just refetches
-                        // so the screen shows whatever it decided.
-                        onExpired: () => ref
-                            .read(dashboardControllerProvider.notifier)
-                            .refresh(),
-                        builder: (context, remaining) => Text(
-                          remaining == Duration.zero
-                              ? 'This hold has lapsed'
-                              : 'Expires in ${AppDate.humanDuration(remaining)}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      )
-                    else
-                      Text(
-                        'Complete your booking to hold this unit',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
+    // AppSurfaceCard rather than a bare Card: every other card on this screen
+    // is one, and the difference in border and radius showed.
+    return AppSurfaceCard(
+      onTap: () => context.pushNamed(
+        Routes.bookingStatus,
+        pathParameters: {'bookingId': summary.activeBookingId!},
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.timer_outlined, color: scheme.primary),
+          Gap.w12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Booking ${summary.activeBookingReference ?? ''}',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: AppTypography.bold,
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
-            ],
+                if (expiresAt != null)
+                  CountdownTimer(
+                    expiresAt: expiresAt,
+                    // Reaching zero here does not expire anything — the
+                    // server decides that (section 23). This just refetches
+                    // so the screen shows whatever it decided.
+                    onExpired: () => ref
+                        .read(dashboardControllerProvider.notifier)
+                        .refresh(),
+                    builder: (context, remaining) => Text(
+                      remaining == Duration.zero
+                          ? 'This hold has lapsed'
+                          : 'Expires in ${AppDate.humanDuration(remaining)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    'Complete your booking to hold this unit',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
+          Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+        ],
       ),
     );
   }
@@ -624,7 +691,10 @@ class _ActionBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(fontWeight: FontWeight.w700, color: color),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: AppTypography.bold,
+                    color: color,
+                  ),
                 ),
               ),
             ],
