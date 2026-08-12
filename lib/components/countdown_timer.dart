@@ -15,10 +15,16 @@ class CountdownTimer extends StatefulWidget {
     required this.builder,
     this.onExpired,
     this.tick = const Duration(seconds: 1),
+    this.clock,
     super.key,
   });
 
   final DateTime expiresAt;
+
+  /// Source of "now". Injectable because widget tests can advance timers but
+  /// not the wall clock, so without this a countdown could only be tested by
+  /// waiting in real time.
+  final DateTime Function()? clock;
 
   /// Receives the remaining duration, clamped at zero.
   final Widget Function(BuildContext context, Duration remaining) builder;
@@ -64,7 +70,8 @@ class _CountdownTimerState extends State<CountdownTimer> {
   }
 
   Duration _computeRemaining() {
-    final remaining = widget.expiresAt.difference(DateTime.now());
+    final now = widget.clock?.call() ?? DateTime.now();
+    final remaining = widget.expiresAt.difference(now);
     return remaining.isNegative ? Duration.zero : remaining;
   }
 
