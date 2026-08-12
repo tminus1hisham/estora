@@ -1,0 +1,394 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mall/app.dart';
+import 'package:mall/components/app_brand_mark.dart';
+import 'package:mall/components/app_media.dart';
+import 'package:mall/components/money_text.dart';
+import 'package:mall/components/status_chip.dart';
+import 'package:mall/core/theme/app_theme.dart';
+import 'package:mall/core/theme/status_palette.dart';
+import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/booking.dart';
+import 'package:mall/domain/entities/dashboard_summary.dart';
+import 'package:mall/domain/entities/property.dart';
+import 'package:mall/domain/entities/tenant.dart';
+import 'package:mall/domain/enums/domain_enums.dart';
+import 'package:mall/modules/auth/application/auth_controller.dart';
+import 'package:mall/modules/auth/presentation/login_screen.dart';
+import 'package:mall/modules/bookings/application/booking_controller.dart';
+import 'package:mall/modules/bookings/presentation/booking_screen.dart';
+import 'package:mall/modules/home/application/dashboard_controller.dart';
+import 'package:mall/modules/home/presentation/home_screen.dart';
+import 'package:mall/modules/notifications/application/notification_controller.dart';
+import 'package:mall/modules/properties/application/property_controller.dart';
+import 'package:mall/navigation/routes.dart';
+
+const _unitId = 'unt_shop_102';
+
+const _user = AppUser(
+  id: 'usr_presentation',
+  firstName: 'Amina',
+  lastName: 'Wanjiru',
+  email: 'amina@example.co.ke',
+  phone: '+254712345678',
+  status: 'ACTIVE',
+  emailVerified: true,
+  phoneVerified: true,
+);
+
+const _tenant = Tenant(
+  id: 'tnt_presentation',
+  userId: 'usr_presentation',
+  tenantType: TenantType.business,
+  displayName: 'Wanjiru Retail Ltd',
+  status: 'ACTIVE',
+);
+
+const _summary = DashboardSummary(
+  currency: 'KES',
+  outstandingBalance: Money(15000000, 'KES'),
+  recentPayments: [],
+  unreadNotifications: 3,
+  propertyId: 'prp_sarit',
+  propertyName: 'Sarit Mall',
+  propertyImageUrl: 'assets/images/property_sarit_mall.jpg',
+  unitId: 'unt_shop_101',
+  unitNumber: 'SHOP-101',
+  leaseId: 'lse_active',
+  leaseStatus: LeaseStatus.active,
+);
+
+const _bookingQuote = BookingQuote(
+  unitId: _unitId,
+  monthlyRent: Money(15000000, 'KES'),
+  depositAmount: Money(75000000, 'KES'),
+  bookingFee: Money(2000000, 'KES'),
+  total: Money(2000000, 'KES'),
+  currency: 'KES',
+  expiryHours: 48,
+  depositMonths: 5,
+);
+
+class _UnauthenticatedAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState(stage: AuthStage.unauthenticated);
+}
+
+class _AuthenticatedAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState(
+    stage: AuthStage.authenticated,
+    session: AuthSession(user: _user, tenant: _tenant),
+  );
+}
+
+class _PresentationDashboardController extends DashboardController {
+  @override
+  Future<DashboardSummary> build() async => _summary;
+}
+
+class _EmptyPropertyListController extends PropertyListController {
+  @override
+  Future<List<Property>> build() async => const <Property>[];
+}
+
+void main() {
+  Widget themed({
+    required Widget child,
+    ThemeMode themeMode = ThemeMode.light,
+  }) {
+    return MaterialApp(
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
+      home: child,
+    );
+  }
+
+  void usePhoneViewport(
+    WidgetTester tester,
+    Size size, {
+    double textScale = 1,
+  }) {
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = textScale;
+    addTearDown(() {
+      tester.view.reset();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+  }
+
+  Widget signedInApp({bool includeTransactionStubs = false}) {
+    return ProviderScope(
+      overrides: [
+        authControllerProvider.overrideWith(_AuthenticatedAuthController.new),
+        dashboardControllerProvider.overrideWith(
+          _PresentationDashboardController.new,
+        ),
+        unreadNotificationCountProvider.overrideWith((ref) async => 3),
+        if (includeTransactionStubs) ...[
+          propertyListProvider.overrideWith(_EmptyPropertyListController.new),
+          bookingQuoteProvider(
+            _unitId,
+          ).overrideWith((ref) async => _bookingQuote),
+        ],
+      ],
+      child: const MallApp(),
+    );
+  }
+
+  group('premium theme', () {
+    for (final testCase
+        in <
+          ({
+            String name,
+            ThemeMode mode,
+            Brightness brightness,
+            Color primary,
+            Color surface,
+            StatusColors statuses,
+          })
+        >[
+          (
+            name: 'light',
+            mode: ThemeMode.light,
+            brightness: Brightness.light,
+            primary: AppPalette.emerald700,
+            surface: AppPalette.stone50,
+            statuses: StatusColors.light,
+          ),
+          (
+            name: 'dark',
+            mode: ThemeMode.dark,
+            brightness: Brightness.dark,
+            primary: AppPalette.emerald300,
+            surface: AppPalette.ink950,
+            statuses: StatusColors.dark,
+          ),
+        ]) {
+      testWidgets('${testCase.name} theme boots with the branded system', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          themed(
+            themeMode: testCase.mode,
+            child: Builder(
+              builder: (context) {
+                final theme = Theme.of(context);
+                return Scaffold(
+                  body: Text(
+                    '${theme.brightness.name} presentation',
+                    style: theme.textTheme.titleLarge,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+
+        final context = tester.element(find.byType(Scaffold));
+        final theme = Theme.of(context);
+
+        expect(theme.brightness, testCase.brightness);
+        expect(theme.colorScheme.primary, testCase.primary);
+        expect(theme.scaffoldBackgroundColor, testCase.surface);
+        expect(
+          theme.textTheme.titleLarge?.fontFamily,
+          AppTypography.fontFamily,
+        );
+        expect(theme.navigationBarTheme.height, 72);
+        expect(theme.extension<StatusColors>(), testCase.statuses);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
+
+  testWidgets('login remains scrollable at 360x640 with large text', (
+    tester,
+  ) async {
+    usePhoneViewport(tester, const Size(360, 640), textScale: 2);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith(
+            _UnauthenticatedAuthController.new,
+          ),
+        ],
+        child: themed(child: const LoginScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.byType(AppBrandMark), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // The lower actions remain reachable rather than being clipped by the
+    // compact viewport or the accessibility text scale.
+    await tester.scrollUntilVisible(
+      find.text('Create an account'),
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Create an account'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('MoneyText keeps a long amount complete without ellipsis', (
+    tester,
+  ) async {
+    usePhoneViewport(tester, const Size(360, 640), textScale: 2);
+    const amount = Money(987654321012345, 'KES');
+
+    await tester.pumpWidget(
+      themed(
+        child: const Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 180,
+              child: MoneyText(amount, emphasise: true),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final amountFinder = find.descendant(
+      of: find.byType(MoneyText),
+      matching: find.byType(Text),
+    );
+    final amountText = tester.widget<Text>(amountFinder);
+    final paragraph = tester.renderObject<RenderParagraph>(
+      find.descendant(
+        of: find.byType(MoneyText),
+        matching: find.byType(RichText),
+      ),
+    );
+
+    expect(amountText.data, amount.format());
+    expect(amountText.overflow, isNot(TextOverflow.ellipsis));
+    expect(paragraph.didExceedMaxLines, isFalse);
+    expect(find.byType(FittedBox), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('StatusChip exposes its status and survives large text', (
+    tester,
+  ) async {
+    usePhoneViewport(tester, const Size(360, 640), textScale: 2);
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      themed(
+        child: const Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: StatusChip(
+              label: 'Awaiting payment',
+              tone: StatusTone.progress,
+              icon: Icons.schedule_rounded,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Awaiting payment'), findsOneWidget);
+    expect(find.bySemanticsLabel('Status: Awaiting payment'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
+
+  group('AppMedia', () {
+    testWidgets('renders a bundled presentation asset', (tester) async {
+      await tester.pumpWidget(
+        themed(
+          child: const Scaffold(
+            body: AppMedia(
+              source: 'assets/images/property_sarit_mall.jpg',
+              semanticLabel: 'Sarit Mall exterior',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final image = tester.widget<Image>(find.byType(Image));
+      expect(image.image, isA<AssetImage>());
+      expect(
+        (image.image as AssetImage).assetName,
+        'assets/images/property_sarit_mall.jpg',
+      );
+      expect(find.bySemanticsLabel('Sarit Mall exterior'), findsOneWidget);
+      expect(find.byIcon(Icons.apartment_rounded), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('renders the branded fallback when no source is supplied', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        themed(
+          child: const Scaffold(
+            body: AppMedia(
+              source: null,
+              fallbackIcon: Icons.storefront_rounded,
+              semanticLabel: 'Property image unavailable',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(Image), findsNothing);
+      expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Property image unavailable'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('a focused booking route hides shell navigation', (tester) async {
+    usePhoneViewport(tester, const Size(390, 844));
+    await tester.pumpWidget(signedInApp(includeTransactionStubs: true));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+
+    GoRouter.of(
+      tester.element(find.byType(HomeScreen)),
+    ).goNamed(Routes.booking, pathParameters: {'unitId': _unitId});
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BookingScreen), findsOneWidget);
+    expect(find.text('Confirm your booking'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('flagship signed-in home is safe at 390x844 with scaled text', (
+    tester,
+  ) async {
+    usePhoneViewport(tester, const Size(390, 844), textScale: 1.4);
+    await tester.pumpWidget(signedInApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Amina'), findsOneWidget);
+    expect(find.text('Sarit Mall'), findsOneWidget);
+    expect(find.text('Unit SHOP-101'), findsOneWidget);
+    expect(find.text('KES 150,000'), findsOneWidget);
+    expect(find.bySemanticsLabel('Sarit Mall property'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}

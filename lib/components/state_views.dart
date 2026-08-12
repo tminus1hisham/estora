@@ -2,25 +2,62 @@ import 'package:flutter/material.dart';
 
 import '../core/error/failure.dart';
 import '../core/theme/app_theme.dart';
+import 'app_brand_mark.dart';
 
 /// Full-screen loading indicator.
 class LoadingView extends StatelessWidget {
-  const LoadingView({this.message, super.key});
+  const LoadingView({this.message, this.compact = false, super.key});
 
   final String? message;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(),
-          if (message != null) ...[
-            Gap.h16,
-            Text(message!, style: Theme.of(context).textTheme.bodyMedium),
-          ],
-        ],
+    final scheme = Theme.of(context).colorScheme;
+
+    return Semantics(
+      label: message ?? 'Loading',
+      liveRegion: true,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.all(compact ? AppSpace.lg : AppSpace.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (compact)
+                const SizedBox.square(
+                  dimension: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                )
+              else
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox.square(
+                      dimension: 68,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: scheme.primary.withValues(alpha: 0.72),
+                        backgroundColor: scheme.surfaceContainerHighest,
+                      ),
+                    ),
+                    const AppBrandMark(size: 44),
+                  ],
+                ),
+              if (message != null) ...[
+                Gap.h16,
+                Text(
+                  message!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: AppTypography.medium,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -52,6 +89,16 @@ class ErrorView extends StatelessWidget {
     ServerFailure() || UnknownFailure() => Icons.cloud_off_rounded,
   };
 
+  String get _title => switch (failure) {
+    NetworkFailure() => 'You are offline',
+    UnauthorizedFailure() => 'Sign-in required',
+    ForbiddenFailure() => 'Access unavailable',
+    NotFoundFailure() => 'Nothing found here',
+    ValidationFailure() => 'Check the details',
+    ConflictFailure() => 'Something changed',
+    ServerFailure() || UnknownFailure() => 'We hit a snag',
+  };
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -62,16 +109,32 @@ class ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_icon, size: 48, color: scheme.error),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: scheme.errorContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(_icon, size: 28, color: scheme.onErrorContainer),
+            ),
             Gap.h16,
+            Text(
+              _title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            Gap.h8,
             Text(
               failure.message,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             if (onRetry != null && _isRetryable) ...[
               Gap.h24,
-              OutlinedButton.icon(
+              FilledButton.tonalIcon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Try again'),
@@ -109,14 +172,22 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: scheme.onSurfaceVariant),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 30, color: scheme.onPrimaryContainer),
+            ),
             Gap.h16,
             Text(
               title,
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ).textTheme.titleMedium?.copyWith(fontWeight: AppTypography.bold),
             ),
             if (message != null) ...[
               Gap.h8,

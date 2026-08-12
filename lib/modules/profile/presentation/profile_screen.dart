@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_surface_card.dart';
 import '../../../components/section_card.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_format.dart';
@@ -26,42 +27,60 @@ class ProfileScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: scheme.primaryContainer,
-                child: Text(
-                  user?.initials ?? '?',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onPrimaryContainer,
+          AppSurfaceCard(
+            color: scheme.secondary,
+            borderColor: Colors.transparent,
+            elevation: AppElevation.low,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 34,
+                  backgroundColor: scheme.primaryContainer,
+                  child: Text(
+                    user?.initials ?? '?',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
-              ),
-              Gap.w16,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tenant?.displayName ?? user?.fullName ?? 'Your account',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (tenant != null)
+                Gap.w16,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        tenant.tenantType.label,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                        tenant?.displayName ?? user?.fullName ?? 'Your account',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: scheme.onSecondary,
                         ),
                       ),
-                  ],
+                      if (tenant != null) ...[
+                        Gap.h4,
+                        Text(
+                          tenant.tenantType.label,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: scheme.onSecondary.withValues(
+                                  alpha: 0.68,
+                                ),
+                              ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                IconButton(
+                  tooltip: 'Edit profile',
+                  onPressed: () => context.pushNamed(Routes.editProfile),
+                  style: IconButton.styleFrom(
+                    foregroundColor: scheme.onSecondary,
+                    backgroundColor: scheme.onSecondary.withValues(alpha: 0.1),
+                  ),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+              ],
+            ),
           ),
           Gap.h24,
 
@@ -92,32 +111,32 @@ class ProfileScreen extends ConsumerWidget {
             ],
           ),
 
-          if (profile != null && (tenant?.tenantType.isOrganisation ?? false))
-            ...[
-              Gap.h12,
-              SectionCard(
-                title: 'Business details',
-                children: [
-                  if (profile.legalName != null)
-                    DetailRow(label: 'Legal name', value: profile.legalName!),
-                  if (profile.registrationNumber != null)
-                    DetailRow(
-                      label: 'Registration number',
-                      value: profile.registrationNumber!,
-                    ),
-                  if (profile.maskedTaxNumber != null)
-                    DetailRow(
-                      label: 'Tax number',
-                      value: profile.maskedTaxNumber!,
-                    ),
-                  if (profile.contactPerson != null)
-                    DetailRow(
-                      label: 'Contact person',
-                      value: profile.contactPerson!,
-                    ),
-                ],
-              ),
-            ],
+          if (profile != null &&
+              (tenant?.tenantType.isOrganisation ?? false)) ...[
+            Gap.h12,
+            SectionCard(
+              title: 'Business details',
+              children: [
+                if (profile.legalName != null)
+                  DetailRow(label: 'Legal name', value: profile.legalName!),
+                if (profile.registrationNumber != null)
+                  DetailRow(
+                    label: 'Registration number',
+                    value: profile.registrationNumber!,
+                  ),
+                if (profile.maskedTaxNumber != null)
+                  DetailRow(
+                    label: 'Tax number',
+                    value: profile.maskedTaxNumber!,
+                  ),
+                if (profile.contactPerson != null)
+                  DetailRow(
+                    label: 'Contact person',
+                    value: profile.contactPerson!,
+                  ),
+              ],
+            ),
+          ],
 
           if (profile?.maskedNationalId != null ||
               profile?.maskedPassportNumber != null) ...[

@@ -124,7 +124,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     builder: (_, _) => const NotificationsScreen(),
                   ),
                   GoRoute(
-                    path: Routes.leaseDetailPath,
+                    path: Routes.currentPropertyPath,
                     name: Routes.currentProperty,
                     builder: (_, state) => LeaseDetailScreen(
                       leaseId: state.pathParameters['leaseId']!,
@@ -167,13 +167,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.bookingPath,
                     name: Routes.booking,
-                    builder: (_, state) => BookingScreen(
-                      unitId: state.pathParameters['unitId']!,
-                    ),
+                    // Booking is a focused transaction with its own persistent
+                    // action bar. Present it above the shell so the tab bar
+                    // cannot compete with that action.
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (_, state) =>
+                        BookingScreen(unitId: state.pathParameters['unitId']!),
                   ),
                   GoRoute(
                     path: Routes.bookingStatusPath,
                     name: Routes.bookingStatus,
+                    parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, state) => BookingStatusScreen(
                       bookingId: state.pathParameters['bookingId']!,
                     ),
@@ -201,6 +205,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.leaseAgreementPath,
                     name: Routes.leaseAgreement,
+                    parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, state) => LeaseAgreementScreen(
                       leaseId: state.pathParameters['leaseId']!,
                     ),
@@ -208,6 +213,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.signAgreementPath,
                     name: Routes.signAgreement,
+                    parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, state) => SignAgreementScreen(
                       leaseId: state.pathParameters['leaseId']!,
                     ),
@@ -228,6 +234,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.paymentStatusPath,
                     name: Routes.paymentStatus,
+                    parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, state) => PaymentStatusScreen(
                       paymentId: state.pathParameters['paymentId']!,
                       // Passed through from the payment screen so the provider
@@ -240,6 +247,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.receiptPath,
                     name: Routes.receipt,
+                    parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, state) => ReceiptScreen(
                       receiptId: state.pathParameters['receiptId']!,
                     ),
@@ -254,6 +262,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.paymentPath,
                     name: Routes.payment,
+                    parentNavigatorKey: _rootNavigatorKey,
                     builder: (_, state) => PaymentScreen(
                       invoiceId: state.pathParameters['invoiceId']!,
                     ),

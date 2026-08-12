@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_media.dart';
+import '../../../components/app_surface_card.dart';
+import '../../../components/page_header.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
@@ -32,11 +35,21 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
     final properties = ref.watch(propertyListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Find a space')),
+      appBar: AppBar(title: const Text('Browse spaces')),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.lg),
+            child: PageHeader(
+              eyebrow: 'Curated commercial spaces',
+              title: 'Find a space to grow',
+              subtitle:
+                  'Explore verified retail and office spaces across Nairobi.',
+              compact: true,
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
+            padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.lg),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -48,9 +61,7 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
                         icon: const Icon(Icons.close_rounded),
                         onPressed: () {
                           _searchController.clear();
-                          ref
-                              .read(propertyListProvider.notifier)
-                              .search('');
+                          ref.read(propertyListProvider.notifier).search('');
                           setState(() {});
                         },
                       ),
@@ -117,137 +128,176 @@ class _PropertyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Card(
-      child: InkWell(
-        onTap: () => context.pushNamed(
-          Routes.propertyDetail,
-          pathParameters: {'propertyId': property.id},
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // A gradient stands in for a hero image. The API carries an
-            // imageUrl; there is nothing behind it in the mock.
-            Container(
-              height: 110,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    scheme.primaryContainer,
-                    scheme.tertiaryContainer.withValues(alpha: 0.7),
-                  ],
+    return AppSurfaceCard(
+      padding: EdgeInsets.zero,
+      elevation: AppElevation.low,
+      semanticLabel: '${property.name}, ${property.locationLabel}',
+      onTap: () => context.pushNamed(
+        Routes.propertyDetail,
+        pathParameters: {'propertyId': property.id},
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppMedia(
+            source: property.imageUrl,
+            aspectRatio: 16 / 8.5,
+            heroTag: 'property-${property.id}',
+            semanticLabel: '${property.name} property',
+            fallbackIcon: _iconFor(property),
+            overlay: Stack(
+              children: [
+                const Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0xA6000000)],
+                        stops: [0.48, 1],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Icon(
-                  _iconFor(property),
-                  size: 40,
-                  color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
+                Positioned(
+                  left: Gap.md,
+                  bottom: Gap.md,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Gap.md,
+                      vertical: Gap.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: property.hasAvailability
+                          ? const Color(0xE6122522)
+                          : const Color(0xD94B4B4B),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          property.hasAvailability
+                              ? Icons.check_circle_rounded
+                              : Icons.schedule_rounded,
+                          color: Colors.white,
+                          size: 15,
+                        ),
+                        Gap.w8,
+                        Text(
+                          property.hasAvailability
+                              ? '${property.availableUnits} available'
+                              : 'Fully let',
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(Gap.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          property.name,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(Gap.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        property.name,
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      Chip(
-                        label: Text(property.propertyType.label),
-                        labelStyle: Theme.of(context).textTheme.bodySmall,
-                        backgroundColor: scheme.surfaceContainerHighest,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  Gap.h4,
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.place_outlined,
-                        size: 14,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      Gap.w4,
-                      Expanded(
-                        child: Text(
-                          property.locationLabel,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (property.description != null) ...[
-                    Gap.h8,
-                    Text(
-                      property.description!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    Gap.w12,
+                    Chip(
+                      label: Text(property.propertyType.label),
+                      visualDensity: VisualDensity.compact,
                     ),
                   ],
-                  Gap.h12,
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.meeting_room_outlined,
-                        size: 16,
-                        color: property.hasAvailability
-                            ? scheme.primary
-                            : scheme.onSurfaceVariant,
-                      ),
-                      Gap.w4,
-                      Text(
-                        property.hasAvailability
-                            ? '${property.availableUnits} available now'
-                            : 'Fully let',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: property.hasAvailability
-                              ? scheme.primary
-                              : scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${property.totalUnits ?? 0} units',
+                ),
+                Gap.h4,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 16,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    Gap.w4,
+                    Expanded(
+                      child: Text(
+                        property.locationLabel,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                if (property.description != null) ...[
+                  Gap.h12,
+                  Text(
+                    property.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
-              ),
+                Gap.h16,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.domain_outlined,
+                      size: 17,
+                      color: scheme.primary,
+                    ),
+                    Gap.w8,
+                    Expanded(
+                      child: Text(
+                        '${property.totalUnits ?? 0} commercial units',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                    Gap.w8,
+                    Text(
+                      'Explore',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelLarge?.copyWith(color: scheme.primary),
+                    ),
+                    Gap.w4,
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 18,
+                      color: scheme.primary,
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  static IconData _iconFor(Property property) =>
-      switch (property.propertyType) {
-        PropertyType.mall ||
-        PropertyType.retailCenter => Icons.local_mall_outlined,
-        PropertyType.office ||
-        PropertyType.businessCenter => Icons.apartment_rounded,
-        PropertyType.warehouse => Icons.warehouse_outlined,
-        PropertyType.mixedUse => Icons.domain_outlined,
-        PropertyType.other ||
-        PropertyType.unknown => Icons.location_city_rounded,
-      };
+  static IconData _iconFor(
+    Property property,
+  ) => switch (property.propertyType) {
+    PropertyType.mall || PropertyType.retailCenter => Icons.local_mall_outlined,
+    PropertyType.office ||
+    PropertyType.businessCenter => Icons.apartment_rounded,
+    PropertyType.warehouse => Icons.warehouse_outlined,
+    PropertyType.mixedUse => Icons.domain_outlined,
+    PropertyType.other || PropertyType.unknown => Icons.location_city_rounded,
+  };
 }

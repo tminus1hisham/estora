@@ -1,10 +1,94 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../domain/entities/tenant.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
+import '../../bookings/application/booking_controller.dart';
+import '../../documents/application/document_controller.dart';
+import '../../home/application/dashboard_controller.dart';
+import '../../invoices/application/invoice_controller.dart';
+import '../../leases/application/lease_controller.dart';
+import '../../notifications/application/notification_controller.dart';
+import '../../payments/application/payment_controller.dart';
+import '../../properties/application/property_controller.dart';
+import '../../units/application/unit_controller.dart';
+
+class BiometricUnlockResult {
+  const BiometricUnlockResult._({required this.succeeded, this.message});
+
+  const BiometricUnlockResult.success() : this._(succeeded: true);
+
+  const BiometricUnlockResult.failure(String message)
+    : this._(succeeded: false, message: message);
+
+  final bool succeeded;
+  final String? message;
+}
+
+/// Shared boundary around the platform biometric prompt.
+///
+/// Both session restoration and Settings use this service, so opting in is
+/// backed by a real authentication challenge rather than a stored toggle alone.
+class BiometricUnlockService {
+  BiometricUnlockService([LocalAuthentication? authentication])
+    : _authentication = authentication ?? LocalAuthentication();
+
+  final LocalAuthentication _authentication;
+
+  Future<bool> isAvailable() async {
+    try {
+      if (!await _authentication.canCheckBiometrics) return false;
+      return (await _authentication.getAvailableBiometrics()).isNotEmpty;
+    } on LocalAuthException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<BiometricUnlockResult> authenticate({required String reason}) async {
+    try {
+      final authenticated = await _authentication.authenticate(
+        localizedReason: reason,
+        biometricOnly: true,
+        persistAcrossBackgrounding: true,
+      );
+      return authenticated
+          ? const BiometricUnlockResult.success()
+          : const BiometricUnlockResult.failure(
+              'Biometric authentication was not completed.',
+            );
+    } on LocalAuthException catch (error) {
+      return BiometricUnlockResult.failure(switch (error.code) {
+        LocalAuthExceptionCode.noBiometricHardware ||
+        LocalAuthExceptionCode.noBiometricsEnrolled ||
+        LocalAuthExceptionCode.noCredentialsSet =>
+          'Set up fingerprint or face recognition in your device settings '
+              'first.',
+        LocalAuthExceptionCode.temporaryLockout ||
+        LocalAuthExceptionCode.biometricLockout =>
+          'Biometrics are locked. Unlock your device normally, then try '
+              'again.',
+        LocalAuthExceptionCode.userCanceled ||
+        LocalAuthExceptionCode.systemCanceled ||
+        LocalAuthExceptionCode.timeout =>
+          'Biometric authentication was cancelled.',
+        _ => 'Biometric authentication is unavailable right now.',
+      });
+    } catch (_) {
+      return const BiometricUnlockResult.failure(
+        'Biometric authentication is unavailable right now.',
+      );
+    }
+  }
+}
+
+final biometricUnlockProvider = Provider<BiometricUnlockService>(
+  (ref) => BiometricUnlockService(),
+);
 
 /// Where the app is in the sign-in lifecycle.
 ///
@@ -79,11 +163,32 @@ class AuthController extends Notifier<AuthState> {
   /// Section 72. Restores a stored session on launch.
   Future<void> restore() async {
     final result = await ref.read(authRepositoryProvider).restoreSession();
+    if (result case Ok(:final value) when value != null) {
+      final requiresBiometrics = await ref
+          .read(tokenStoreProvider)
+          .isBiometricEnabled();
+
+      if (requiresBiometrics) {
+        final unlock = await ref
+            .read(biometricUnlockProvider)
+            .authenticate(reason: 'Unlock Tenant Portal to continue');
+        if (!unlock.succeeded) {
+          state = AuthState(
+            stage: AuthStage.unauthenticated,
+            failure: ValidationFailure(
+              '${unlock.message ?? 'Biometric unlock was not completed.'} '
+              'Sign in to continue.',
+            ),
+          );
+          return;
+        }
+      }
+
+      state = AuthState(stage: AuthStage.authenticated, session: value);
+      return;
+    }
+
     state = switch (result) {
-      Ok(:final value) when value != null => AuthState(
-        stage: AuthStage.authenticated,
-        session: value,
-      ),
       Ok() => const AuthState(stage: AuthStage.unauthenticated),
       // A failure here is not worth an error screen — it just means the tenant
       // signs in again.
@@ -211,11 +316,60 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> logout() async {
     await ref.read(authRepositoryProvider).logout();
+    // The remote repository clears this too. Repeating the clear covers demo
+    // sessions and ensures biometric opt-in cannot outlive its tokens.
+    await ref.read(tokenStoreProvider).clear();
+    await _clearPersistedTenantIntents();
+
     state = const AuthState(stage: AuthStage.unauthenticated);
     // Every cached tenant-scoped provider must go with the session. Leaving
     // one behind would show the previous tenant's data to the next person to
     // sign in on this device (section 74).
-    ref.invalidateSelf();
+    _invalidateTenantState();
+  }
+
+  Future<void> _clearPersistedTenantIntents() async {
+    final preferences = ref.read(sharedPreferencesProvider);
+    final keys = preferences.getKeys().where(
+      (key) => key.startsWith('idempotency:'),
+    );
+    for (final key in keys.toList(growable: false)) {
+      await preferences.remove(key);
+    }
+  }
+
+  void _invalidateTenantState() {
+    ref.invalidate(dashboardControllerProvider);
+
+    ref.invalidate(propertyListProvider);
+    ref.invalidate(propertyDetailProvider);
+    ref.invalidate(unitFilterProvider);
+    ref.invalidate(unitListProvider);
+    ref.invalidate(unitDetailProvider);
+    ref.invalidate(unitPricingProvider);
+    ref.invalidate(unitTypesProvider);
+
+    ref.invalidate(bookingQuoteProvider);
+    ref.invalidate(bookingListProvider);
+    ref.invalidate(bookingDetailProvider);
+    ref.invalidate(leaseListProvider);
+    ref.invalidate(leaseDetailProvider);
+    ref.invalidate(leaseAgreementProvider);
+
+    ref.invalidate(invoiceTabProvider);
+    ref.invalidate(invoiceListProvider);
+    ref.invalidate(filteredInvoicesProvider);
+    ref.invalidate(invoiceDetailProvider);
+    ref.invalidate(paymentHistoryProvider);
+    ref.invalidate(paymentStatusProvider);
+    ref.invalidate(receiptForPaymentProvider);
+    ref.invalidate(receiptProvider);
+
+    ref.invalidate(documentFilterProvider);
+    ref.invalidate(documentListProvider);
+    ref.invalidate(unreadNotificationCountProvider);
+    ref.invalidate(notificationListProvider);
+    ref.invalidate(notificationChannelsProvider);
   }
 
   void clearFailure() => state = state.copyWith(clearFailure: true);

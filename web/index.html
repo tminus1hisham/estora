@@ -18,19 +18,37 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Manage your tenancy, lease, invoices, payments and documents securely.">
+  <meta name="theme-color" content="#122522">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="mall">
+  <meta name="apple-mobile-web-app-title" content="Tenant Portal">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>mall</title>
+  <title>Tenant Portal</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body {
+      background: #122522;
+      height: 100%;
+      margin: 0;
+    }
+    #app-loading {
+      align-items: center;
+      display: flex;
+      height: 100%;
+      justify-content: center;
+    }
+    #app-loading svg {
+      height: 120px;
+      width: 120px;
+    }
+  </style>
 </head>
 <body>
   <!--
@@ -41,6 +59,18 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <div id="app-loading" role="status" aria-label="Opening Tenant Portal">
+    <svg viewBox="0 0 512 512" aria-hidden="true">
+      <path fill="#F3EBDD" d="M132 386V198c0-25 10-49 28-67 18-18 42-28 67-28h58c25 0 49 10 67 28 18 18 28 42 28 67v188h-72V201c0-16-13-29-29-29h-46c-16 0-29 13-29 29v185h-72Z"/>
+      <path fill="#D6B477" d="M228 224h56c13 0 24 11 24 24v138H204V248c0-13 11-24 24-24Z"/>
+      <rect x="176" y="386" width="160" height="22" rx="11" fill="#42A57B"/>
+    </svg>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      document.getElementById('app-loading')?.remove();
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

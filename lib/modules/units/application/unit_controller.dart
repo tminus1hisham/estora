@@ -9,19 +9,18 @@ import '../../../services/providers.dart';
 ///
 /// Held separately from the results so changing a filter rebuilds the query
 /// without the list controller having to own filter state.
-final unitFilterProvider = NotifierProvider<UnitFilterController, UnitFilter>(
-  UnitFilterController.new,
-);
+final unitFilterProvider =
+    NotifierProvider.family<UnitFilterController, UnitFilter, String>(
+      UnitFilterController.new,
+    );
 
 class UnitFilterController extends Notifier<UnitFilter> {
-  @override
-  UnitFilter build() => const UnitFilter();
+  UnitFilterController(this.propertyId);
 
-  void setProperty(String? propertyId) => state = UnitFilter(
-    propertyId: propertyId,
-    availableOnly: state.availableOnly,
-    query: state.query,
-  );
+  final String propertyId;
+
+  @override
+  UnitFilter build() => UnitFilter(propertyId: propertyId);
 
   void setBuilding(String? buildingId) => state = state.copyWith(
     buildingId: buildingId,
@@ -61,8 +60,11 @@ class UnitFilterController extends Notifier<UnitFilter> {
 ///
 /// Watches the filter, so a filter change refetches. Availability is decided
 /// by the server's engine (section 48), not by filtering a status field here.
-final unitListProvider = FutureProvider<List<Unit>>((ref) async {
-  final filter = ref.watch(unitFilterProvider);
+final unitListProvider = FutureProvider.family<List<Unit>, String>((
+  ref,
+  propertyId,
+) async {
+  final filter = ref.watch(unitFilterProvider(propertyId));
   final result = await ref
       .watch(unitRepositoryProvider)
       .listUnits(filter: filter);

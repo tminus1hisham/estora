@@ -50,7 +50,8 @@ class _BookingList extends ConsumerWidget {
       return EmptyState(
         icon: Icons.event_note_outlined,
         title: 'No bookings yet',
-        message: 'Units you book will appear here while you complete the '
+        message:
+            'Units you book will appear here while you complete the '
             'requirements.',
         action: FilledButton.tonal(
           onPressed: () => context.goNamed(Routes.browse),
@@ -59,14 +60,110 @@ class _BookingList extends ConsumerWidget {
       );
     }
 
+    final openCount = bookings.where((item) => !item.status.isTerminal).length;
+    final actionCount = bookings
+        .where((item) => item.status.awaitsBookingFee)
+        .length;
+
     return RefreshIndicator(
       onRefresh: () => ref.read(bookingListProvider.notifier).refresh(),
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-        itemCount: bookings.length,
-        separatorBuilder: (_, _) => Gap.h12,
-        itemBuilder: (context, index) =>
-            _BookingCard(booking: bookings[index]),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
+            itemCount: bookings.length + 1,
+            separatorBuilder: (_, _) => Gap.h12,
+            itemBuilder: (context, index) => index == 0
+                ? _BookingOverview(
+                    total: bookings.length,
+                    open: openCount,
+                    needsAction: actionCount,
+                  )
+                : _BookingCard(booking: bookings[index - 1]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BookingOverview extends StatelessWidget {
+  const _BookingOverview({
+    required this.total,
+    required this.open,
+    required this.needsAction,
+  });
+
+  final int total;
+  final int open;
+  final int needsAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(Gap.lg),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Booking activity',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: scheme.onPrimaryContainer,
+            ),
+          ),
+          Gap.h4,
+          Text(
+            needsAction > 0
+                ? '$needsAction ${needsAction == 1 ? 'booking needs' : 'bookings need'} your attention.'
+                : 'Everything is up to date.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
+          ),
+          Gap.h16,
+          Wrap(
+            spacing: Gap.sm,
+            runSpacing: Gap.sm,
+            children: [
+              _CountPill(label: 'Total', value: total),
+              _CountPill(label: 'In progress', value: open),
+              _CountPill(label: 'Needs action', value: needsAction),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountPill extends StatelessWidget {
+  const _CountPill({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.sm),
+      decoration: BoxDecoration(
+        color: scheme.surface.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '$value  $label',
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -92,24 +189,44 @@ class _BookingCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: Gap.md,
+                runSpacing: Gap.sm,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Unit ${booking.unitNumber ?? '—'}',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        Text(
-                          booking.bookingReference,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        child: Icon(
+                          Icons.storefront_outlined,
+                          color: scheme.onPrimaryContainer,
                         ),
-                      ],
-                    ),
+                      ),
+                      Gap.w12,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Unit ${booking.unitNumber ?? '—'}',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            booking.bookingReference,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   StatusChip(
                     label: booking.status.label,
@@ -118,15 +235,32 @@ class _BookingCard extends StatelessWidget {
                 ],
               ),
               Gap.h12,
-              Row(
+              Divider(color: scheme.outlineVariant),
+              Gap.h12,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.end,
+                spacing: Gap.md,
+                runSpacing: Gap.sm,
                 children: [
-                  Expanded(
-                    child: Text(
-                      booking.propertyName ?? '',
-                      style: Theme.of(context).textTheme.bodySmall,
+                  Text(
+                    booking.propertyName ?? '',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
-                  MoneyText(booking.monthlyRent, bare: true),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Monthly rent',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      MoneyText(booking.monthlyRent),
+                    ],
+                  ),
                 ],
               ),
               if (booking.status.isCountingDown &&
@@ -155,6 +289,15 @@ class _BookingCard extends StatelessWidget {
                   ],
                 ),
               ],
+              Gap.h8,
+              Align(
+                alignment: Alignment.centerRight,
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 20,
+                  color: scheme.primary,
+                ),
+              ),
             ],
           ),
         ),

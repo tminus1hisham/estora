@@ -1,10 +1,10 @@
-import 'dart:typed_data';
-
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
+import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../domain/entities/tenant.dart';
@@ -92,13 +92,20 @@ class DocumentsScreen extends ConsumerWidget {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'What are you uploading?',
-                  style: Theme.of(sheetContext).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'What are you uploading?',
+                    style: Theme.of(sheetContext).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  Gap.h8,
+                  Text(
+                    'Choose a PDF, JPG or PNG file up to 15 MB.',
+                    style: Theme.of(sheetContext).textTheme.bodySmall,
+                  ),
+                ],
               ),
             ),
             Gap.h8,
@@ -106,21 +113,10 @@ class DocumentsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.description_outlined),
                 title: Text(type.label),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
-                  // A real build opens the platform file picker here. The mock
-                  // records the metadata, which is what the requirement check
-                  // needs, so the flow works end to end without one.
-                  await ref
-                      .read(documentActionsProvider)
-                      .upload(
-                        type: type,
-                        fileName: '${type.api.toLowerCase()}.pdf',
-                        bytes: Uint8List.fromList(
-                          List<int>.filled(160 * 1024, 0, growable: false),
-                        ),
-                        mimeType: 'application/pdf',
-                      );
+                  await _pickAndUpload(context, ref, type);
                 },
               ),
           ],
@@ -128,6 +124,94 @@ class DocumentsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _pickAndUpload(
+    BuildContext context,
+    WidgetRef ref,
+    DocumentType type,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final selection = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+      allowMultiple: false,
+      withData: true,
+    );
+    if (selection == null || selection.files.isEmpty) return;
+    if (!context.mounted) return;
+
+    final file = selection.files.single;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('That file could not be read. Please choose it again.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    const maximumBytes = 15 * 1024 * 1024;
+    if (file.size > maximumBytes) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Choose a file smaller than 15 MB.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            Gap.w12,
+            Expanded(child: Text('Uploading ${file.name}...')),
+          ],
+        ),
+        duration: const Duration(minutes: 1),
+      ),
+    );
+
+    final result = await ref
+        .read(documentActionsProvider)
+        .upload(
+          type: type,
+          fileName: file.name,
+          bytes: bytes,
+          mimeType: _mimeType(file.extension),
+        );
+    if (!context.mounted) return;
+    messenger.hideCurrentSnackBar();
+    switch (result) {
+      case Ok():
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('${file.name} uploaded successfully.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      case Err(:final failure):
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
+  }
+
+  String _mimeType(String? extension) => switch (extension?.toLowerCase()) {
+    'jpg' || 'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    _ => 'application/pdf',
+  };
 }
 
 class _DocumentList extends ConsumerWidget {

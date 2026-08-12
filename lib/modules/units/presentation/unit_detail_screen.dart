@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_bottom_action_bar.dart';
+import '../../../components/app_media.dart';
+import '../../../components/app_surface_card.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
@@ -55,22 +58,17 @@ class _Body extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
       children: [
-        Container(
-          height: 150,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: scheme.surfaceContainerHighest,
-          ),
-          child: Center(
-            child: Icon(
-              Icons.storefront_outlined,
-              size: 52,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
+        AppMedia(
+          source: unit.imageUrls.isEmpty ? null : unit.imageUrls.first,
+          aspectRatio: 16 / 10,
+          heroTag: 'unit-${unit.id}',
+          borderRadius: AppRadius.large,
+          semanticLabel: '${unit.unitNumber} interior',
+          fallbackIcon: Icons.storefront_outlined,
         ),
-        Gap.h16,
+        Gap.h24,
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Column(
@@ -82,11 +80,23 @@ class _Body extends ConsumerWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  Text(
-                    unit.locationLabel,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                  Gap.h4,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 16,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      Gap.w4,
+                      Expanded(
+                        child: Text(
+                          unit.locationLabel,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -94,8 +104,59 @@ class _Body extends ConsumerWidget {
             StatusChip(label: unit.status.label, tone: unit.status.tone),
           ],
         ),
-        if (unit.description != null) ...[Gap.h16, Text(unit.description!)],
-        Gap.h16,
+        if (unit.description != null) ...[
+          Gap.h16,
+          Text(
+            unit.description!,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
+        Gap.h24,
+
+        AppSurfaceCard(
+          color: scheme.secondary,
+          borderColor: Colors.transparent,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'MONTHLY RENT',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: scheme.onSecondary.withValues(alpha: 0.7),
+                  letterSpacing: 1.1,
+                ),
+              ),
+              Gap.h8,
+              MoneyText(
+                unit.baseRent,
+                emphasise: true,
+                color: scheme.onSecondary,
+              ),
+              if (unit.depositMonths != null || unit.bookingFee != null) ...[
+                Gap.h12,
+                Wrap(
+                  spacing: Gap.lg,
+                  runSpacing: Gap.sm,
+                  children: [
+                    if (unit.depositMonths != null)
+                      _CostFact(
+                        label: 'Deposit',
+                        value: '${unit.depositMonths} months',
+                      ),
+                    if (unit.bookingFee != null)
+                      _CostFact(
+                        label: 'Booking fee',
+                        value: unit.bookingFee!.format(),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        Gap.h12,
 
         SectionCard(
           title: 'The space',
@@ -110,37 +171,12 @@ class _Body extends ConsumerWidget {
         ),
 
         Gap.h12,
-        SectionCard(
-          title: 'Cost',
-          children: [
-            DetailRow(
-              label: 'Rent ${unit.billingFrequency.perPeriod}',
-              valueWidget: MoneyText(unit.baseRent),
-              emphasise: true,
-            ),
-            if (unit.depositMonths != null)
-              DetailRow(
-                label: 'Deposit',
-                value: '${unit.depositMonths} months of rent',
-              ),
-            if (unit.bookingFee != null)
-              DetailRow(
-                label: 'Booking fee',
-                valueWidget: MoneyText(unit.bookingFee!),
-              ),
-            Gap.h8,
-            Text(
-              // Section 65: the listed figures are indicative. The payable
-              // amount is quoted by the server on the booking screen, and this
-              // sets that expectation rather than implying the app added them
-              // up.
-              'These are the current listed terms. The exact amount payable is '
-              'confirmed when you start a booking.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
+        Text(
+          'Listed terms are indicative. Your exact payable amount is confirmed '
+          'by the property when you start a booking.',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
 
         // Section 19: effective-dated pricing. Worth showing before someone
@@ -178,6 +214,35 @@ class _Body extends ConsumerWidget {
             ],
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _CostFact extends StatelessWidget {
+  const _CostFact({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSecondary = Theme.of(context).colorScheme.onSecondary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: onSecondary.withValues(alpha: 0.65),
+          ),
+        ),
+        Text(
+          value,
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: onSecondary),
+        ),
       ],
     );
   }
@@ -258,49 +323,43 @@ class _BookingBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(Gap.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (!unit.isBookable) ...[
-              Text(
-                switch (unit.status) {
-                  UnitStatus.leased => 'This unit is currently let.',
-                  UnitStatus.reserved ||
-                  UnitStatus.booked =>
-                    'Someone is holding this unit. It may become available '
-                        'again if their booking lapses.',
-                  UnitStatus.underMaintenance =>
-                    'This unit is under maintenance.',
-                  _ => 'This unit is not available to book.',
-                },
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-              Gap.h8,
-            ],
-            FilledButton.icon(
-              // A disabled button is only an affordance. Section 48 puts the
-              // real check inside a locking transaction on the server, so a
-              // booking attempt can still come back with a conflict if the
-              // unit went while this screen was open.
-              onPressed: unit.isBookable
-                  ? () => context.pushNamed(
-                      Routes.booking,
-                      pathParameters: {'unitId': unit.id},
-                    )
-                  : null,
-              icon: const Icon(Icons.event_available_outlined),
-              label: Text(
-                unit.isBookable ? 'Book this unit' : 'Not available',
-              ),
+    return AppBottomActionBar(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!unit.isBookable) ...[
+            Text(
+              switch (unit.status) {
+                UnitStatus.leased => 'This unit is currently let.',
+                UnitStatus.reserved || UnitStatus.booked =>
+                  'Someone is holding this unit. It may become available '
+                      'again if their booking lapses.',
+                UnitStatus.underMaintenance =>
+                  'This unit is under maintenance.',
+                _ => 'This unit is not available to book.',
+              },
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
+            Gap.h8,
           ],
-        ),
+          FilledButton.icon(
+            // A disabled button is only an affordance. Section 48 puts the
+            // real check inside a locking transaction on the server, so a
+            // booking attempt can still come back with a conflict if the
+            // unit went while this screen was open.
+            onPressed: unit.isBookable
+                ? () => context.pushNamed(
+                    Routes.booking,
+                    pathParameters: {'unitId': unit.id},
+                  )
+                : null,
+            icon: const Icon(Icons.event_available_outlined),
+            label: Text(unit.isBookable ? 'Book this unit' : 'Not available'),
+          ),
+        ],
       ),
     );
   }

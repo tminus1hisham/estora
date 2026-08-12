@@ -100,56 +100,144 @@ class _Body extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final payment = watch.payment;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xl, Gap.lg, Gap.xxl),
+    return Column(
       children: [
-        _StatusHeader(watch: watch, intent: intent),
-        Gap.h24,
-
-        SectionCard(
-          title: 'Payment details',
-          children: [
-            DetailRow(
-              label: 'Amount',
-              valueWidget: MoneyText(payment.amount),
-              emphasise: true,
-            ),
-            DetailRow(label: 'Reference', value: payment.paymentReference),
-            DetailRow(label: 'Method', value: payment.paymentMethod.label),
-            if (payment.invoiceNumber != null)
-              DetailRow(label: 'Invoice', value: payment.invoiceNumber!),
-            if (payment.providerTransactionId != null)
-              DetailRow(
-                // Section 85: a dispute has to be answerable, and the
-                // provider's own reference is the thread back to their records.
-                label: 'Provider reference',
-                value: payment.providerTransactionId!,
-              ),
-            if (payment.paidAt != null)
-              DetailRow(
-                label: 'Paid at',
-                value: AppDate.dateTime(payment.paidAt!),
-              ),
-          ],
-        ),
-
-        // Section 37: one payment may settle several invoices, so where it went
-        // is shown rather than assumed to be one-to-one.
-        if (payment.allocations.isNotEmpty) ...[
-          Gap.h12,
-          SectionCard(
-            title: 'Allocated to',
-            children: [
-              for (final allocation in payment.allocations)
-                DetailRow(
-                  label: allocation.invoiceNumber ?? allocation.invoiceId,
-                  valueWidget: MoneyText(allocation.amount, bare: true),
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.xl,
+                  Gap.lg,
+                  Gap.xxl,
                 ),
-            ],
-          ),
-        ],
+                children: [
+                  _StatusHeader(watch: watch, intent: intent),
+                  Gap.h24,
 
-        Gap.h24,
+                  SectionCard(
+                    title: 'Payment details',
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(Gap.lg),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'AMOUNT',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                  ),
+                            ),
+                            Gap.h4,
+                            MoneyText(payment.amount, emphasise: true),
+                          ],
+                        ),
+                      ),
+                      Gap.h12,
+                      DetailRow(
+                        label: 'Reference',
+                        value: payment.paymentReference,
+                      ),
+                      DetailRow(
+                        label: 'Method',
+                        value: payment.paymentMethod.label,
+                      ),
+                      if (payment.invoiceNumber != null)
+                        DetailRow(
+                          label: 'Invoice',
+                          value: payment.invoiceNumber!,
+                        ),
+                      if (payment.providerTransactionId != null)
+                        DetailRow(
+                          label: 'Provider reference',
+                          value: payment.providerTransactionId!,
+                        ),
+                      if (payment.paidAt != null)
+                        DetailRow(
+                          label: 'Paid at',
+                          value: AppDate.dateTime(payment.paidAt!),
+                        ),
+                    ],
+                  ),
+
+                  if (payment.allocations.isNotEmpty) ...[
+                    Gap.h12,
+                    SectionCard(
+                      title: 'Allocated to',
+                      children: [
+                        for (final allocation in payment.allocations)
+                          DetailRow(
+                            label:
+                                allocation.invoiceNumber ??
+                                allocation.invoiceId,
+                            valueWidget: MoneyText(
+                              allocation.amount,
+                              bare: true,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        SafeArea(
+          top: false,
+          child: Material(
+            color: Theme.of(context).colorScheme.surface,
+            elevation: 8,
+            shadowColor: Colors.black26,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Gap.lg,
+                Gap.md,
+                Gap.lg,
+                Gap.lg,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: _StatusActions(watch: watch),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusActions extends ConsumerWidget {
+  const _StatusActions({required this.watch});
+
+  final PaymentWatch watch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final payment = watch.payment;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         if (watch.succeeded) ...[
           if (payment.hasReceipt)
             FilledButton.icon(
@@ -160,8 +248,8 @@ class _Body extends ConsumerWidget {
               icon: const Icon(Icons.receipt_outlined),
               label: const Text('View receipt'),
             ),
-          Gap.h12,
-          OutlinedButton(
+          Gap.h8,
+          TextButton(
             onPressed: () => context.goNamed(Routes.invoices),
             child: const Text('Back to invoices'),
           ),
@@ -171,21 +259,18 @@ class _Body extends ConsumerWidget {
             icon: const Icon(Icons.refresh_rounded),
             label: const Text('Try again'),
           ),
-          Gap.h12,
-          OutlinedButton(
+          Gap.h8,
+          TextButton(
             onPressed: () => context.goNamed(Routes.invoices),
             child: const Text('Back to invoices'),
           ),
         ] else ...[
-          // Manual re-check, for a tenant who has finished on their handset and
-          // does not want to wait for the next tick.
           OutlinedButton.icon(
-            onPressed: () =>
-                ref.invalidate(paymentStatusProvider(payment.id)),
+            onPressed: () => ref.invalidate(paymentStatusProvider(payment.id)),
             icon: const Icon(Icons.refresh_rounded),
             label: const Text('Check again'),
           ),
-          Gap.h12,
+          Gap.h4,
           TextButton(
             onPressed: () => context.goNamed(Routes.invoices),
             child: const Text('I will check later'),

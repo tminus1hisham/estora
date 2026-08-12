@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_brand_mark.dart';
+import '../../../components/app_media.dart';
+import '../../../components/app_surface_card.dart';
 import '../../../components/countdown_timer.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
@@ -35,6 +38,11 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leadingWidth: 64,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: Gap.lg),
+          child: AppBrandMark(size: 40),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -69,7 +77,8 @@ class HomeScreen extends ConsumerWidget {
         AsyncLoading() when !summaryAsync.hasValue => const LoadingView(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.read(dashboardControllerProvider.notifier).refresh(),
+          onRetry: () =>
+              ref.read(dashboardControllerProvider.notifier).refresh(),
         ),
         _ => _HomeBody(summary: summaryAsync.requireValue),
       },
@@ -125,7 +134,8 @@ class _HomeBody extends ConsumerWidget {
               icon: Icons.warning_amber_rounded,
               tone: StatusTone.danger,
               title: 'You have an overdue balance',
-              message: '${summary.overdueAmount!.format()} is past its due date.',
+              message:
+                  '${summary.overdueAmount!.format()} is past its due date.',
               actionLabel: 'Pay now',
               onAction: () => context.goNamed(Routes.invoices),
             ),
@@ -180,6 +190,24 @@ class _TenancyCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                AppMedia(
+                  source: summary.propertyImageUrl,
+                  aspectRatio: 16 / 7,
+                  borderRadius: AppRadius.medium,
+                  semanticLabel:
+                      '${summary.propertyName ?? 'Current'} property',
+                  fallbackIcon: Icons.storefront_rounded,
+                  overlay: const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Color(0x60000000)],
+                      ),
+                    ),
+                  ),
+                ),
+                Gap.h16,
                 Row(
                   children: [
                     Container(
@@ -225,11 +253,15 @@ class _TenancyCard extends StatelessWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                     Gap.w8,
-                    Text(
-                      'View lease details',
-                      style: Theme.of(context).textTheme.bodySmall,
+                    Expanded(
+                      child: Text(
+                        'View lease details',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ),
-                    const Spacer(),
+                    Gap.w8,
                     Icon(
                       Icons.chevron_right_rounded,
                       size: 20,
@@ -288,51 +320,106 @@ class _BalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final foreground = scheme.onSecondary;
 
-    return SectionCard(
-      title: 'Your balance',
-      trailing: TextButton(
-        onPressed: () => context.goNamed(Routes.invoices),
-        child: const Text('All invoices'),
-      ),
-      children: [
-        Text(
-          'Outstanding',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-        Gap.h4,
-        MoneyText(
-          summary.outstandingBalance,
-          emphasise: true,
-          color: summary.hasOverdue ? scheme.error : null,
-        ),
-        if (summary.nextInvoiceAmount != null) ...[
-          Gap.h16,
-          const Divider(),
+    return AppSurfaceCard(
+      color: scheme.secondary,
+      borderColor: Colors.transparent,
+      elevation: AppElevation.low,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'OUTSTANDING BALANCE',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: foreground.withValues(alpha: 0.64),
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.goNamed(Routes.invoices),
+                style: TextButton.styleFrom(foregroundColor: foreground),
+                child: const Text('All invoices'),
+              ),
+            ],
+          ),
           Gap.h8,
-          DetailRow(
-            label: 'Next invoice',
-            valueWidget: MoneyText(summary.nextInvoiceAmount!),
+          MoneyText(
+            summary.outstandingBalance,
+            emphasise: true,
+            color: summary.hasOverdue ? scheme.errorContainer : foreground,
           ),
-          if (summary.nextPaymentDueDate != null)
-            DetailRow(
-              label: 'Next payment due',
-              value: AppDate.full(summary.nextPaymentDueDate!),
+          if (summary.nextInvoiceAmount != null) ...[
+            Gap.h16,
+            Divider(color: foreground.withValues(alpha: 0.18)),
+            Gap.h12,
+            _DarkDetail(
+              label: 'Next invoice',
+              value: summary.nextInvoiceAmount!.format(),
             ),
+            if (summary.nextPaymentDueDate != null) ...[
+              Gap.h8,
+              _DarkDetail(
+                label: 'Payment due',
+                value: AppDate.full(summary.nextPaymentDueDate!),
+              ),
+            ],
+          ],
+          if (summary.nextInvoice != null) ...[
+            Gap.h16,
+            FilledButton.icon(
+              onPressed: () => context.pushNamed(
+                Routes.payment,
+                pathParameters: {'invoiceId': summary.nextInvoice!.id},
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.primaryContainer,
+                foregroundColor: scheme.onPrimaryContainer,
+              ),
+              icon: const Icon(Icons.payments_outlined),
+              label: const Text('Pay now'),
+            ),
+          ],
         ],
-        if (summary.nextInvoice != null) ...[
-          Gap.h12,
-          FilledButton.icon(
-            onPressed: () => context.pushNamed(
-              Routes.payment,
-              pathParameters: {'invoiceId': summary.nextInvoice!.id},
+      ),
+    );
+  }
+}
+
+class _DarkDetail extends StatelessWidget {
+  const _DarkDetail({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = Theme.of(context).colorScheme.onSecondary;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: foreground.withValues(alpha: 0.64),
             ),
-            icon: const Icon(Icons.payments_outlined),
-            label: const Text('Pay now'),
           ),
-        ],
+        ),
+        Gap.w12,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: foreground),
+          ),
+        ),
       ],
     );
   }
@@ -480,10 +567,7 @@ class _LeaseExpiryCard extends StatelessWidget {
     return SectionCard(
       title: 'Lease expiry',
       children: [
-        DetailRow(
-          label: 'Ends on',
-          value: AppDate.full(summary.leaseEndDate!),
-        ),
+        DetailRow(label: 'Ends on', value: AppDate.full(summary.leaseEndDate!)),
         DetailRow(
           label: 'Time remaining',
           value: days == 0 ? 'Today' : '$days days',

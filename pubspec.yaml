@@ -60,7 +60,11 @@ dependencies:
   signature: '>=5.4.0 <7.0.0'
 
   # Biometric unlock (spec section 72).
-  local_auth: '>=2.3.0 <4.0.0'
+  local_auth: ^3.0.2
+
+  # Native document selection and secure signed-link handoff.
+  file_picker: ^10.3.3
+  url_launcher: ^6.3.2
 
   # Idempotency keys (spec section 66) and mock identifiers.
   uuid: ^4.6.0
@@ -88,6 +92,15 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/branding/
+    - assets/images/
+
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Variable.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

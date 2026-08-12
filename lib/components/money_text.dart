@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
 import '../core/utils/money.dart';
 
 /// Renders a [Money] amount.
@@ -16,6 +17,8 @@ class MoneyText extends StatelessWidget {
     this.compact = false,
     this.emphasise = false,
     this.color,
+    this.scaleDown = true,
+    this.textAlign,
     super.key,
   });
 
@@ -33,6 +36,11 @@ class MoneyText extends StatelessWidget {
   final TextStyle? style;
   final Color? color;
 
+  /// Keeps the full amount on one line and scales it down when its parent
+  /// provides a finite width. Set false to let the amount wrap naturally.
+  final bool scaleDown;
+  final TextAlign? textAlign;
+
   @override
   Widget build(BuildContext context) {
     final text = compact
@@ -43,18 +51,28 @@ class MoneyText extends StatelessWidget {
 
     final base = emphasise
         ? Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+            fontWeight: AppTypography.extraBold,
           )
         : Theme.of(
             context,
-          ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600);
+          ).textTheme.bodyLarge?.copyWith(fontWeight: AppTypography.bold);
 
-    return Text(
+    final amountText = Text(
       text,
-      style: (style ?? base)?.copyWith(color: color),
-      // Amounts must never be silently truncated on a narrow screen.
-      overflow: TextOverflow.ellipsis,
-      maxLines: 1,
+      style: (style ?? base)?.copyWith(
+        color: color,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      textAlign: textAlign,
+      softWrap: !scaleDown,
+      maxLines: scaleDown ? 1 : null,
+    );
+
+    if (!scaleDown) return amountText;
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: amountText,
     );
   }
 }

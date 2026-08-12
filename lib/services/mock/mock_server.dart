@@ -1004,8 +1004,9 @@ class MockServer {
     generateRentInvoiceIfDue(lease.id, force: true);
   }
 
-  String _agreementHash(LeaseRow lease) =>
-      _hash('${lease.id}:${lease.agreementVersion}:${lease.monthlyRent.minorUnits}');
+  String _agreementHash(LeaseRow lease) => _hash(
+    '${lease.id}:${lease.agreementVersion}:${lease.monthlyRent.minorUnits}',
+  );
 
   LeaseAgreementView agreementFor(String leaseId) {
     final lease = leases[leaseId];
@@ -1031,7 +1032,9 @@ class MockServer {
     final documentsSubmitted =
         booking?.requirements
             .where(
-              (r) => r.isMandatory && r.requirementType == RequirementType.document,
+              (r) =>
+                  r.isMandatory &&
+                  r.requirementType == RequirementType.document,
             )
             .every((r) => r.isSatisfied) ??
         true;
@@ -1041,7 +1044,9 @@ class MockServer {
         id: 'cond_booking',
         label: 'Booking active',
         detail: booking?.bookingReference,
-        isMet: booking == null || !booking.status.isTerminal ||
+        isMet:
+            booking == null ||
+            !booking.status.isTerminal ||
             booking.status == BookingStatus.convertedToLease,
         isMandatory: true,
       ),
@@ -1259,9 +1264,8 @@ class MockServer {
         )
         .firstOrNull;
 
-    final upcoming =
-        tenantInvoices.where((i) => i.status.isPayable).toList()
-          ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    final upcoming = tenantInvoices.where((i) => i.status.isPayable).toList()
+      ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
     final nextInvoice = upcoming.firstOrNull;
 
     final recentPayments =
@@ -1272,6 +1276,9 @@ class MockServer {
       currency: currency,
       propertyId: currentLease?.propertyId,
       propertyName: currentLease?.propertyName,
+      propertyImageUrl: currentLease == null
+          ? null
+          : properties[currentLease.propertyId]?.imageUrl,
       unitId: currentLease?.unitId,
       unitNumber: currentLease?.unitNumber,
       leaseId: currentLease?.id,

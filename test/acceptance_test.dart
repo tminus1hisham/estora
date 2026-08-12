@@ -196,19 +196,13 @@ void main() {
 
     // Confirm is gated on acknowledging the terms.
     final confirmFinder = find.widgetWithText(FilledButton, 'Confirm booking');
-    expect(
-      tester.widget<FilledButton>(confirmFinder).onPressed,
-      isNull,
-    );
+    expect(tester.widget<FilledButton>(confirmFinder).onPressed, isNull);
 
     final list = find.byType(ListView).first;
     await tester.scrollUntilVisible(
       find.text('Your rent'),
       240,
-      scrollable: find.descendant(
-        of: list,
-        matching: find.byType(Scrollable),
-      ),
+      scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
     );
     await tester.pumpAndSettle();
 
@@ -218,10 +212,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byType(CheckboxListTile),
       240,
-      scrollable: find.descendant(
-        of: list,
-        matching: find.byType(Scrollable),
-      ),
+      scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
     );
     await tester.pumpAndSettle();
 

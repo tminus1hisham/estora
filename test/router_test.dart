@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mall/app.dart';
 import 'package:mall/modules/auth/presentation/login_screen.dart';
 import 'package:mall/modules/auth/presentation/splash_screen.dart';
 import 'package:mall/modules/home/presentation/home_screen.dart';
+import 'package:mall/navigation/routes.dart';
 import 'package:mall/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -52,6 +54,56 @@ void main() {
     expect(find.byType(SplashScreen), findsNothing);
   });
 
+  testWidgets('focused transactions are presented above the tab shell', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    final router = GoRouter.of(tester.element(find.byType(LoginScreen)));
+    final shell = router.configuration.routes
+        .whereType<StatefulShellRoute>()
+        .single;
+
+    for (final name in const [
+      Routes.booking,
+      Routes.bookingStatus,
+      Routes.payment,
+      Routes.paymentStatus,
+      Routes.receipt,
+      Routes.leaseAgreement,
+      Routes.signAgreement,
+    ]) {
+      expect(
+        _routeNamed(shell.routes, name).parentNavigatorKey,
+        isNotNull,
+        reason: '$name must use the root navigator',
+      );
+    }
+
+    // Detail and browsing pages remain in their branch so tab state survives.
+    expect(
+      _routeNamed(shell.routes, Routes.invoiceDetail).parentNavigatorKey,
+      isNull,
+    );
+  });
+
+  testWidgets('current property route carries the lease identifier', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    final router = GoRouter.of(tester.element(find.byType(LoginScreen)));
+    expect(
+      router.namedLocation(
+        Routes.currentProperty,
+        pathParameters: const {'leaseId': 'lse_demo'},
+      ),
+      '/home/property/lse_demo',
+    );
+  });
+
   testWidgets('a signed-in tenant lands on home and cannot go back to login', (
     tester,
   ) async {
@@ -77,4 +129,16 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.byType(LoginScreen), findsNothing);
   });
+}
+
+GoRoute _routeNamed(Iterable<RouteBase> routes, String name) {
+  for (final route in routes) {
+    if (route is GoRoute && route.name == name) return route;
+    try {
+      return _routeNamed(route.routes, name);
+    } on StateError {
+      // Keep looking in sibling branches.
+    }
+  }
+  throw StateError('No route named $name');
 }

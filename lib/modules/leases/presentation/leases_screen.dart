@@ -59,13 +59,96 @@ class _LeaseList extends ConsumerWidget {
       );
     }
 
+    final currentCount = leases.where((item) => item.status.isCurrent).length;
+    final signatureCount = leases
+        .where((item) => item.status.needsTenantSignature)
+        .length;
+
     return RefreshIndicator(
       onRefresh: () => ref.read(leaseListProvider.notifier).refresh(),
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-        itemCount: leases.length,
-        separatorBuilder: (_, _) => Gap.h12,
-        itemBuilder: (context, index) => _LeaseCard(lease: leases[index]),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
+            itemCount: leases.length + 1,
+            separatorBuilder: (_, _) => Gap.h12,
+            itemBuilder: (context, index) => index == 0
+                ? _LeaseOverview(
+                    total: leases.length,
+                    current: currentCount,
+                    awaitingSignature: signatureCount,
+                  )
+                : _LeaseCard(lease: leases[index - 1]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaseOverview extends StatelessWidget {
+  const _LeaseOverview({
+    required this.total,
+    required this.current,
+    required this.awaitingSignature,
+  });
+
+  final int total;
+  final int current;
+  final int awaitingSignature;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(Gap.lg),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(Icons.description_outlined, color: scheme.onPrimary),
+          ),
+          Gap.w12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  awaitingSignature > 0
+                      ? 'Your signature is needed'
+                      : current > 0
+                      ? 'Your tenancy is active'
+                      : 'Your lease records',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Gap.h4,
+                Text(
+                  awaitingSignature > 0
+                      ? '$awaitingSignature ${awaitingSignature == 1 ? 'agreement is' : 'agreements are'} ready to review.'
+                      : '$current current · $total total',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -91,53 +174,81 @@ class _LeaseCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: Gap.md,
+                runSpacing: Gap.sm,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Unit ${lease.unitNumber ?? '—'}',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        Text(
-                          lease.propertyName ?? '',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        child: Icon(
+                          Icons.key_outlined,
+                          color: scheme.onPrimaryContainer,
                         ),
-                      ],
-                    ),
+                      ),
+                      Gap.w12,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Unit ${lease.unitNumber ?? '—'}',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            lease.propertyName ?? '',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  StatusChip(label: lease.status.label, tone: lease.status.tone),
+                  StatusChip(
+                    label: lease.status.label,
+                    tone: lease.status.tone,
+                  ),
                 ],
               ),
               Gap.h12,
-              Row(
+              Divider(color: scheme.outlineVariant),
+              Gap.h12,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.end,
+                spacing: Gap.md,
+                runSpacing: Gap.md,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Term',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Term',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
-                        Text(
-                          '${AppDate.short(lease.startDate)} – '
-                          '${AppDate.short(lease.endDate)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
+                      ),
+                      Text(
+                        '${AppDate.short(lease.startDate)} – '
+                        '${AppDate.short(lease.endDate)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'Rent',
+                        'Monthly rent',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),

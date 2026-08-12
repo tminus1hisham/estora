@@ -46,6 +46,7 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
   bool _hasScrolledToEnd = false;
   bool _hasSignature = false;
   bool _confirmed = false;
+  double _readingProgress = 0;
 
   @override
   void initState() {
@@ -64,12 +65,19 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
   }
 
   void _onScroll() {
-    if (_hasScrolledToEnd) return;
     final position = _scrollController.position;
+    final nextProgress = position.maxScrollExtent <= 0
+        ? 0.0
+        : (position.pixels / position.maxScrollExtent).clamp(0.0, 1.0);
     // A small tolerance, so an agreement that ends a few pixels short of the
     // viewport bottom still counts as read.
-    if (position.pixels >= position.maxScrollExtent - 24) {
-      setState(() => _hasScrolledToEnd = true);
+    final reachedEnd = position.pixels >= position.maxScrollExtent - 24;
+    if ((nextProgress - _readingProgress).abs() >= 0.02 ||
+        reachedEnd != _hasScrolledToEnd) {
+      setState(() {
+        _readingProgress = reachedEnd ? 1 : nextProgress;
+        _hasScrolledToEnd = reachedEnd;
+      });
     }
   }
 
@@ -132,6 +140,7 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
           ref.invalidate(leaseAgreementProvider(widget.leaseId));
           setState(() {
             _hasScrolledToEnd = false;
+            _readingProgress = 0;
             _confirmed = false;
           });
           _signatureController.clear();
@@ -144,13 +153,22 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
     final agreement = ref.watch(leaseAgreementProvider(widget.leaseId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign your lease')),
+      appBar: AppBar(
+        title: const Text('Sign your lease'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(3),
+          child: LinearProgressIndicator(
+            value: _readingProgress,
+            minHeight: 3,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+          ),
+        ),
+      ),
       body: switch (agreement) {
         AsyncLoading() => const LoadingView(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () =>
-              ref.invalidate(leaseAgreementProvider(widget.leaseId)),
+          onRetry: () => ref.invalidate(leaseAgreementProvider(widget.leaseId)),
         ),
         AsyncData(:final value) => _buildBody(value),
       },
@@ -160,166 +178,262 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
   Widget _buildBody(LeaseAgreement agreement) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Column(
-      children: [
-        // Step 1: read.
-        Expanded(
-          child: Stack(
-            children: [
-              ListView(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(Gap.lg),
-                children: [
-                  Text(
-                    'Version ${agreement.version} · '
-                    '${AppDate.short(agreement.generatedAt)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Gap.h16,
-                  SelectableText(
-                    agreement.body ?? '',
-                    style: const TextStyle(height: 1.6),
-                  ),
-                  Gap.h24,
-                  if (!_hasScrolledToEnd)
+    return LayoutBuilder(
+      builder: (context, constraints) => Column(
+        children: [
+          // Step 1: read.
+          Expanded(
+            child: Stack(
+              children: [
+                ListView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(Gap.lg),
+                  children: [
                     Center(
-                      child: Text(
-                        'Scroll to the end to continue',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                ],
-              ),
-              if (!_hasScrolledToEnd)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: IgnorePointer(
-                    child: Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            scheme.surface.withValues(alpha: 0),
-                            scheme.surface,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 720),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(Gap.md),
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer.withValues(
+                                  alpha: 0.4,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.menu_book_outlined,
+                                    color: scheme.primary,
+                                  ),
+                                  Gap.w12,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Step 1 · Read the full agreement',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        Text(
+                                          'Version ${agreement.version} · '
+                                          '${AppDate.short(agreement.generatedAt)}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    '${(_readingProgress * 100).round()}%',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(
+                                          color: scheme.primary,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Gap.h16,
+                            Card(
+                              child: Padding(
+                                padding: EdgeInsets.all(
+                                  MediaQuery.sizeOf(context).width < 400
+                                      ? Gap.lg
+                                      : Gap.xl,
+                                ),
+                                child: SelectableText(
+                                  agreement.body ?? '',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodyMedium?.copyWith(height: 1.7),
+                                ),
+                              ),
+                            ),
+                            Gap.h24,
+                            if (!_hasScrolledToEnd)
+                              Center(
+                                child: Text(
+                                  'Scroll to the end to continue',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-
-        const Divider(height: 1),
-
-        // Step 2: sign.
-        Container(
-          color: scheme.surfaceContainerLow,
-          padding: const EdgeInsets.all(Gap.lg),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      _hasScrolledToEnd
-                          ? Icons.check_circle_rounded
-                          : Icons.info_outline_rounded,
-                      size: 18,
-                      color: _hasScrolledToEnd
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant,
-                    ),
-                    Gap.w8,
-                    Expanded(
-                      child: Text(
-                        _hasScrolledToEnd
-                            ? 'You have read the agreement'
-                            : 'Read the full agreement to enable signing',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    if (_hasSignature)
-                      TextButton(
-                        onPressed: () {
-                          _signatureController.clear();
-                          setState(() => _hasSignature = false);
-                        },
-                        child: const Text('Clear'),
-                      ),
                   ],
                 ),
-                Gap.h12,
-                Opacity(
-                  opacity: _hasScrolledToEnd ? 1 : 0.45,
-                  child: IgnorePointer(
-                    ignoring: !_hasScrolledToEnd,
-                    child: Container(
-                      height: 140,
-                      decoration: BoxDecoration(
-                        color: scheme.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: scheme.outlineVariant),
+                if (!_hasScrolledToEnd)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              scheme.surface.withValues(alpha: 0),
+                              scheme.surface,
+                            ],
+                          ),
+                        ),
                       ),
-                      child: Stack(
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // Step 2: sign.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: constraints.maxHeight * 0.62,
+            ),
+            child: Material(
+              color: scheme.surfaceContainerLow,
+              elevation: 8,
+              shadowColor: Colors.black26,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(Gap.lg),
+                child: SafeArea(
+                  top: false,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (!_hasSignature)
-                            Center(
-                              child: Text(
-                                'Sign here',
-                                style: TextStyle(
-                                  color: scheme.onSurfaceVariant,
+                          Text(
+                            'Step 2 · Add your signature',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          Gap.h8,
+                          Row(
+                            children: [
+                              Icon(
+                                _hasScrolledToEnd
+                                    ? Icons.check_circle_rounded
+                                    : Icons.info_outline_rounded,
+                                size: 18,
+                                color: _hasScrolledToEnd
+                                    ? scheme.primary
+                                    : scheme.onSurfaceVariant,
+                              ),
+                              Gap.w8,
+                              Expanded(
+                                child: Text(
+                                  _hasScrolledToEnd
+                                      ? 'You have read the agreement'
+                                      : 'Read the full agreement to enable signing',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                              if (_hasSignature)
+                                TextButton(
+                                  onPressed: () {
+                                    _signatureController.clear();
+                                    setState(() => _hasSignature = false);
+                                  },
+                                  child: const Text('Clear'),
+                                ),
+                            ],
+                          ),
+                          Gap.h12,
+                          Opacity(
+                            opacity: _hasScrolledToEnd ? 1 : 0.45,
+                            child: IgnorePointer(
+                              ignoring: !_hasScrolledToEnd,
+                              child: Container(
+                                height: 140,
+                                decoration: BoxDecoration(
+                                  color: scheme.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: scheme.outlineVariant,
+                                  ),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    if (!_hasSignature)
+                                      Center(
+                                        child: Text(
+                                          'Sign here',
+                                          style: TextStyle(
+                                            color: scheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Signature(
+                                        controller: _signatureController,
+                                        height: 140,
+                                        backgroundColor: Colors.transparent,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Signature(
-                              controller: _signatureController,
-                              height: 140,
-                              backgroundColor: Colors.transparent,
+                          ),
+                          Gap.h8,
+                          CheckboxListTile(
+                            value: _confirmed,
+                            onChanged: _hasScrolledToEnd
+                                ? (value) => setState(
+                                    () => _confirmed = value ?? false,
+                                  )
+                                : null,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            title: Text(
+                              'I have read this agreement and agree to be bound by it.',
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
+                          ),
+                          AsyncButton(
+                            label: 'Sign agreement',
+                            icon: Icons.draw_outlined,
+                            expand: true,
+                            enabled: _canSign,
+                            onPressed: () => _sign(agreement),
                           ),
                         ],
                       ),
                     ),
                   ),
                 ),
-                Gap.h8,
-                CheckboxListTile(
-                  value: _confirmed,
-                  onChanged: _hasScrolledToEnd
-                      ? (value) => setState(() => _confirmed = value ?? false)
-                      : null,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: Text(
-                    'I have read this agreement and agree to be bound by it.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                AsyncButton(
-                  label: 'Sign agreement',
-                  icon: Icons.draw_outlined,
-                  enabled: _canSign,
-                  onPressed: () => _sign(agreement),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

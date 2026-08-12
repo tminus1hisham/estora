@@ -23,6 +23,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
+  bool _biometricBusy = false;
 
   @override
   void initState() {
@@ -34,12 +35,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // Biometrics are a device capability, not a platform assumption. Web and
     // desktop have no equivalent, so the option is hidden rather than offered
     // and then failing.
-    final available =
+    final supportedPlatform =
         !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS);
 
-    final enabled = await ref.read(tokenStoreProvider).isBiometricEnabled();
+    final available =
+        supportedPlatform &&
+        await ref.read(biometricUnlockProvider).isAvailable();
+    final enabled =
+        available && await ref.read(tokenStoreProvider).isBiometricEnabled();
     if (!mounted) return;
     setState(() {
       _biometricAvailable = available;
@@ -48,8 +53,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _setBiometric(bool value) async {
+    if (_biometricBusy) return;
+    setState(() => _biometricBusy = true);
+
+    if (value) {
+      final result = await ref
+          .read(biometricUnlockProvider)
+          .authenticate(
+            reason: 'Confirm your identity to enable biometric unlock',
+          );
+      if (!mounted) return;
+      if (!result.succeeded) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.message ?? 'Biometric unlock could not be enabled.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() => _biometricBusy = false);
+        return;
+      }
+    }
+
     await ref.read(tokenStoreProvider).setBiometricEnabled(value);
-    if (mounted) setState(() => _biometricEnabled = value);
+    if (!mounted) return;
+    setState(() {
+      _biometricEnabled = value;
+      _biometricBusy = false;
+    });
   }
 
   Future<void> _confirmLogout() async {
@@ -105,16 +138,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         .toggle(channel, value)
                   : null,
               title: Text(channel.label),
-              subtitle: Text(
-                switch (channel) {
-                  NotificationChannel.push =>
-                    'Invoices, payments and booking reminders on this device',
-                  NotificationChannel.sms => 'Text messages for urgent alerts',
-                  NotificationChannel.email => 'Copies of invoices and receipts',
-                  _ => '',
-                },
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              subtitle: Text(switch (channel) {
+                NotificationChannel.push =>
+                  'Invoices, payments and booking reminders on this device',
+                NotificationChannel.sms => 'Text messages for urgent alerts',
+                NotificationChannel.email => 'Copies of invoices and receipts',
+                _ => '',
+              }, style: Theme.of(context).textTheme.bodySmall),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
@@ -132,10 +162,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _SectionHeader('Security'),
             SwitchListTile(
               value: _biometricEnabled,
-              onChanged: _setBiometric,
+              onChanged: _biometricBusy ? null : _setBiometric,
               title: const Text('Unlock with biometrics'),
               subtitle: Text(
-                'Use your fingerprint or face to open the app',
+                _biometricBusy
+                    ? 'Waiting for device authentication...'
+                    : 'Require your fingerprint or face before restoring your '
+                          'session',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -143,10 +176,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           const Divider(),
           _SectionHeader('About'),
-          const ListTile(
-            title: Text('Version'),
-            trailing: Text('1.0.0'),
-          ),
+          const ListTile(title: Text('Version'), trailing: Text('1.0.0')),
           if (AppConfig.isMock)
             ListTile(
               leading: Icon(Icons.science_outlined, color: scheme.tertiary),

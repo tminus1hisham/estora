@@ -9,6 +9,7 @@ import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../domain/entities/billing.dart';
+import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
 import '../application/payment_controller.dart';
 
@@ -56,12 +57,82 @@ class _PaymentList extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () => ref.read(paymentHistoryProvider.notifier).refresh(),
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-        itemCount: payments.length,
-        separatorBuilder: (_, _) => Gap.h12,
-        itemBuilder: (context, index) =>
-            _PaymentCard(payment: payments[index]),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
+            itemCount: payments.length + 1,
+            separatorBuilder: (_, _) => Gap.h12,
+            itemBuilder: (context, index) => index == 0
+                ? _PaymentOverview(payments: payments)
+                : _PaymentCard(payment: payments[index - 1]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentOverview extends StatelessWidget {
+  const _PaymentOverview({required this.payments});
+
+  final List<Payment> payments;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final successful = payments
+        .where((item) => item.status == PaymentStatus.success)
+        .length;
+    final processing = payments.where((item) => item.isInFlight).length;
+
+    return Container(
+      padding: const EdgeInsets.all(Gap.lg),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.account_balance_wallet_outlined,
+              color: scheme.onPrimary,
+            ),
+          ),
+          Gap.w12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Payment activity',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Gap.h4,
+                Text(
+                  processing > 0
+                      ? '$processing ${processing == 1 ? 'payment is' : 'payments are'} still processing.'
+                      : '$successful successful · ${payments.length} total',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -96,26 +167,27 @@ class _PaymentCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: Gap.md,
+                runSpacing: Gap.sm,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          payment.invoiceNumber ?? payment.paymentReference,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        payment.invoiceNumber ?? payment.paymentReference,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        AppDate.dateTime(payment.paidAt ?? payment.createdAt),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
-                        Text(
-                          AppDate.dateTime(
-                            payment.paidAt ?? payment.createdAt,
-                          ),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                   StatusChip(
                     label: payment.status.label,
@@ -124,20 +196,41 @@ class _PaymentCard extends StatelessWidget {
                 ],
               ),
               Gap.h12,
-              Row(
+              Divider(color: scheme.outlineVariant),
+              Gap.h12,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.end,
+                spacing: Gap.md,
+                runSpacing: Gap.sm,
                 children: [
-                  Icon(
-                    Icons.account_balance_wallet_outlined,
-                    size: 16,
-                    color: scheme.onSurfaceVariant,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 16,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      Gap.w8,
+                      Text(
+                        payment.paymentMethod.label,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ),
-                  Gap.w8,
-                  Text(
-                    payment.paymentMethod.label,
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Amount',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      MoneyText(payment.amount),
+                    ],
                   ),
-                  const Spacer(),
-                  MoneyText(payment.amount),
                 ],
               ),
               if (payment.failureReason != null) ...[

@@ -116,6 +116,7 @@ class UnitRow {
     this.buildingName,
     this.floorName,
     this.billingFrequency = BillingFrequency.monthly,
+    this.imageUrls = const <String>[],
   });
 
   final String id;
@@ -143,6 +144,7 @@ class UnitRow {
   final String? propertyName;
   final String? buildingName;
   final String? floorName;
+  final List<String> imageUrls;
 
   /// Mutable: recomputed from bookings and leases (section 15).
   UnitStatus status;
@@ -170,6 +172,7 @@ class UnitRow {
     propertyName: propertyName,
     buildingName: buildingName,
     floorName: floorName,
+    imageUrls: imageUrls,
   );
 }
 
@@ -234,9 +237,7 @@ class BookingRow {
     leaseId: leaseId,
     bookingFeeInvoiceId: bookingFeeInvoiceId,
     depositInvoiceId: depositInvoiceId,
-    requirements: requirements
-        .map((r) => r.toDomain())
-        .toList(growable: false),
+    requirements: requirements.map((r) => r.toDomain()).toList(growable: false),
   );
 }
 

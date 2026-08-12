@@ -22,14 +22,19 @@ class NotificationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifications = ref.watch(notificationListProvider);
+    final hasUnread =
+        notifications.value?.any((notification) => !notification.isRead) ??
+        false;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
           TextButton(
-            onPressed: () =>
-                ref.read(notificationListProvider.notifier).markAllRead(),
+            onPressed: hasUnread
+                ? () =>
+                      ref.read(notificationListProvider.notifier).markAllRead()
+                : null,
             child: const Text('Mark all read'),
           ),
         ],
@@ -69,8 +74,7 @@ class _NotificationList extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: Gap.xxl),
         itemCount: items.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, index) =>
-            _NotificationTile(item: items[index]),
+        itemBuilder: (context, index) => _NotificationTile(item: items[index]),
       ),
     );
   }
@@ -86,50 +90,68 @@ class _NotificationTile extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final (icon, color) = _appearance(context);
 
-    return ListTile(
-      onTap: () {
-        if (!item.isRead) {
-          ref.read(notificationListProvider.notifier).markRead(item.id);
-        }
-        _navigate(context);
-      },
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.14),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(
-        item.title,
-        style: TextStyle(
-          fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
+    return AnimatedContainer(
+      duration: AppMotion.standard,
+      curve: AppMotion.enter,
+      decoration: BoxDecoration(
+        color: item.isRead
+            ? Colors.transparent
+            : scheme.primaryContainer.withValues(alpha: 0.32),
+        border: Border(
+          left: BorderSide(
+            color: item.isRead ? Colors.transparent : scheme.primary,
+            width: 3,
+          ),
         ),
       ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Gap.h4,
-          // Section 50: body text comes rendered from a server-side template,
-          // so wording can change without an app release.
-          Text(item.body),
-          Gap.h4,
-          Text(
-            AppDate.dateTime(item.createdAt),
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          onTap: () {
+            if (!item.isRead) {
+              ref.read(notificationListProvider.notifier).markRead(item.id);
+            }
+            _navigate(context);
+          },
+          leading: CircleAvatar(
+            backgroundColor: color.withValues(alpha: 0.14),
+            child: Icon(icon, color: color, size: 20),
           ),
-        ],
-      ),
-      trailing: item.isRead
-          ? null
-          : Container(
-              height: 8,
-              width: 8,
-              decoration: BoxDecoration(
-                color: scheme.primary,
-                shape: BoxShape.circle,
-              ),
+          title: Text(
+            item.title,
+            style: TextStyle(
+              fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
             ),
-      isThreeLine: true,
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Gap.h4,
+              // Section 50: body text comes rendered from a server-side template,
+              // so wording can change without an app release.
+              Text(item.body),
+              Gap.h4,
+              Text(
+                AppDate.dateTime(item.createdAt),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+          trailing: item.isRead
+              ? null
+              : Container(
+                  height: 8,
+                  width: 8,
+                  decoration: BoxDecoration(
+                    color: scheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+          isThreeLine: true,
+        ),
+      ),
     );
   }
 
@@ -208,4 +230,3 @@ class _NotificationTile extends ConsumerWidget {
     }
   }
 }
-

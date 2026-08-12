@@ -1,11 +1,11 @@
 {
-    "name": "mall",
-    "short_name": "mall",
+    "name": "Tenant Portal",
+    "short_name": "Tenant Portal",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#122522",
+    "theme_color": "#122522",
+    "description": "Manage your tenancy, lease, invoices, payments and documents securely.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

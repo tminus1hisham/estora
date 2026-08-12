@@ -97,5 +97,5 @@ class Routes {
   static const notificationsPath = 'notifications';
 
   static const currentProperty = 'current-property';
-  static const currentPropertyPath = 'property';
+  static const currentPropertyPath = 'property/:leaseId';
 }

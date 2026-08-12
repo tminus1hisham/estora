@@ -17,6 +17,7 @@ class DashboardSummary {
     required this.unreadNotifications,
     this.propertyId,
     this.propertyName,
+    this.propertyImageUrl,
     this.unitId,
     this.unitNumber,
     this.leaseId,
@@ -38,6 +39,7 @@ class DashboardSummary {
 
   final String? propertyId;
   final String? propertyName;
+  final String? propertyImageUrl;
   final String? unitId;
   final String? unitNumber;
   final String? leaseId;
@@ -80,17 +82,17 @@ class DashboardSummary {
   int? get daysUntilLeaseExpiry {
     final end = leaseEndDate;
     if (end == null) return null;
-    return DateTime(
-      end.year,
-      end.month,
-      end.day,
-    ).difference(DateTime.now().copyWith(
-      hour: 0,
-      minute: 0,
-      second: 0,
-      millisecond: 0,
-      microsecond: 0,
-    )).inDays;
+    return DateTime(end.year, end.month, end.day)
+        .difference(
+          DateTime.now().copyWith(
+            hour: 0,
+            minute: 0,
+            second: 0,
+            millisecond: 0,
+            microsecond: 0,
+          ),
+        )
+        .inDays;
   }
 
   bool get isLeaseExpiringSoon {

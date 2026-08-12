@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/error/result.dart';
 import '../../../domain/entities/tenant.dart';
@@ -47,6 +48,15 @@ final documentActionsProvider = Provider<DocumentActions>(
   (ref) => DocumentActions(ref),
 );
 
+typedef DocumentUrlLauncher = Future<bool> Function(Uri uri);
+
+/// Overridable so the signed-URL handoff can be verified without opening a
+/// browser during widget tests.
+final documentUrlLauncherProvider = Provider<DocumentUrlLauncher>(
+  (ref) =>
+      (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
+);
+
 class DocumentActions {
   DocumentActions(this._ref);
 
@@ -67,23 +77,43 @@ class DocumentActions {
 
     switch (result) {
       case Ok(:final value):
-        // Handing off to the platform browser or viewer is the remaining piece
-        // here; the signed URL is what that call would receive.
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Signed download link ready: $value'),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        final uri = Uri.tryParse(value);
+        if (uri == null ||
+            !uri.hasAuthority ||
+            uri.host.isEmpty ||
+            !_isTrustedDocumentScheme(uri)) {
+          _showMessage(messenger, 'The document link is not valid.');
+          return;
+        }
+
+        try {
+          final opened = await _ref.read(documentUrlLauncherProvider)(uri);
+          if (!opened) {
+            _showMessage(
+              messenger,
+              'No app is available to open this document.',
+            );
+          }
+        } catch (_) {
+          _showMessage(
+            messenger,
+            'The document could not be opened. Please try again.',
+          );
+        }
       case Err(:final failure):
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(failure.message),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showMessage(messenger, failure.message);
     }
+  }
+
+  bool _isTrustedDocumentScheme(Uri uri) =>
+      uri.scheme == 'https' ||
+      (uri.scheme == 'http' &&
+          (uri.host == 'localhost' || uri.host == '127.0.0.1'));
+
+  void _showMessage(ScaffoldMessengerState messenger, String message) {
+    messenger.showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 
   Future<Result<Document>> upload({

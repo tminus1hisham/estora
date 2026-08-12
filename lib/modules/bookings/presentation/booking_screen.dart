@@ -9,6 +9,7 @@ import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/money.dart';
 import '../../../domain/entities/booking.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
@@ -71,7 +72,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Confirm your booking')),
       body: switch (quote) {
-        AsyncLoading() => const LoadingView(message: 'Getting your quote…'),
+        AsyncLoading() => const LoadingView(message: 'Preparing your quote…'),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
           onRetry: () => ref.invalidate(bookingQuoteProvider(widget.unitId)),
@@ -84,41 +85,41 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       },
       bottomNavigationBar: quote.hasValue
           ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(Gap.lg),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Both sides flexible: an emphasised amount is set in a
-                    // headline size, and a Row hands its non-flex children
-                    // unbounded width, so a large total would overflow a
-                    // narrow phone rather than shrink to fit.
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            'Payable now',
-                            style: Theme.of(context).textTheme.bodyMedium,
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                elevation: 8,
+                shadowColor: Colors.black26,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.lg,
+                    Gap.md,
+                    Gap.lg,
+                    Gap.lg,
+                  ),
+                  child: Center(
+                    // A bottom navigation child receives the scaffold's full
+                    // height as its upper bound. Without a height factor,
+                    // Center expands to that bound and leaves almost no
+                    // viewport for the quote list above it.
+                    heightFactor: 1,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _PayableSummary(amount: quote.requireValue.total),
+                          Gap.h12,
+                          AsyncButton(
+                            label: 'Confirm booking',
+                            icon: Icons.lock_outline_rounded,
+                            expand: true,
+                            enabled: _acceptedTerms,
+                            onPressed: _confirm,
                           ),
-                        ),
-                        Gap.w12,
-                        Flexible(
-                          child: MoneyText(
-                            quote.requireValue.total,
-                            emphasise: true,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Gap.h12,
-                    AsyncButton(
-                      label: 'Confirm booking',
-                      icon: Icons.lock_outline_rounded,
-                      enabled: _acceptedTerms,
-                      onPressed: _confirm,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             )
@@ -142,144 +143,290 @@ class _QuoteBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-      children: [
-        SectionCard(
-          title: 'To pay now',
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
           children: [
-            DetailRow(
-              label: 'Booking fee',
-              valueWidget: MoneyText(quote.bookingFee),
+            const _BookingFlowProgress(),
+            Gap.h24,
+            Text(
+              'Secure this unit',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-            if (quote.taxAmount != null && quote.taxAmount!.isPositive)
-              DetailRow(
-                label: quote.taxLabel ?? 'Tax',
-                valueWidget: MoneyText(quote.taxAmount!),
-              ),
-            const Divider(),
-            DetailRow(
-              label: 'Total',
-              // The server's total, rendered as received.
-              valueWidget: MoneyText(quote.total),
-              emphasise: true,
+            Gap.h4,
+            Text(
+              'Review the server-issued quote before confirming your booking.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
-            Gap.h8,
-            Container(
-              padding: const EdgeInsets.all(Gap.md),
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.timer_outlined, size: 18, color: scheme.primary),
-                  Gap.w12,
-                  Expanded(
-                    child: Text(
-                      'Paying the booking fee holds this unit for '
-                      '${quote.expiryHours} hours while you complete the '
-                      'requirements below.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+            Gap.h16,
+            SectionCard(
+              title: 'To pay now',
+              children: [
+                DetailRow(
+                  label: 'Booking fee',
+                  valueWidget: MoneyText(quote.bookingFee),
+                ),
+                if (quote.taxAmount != null && quote.taxAmount!.isPositive)
+                  DetailRow(
+                    label: quote.taxLabel ?? 'Tax',
+                    valueWidget: MoneyText(quote.taxAmount!),
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-
-        Gap.h12,
-        SectionCard(
-          title: 'To pay before your lease starts',
-          children: [
-            DetailRow(
-              label: quote.depositMonths == null
-                  ? 'Security deposit'
-                  : 'Security deposit (${quote.depositMonths} months)',
-              valueWidget: MoneyText(quote.depositAmount),
-            ),
-            Gap.h8,
-            Text(
-              'Invoiced once your booking is confirmed. Refundable at the end '
-              'of your lease, less any deductions.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-
-        Gap.h12,
-        SectionCard(
-          title: 'Your rent',
-          children: [
-            DetailRow(
-              label: 'Monthly rent',
-              valueWidget: MoneyText(quote.monthlyRent),
-              emphasise: true,
-            ),
-            Gap.h8,
-            Text(
-              // Section 21, stated to the tenant because it is a commitment
-              // being made to them, not just an implementation detail.
-              'This is the rent your booking is held at. If the listed price '
-              'changes later, your booking and lease keep this figure.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-
-        if (quote.requirements.isNotEmpty) ...[
-          Gap.h12,
-          SectionCard(
-            title: 'What you will need to provide',
-            children: [
-              for (final requirement in quote.requirements)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
+                const Divider(),
+                DetailRow(
+                  label: 'Total',
+                  // The server's total, rendered as received.
+                  valueWidget: MoneyText(quote.total),
+                  emphasise: true,
+                ),
+                Gap.h8,
+                Container(
+                  padding: const EdgeInsets.all(Gap.md),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
-                        requirement.requirementType == RequirementType.payment
-                            ? Icons.payments_outlined
-                            : Icons.description_outlined,
+                        Icons.timer_outlined,
                         size: 18,
-                        color: scheme.onSurfaceVariant,
+                        color: scheme.primary,
                       ),
                       Gap.w12,
                       Expanded(
                         child: Text(
-                          requirement.isMandatory
-                              ? requirement.name
-                              : '${requirement.name} (optional)',
+                          'Paying the booking fee holds this unit for '
+                          '${quote.expiryHours} hours while you complete the '
+                          'requirements below.',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
                     ],
                   ),
                 ),
-            ],
-          ),
-        ],
+              ],
+            ),
 
-        Gap.h16,
-        CheckboxListTile(
-          value: acceptedTerms,
-          onChanged: (value) => onAcceptedChanged(value ?? false),
-          controlAffinity: ListTileControlAffinity.leading,
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            'I understand the booking fee is payable now and that this hold '
-            'expires after ${quote.expiryHours} hours if the requirements are '
-            'not met.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+            Gap.h12,
+            SectionCard(
+              title: 'To pay before your lease starts',
+              children: [
+                DetailRow(
+                  label: quote.depositMonths == null
+                      ? 'Security deposit'
+                      : 'Security deposit (${quote.depositMonths} months)',
+                  valueWidget: MoneyText(quote.depositAmount),
+                ),
+                Gap.h8,
+                Text(
+                  'Invoiced once your booking is confirmed. Refundable at the end '
+                  'of your lease, less any deductions.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+
+            Gap.h12,
+            SectionCard(
+              title: 'Your rent',
+              children: [
+                DetailRow(
+                  label: 'Monthly rent',
+                  valueWidget: MoneyText(quote.monthlyRent),
+                  emphasise: true,
+                ),
+                Gap.h8,
+                Text(
+                  // Section 21, stated to the tenant because it is a commitment
+                  // being made to them, not just an implementation detail.
+                  'This is the rent your booking is held at. If the listed price '
+                  'changes later, your booking and lease keep this figure.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+
+            if (quote.requirements.isNotEmpty) ...[
+              Gap.h12,
+              SectionCard(
+                title: 'What you will need to provide',
+                children: [
+                  for (final requirement in quote.requirements)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            requirement.requirementType ==
+                                    RequirementType.payment
+                                ? Icons.payments_outlined
+                                : Icons.description_outlined,
+                            size: 18,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          Gap.w12,
+                          Expanded(
+                            child: Text(
+                              requirement.isMandatory
+                                  ? requirement.name
+                                  : '${requirement.name} (optional)',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+
+            Gap.h16,
+            Card(
+              color: acceptedTerms
+                  ? scheme.primaryContainer.withValues(alpha: 0.35)
+                  : scheme.surfaceContainerLow,
+              child: CheckboxListTile(
+                value: acceptedTerms,
+                onChanged: (value) => onAcceptedChanged(value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: Gap.md,
+                  vertical: Gap.xs,
+                ),
+                title: Text(
+                  'I understand the booking fee is payable now and that this hold '
+                  'expires after ${quote.expiryHours} hours if the requirements are '
+                  'not met.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PayableSummary extends StatelessWidget {
+  const _PayableSummary({required this.amount});
+
+  final Money amount;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final stack = MediaQuery.textScalerOf(context).scale(1) > 1.2;
+
+    final label = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Payable now',
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        Text(
+          'Secure checkout',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
       ],
+    );
+    final value = MoneyText(amount, emphasise: true);
+
+    return stack
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [label, Gap.h8, value],
+          )
+        : Row(
+            children: [
+              Expanded(child: label),
+              Gap.w12,
+              Flexible(child: value),
+            ],
+          );
+  }
+}
+
+class _BookingFlowProgress extends StatelessWidget {
+  const _BookingFlowProgress();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    const steps = <(IconData, String)>[
+      (Icons.receipt_long_outlined, 'Review'),
+      (Icons.payments_outlined, 'Confirm'),
+      (Icons.check_circle_outline_rounded, 'Complete'),
+    ];
+
+    return Semantics(
+      label: 'Booking step 1 of 3: review',
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < steps.length; index++) ...[
+            Expanded(
+              child: Column(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: index == 0
+                          ? scheme.primary
+                          : scheme.surfaceContainerHighest,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      steps[index].$1,
+                      size: 18,
+                      color: index == 0
+                          ? scheme.onPrimary
+                          : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Gap.h4,
+                  Text(
+                    steps[index].$2,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: index == 0
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
+                      fontWeight: index == 0
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (index != steps.length - 1)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Divider(color: scheme.outlineVariant),
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 }

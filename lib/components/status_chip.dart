@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
 import '../core/theme/status_palette.dart';
 
 /// A status badge.
@@ -25,33 +26,56 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = context.statusColors.resolve(tone);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final largeText = textScaler.scale(dense ? 11 : 12) >= 18;
+    final iconSize = dense ? 12.0 : 14.0;
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: dense ? 8 : 10,
-        vertical: dense ? 3 : 5,
+    final labelText = Text(
+      label,
+      softWrap: true,
+      style: TextStyle(
+        color: color,
+        fontSize: dense ? 11 : 12,
+        height: 1.15,
+        fontWeight: AppTypography.bold,
+        letterSpacing: 0.15,
       ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: dense ? 12 : 14, color: color),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: dense ? 11 : 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
+    );
+
+    return Semantics(
+      label: 'Status: $label',
+      container: true,
+      excludeSemantics: true,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: dense ? 9 : 11,
+          vertical: dense ? 4 : 6,
+        ),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          border: Border.all(color: color.withValues(alpha: 0.22)),
+        ),
+        child: icon == null
+            ? labelText
+            : largeText
+            ? Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
+                children: [
+                  Icon(icon, size: iconSize, color: color),
+                  labelText,
+                ],
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: iconSize, color: color),
+                  Gap.w4,
+                  Flexible(child: labelText),
+                ],
+              ),
       ),
     );
   }

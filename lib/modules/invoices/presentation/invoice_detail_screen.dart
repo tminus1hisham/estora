@@ -43,16 +43,49 @@ class InvoiceDetailScreen extends ConsumerWidget {
       },
       bottomNavigationBar: (invoice.value?.isPayable ?? false)
           ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(Gap.lg),
-                child: FilledButton.icon(
-                  onPressed: () => context.pushNamed(
-                    Routes.payment,
-                    pathParameters: {'invoiceId': invoiceId},
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                elevation: 8,
+                shadowColor: Colors.black26,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.lg,
+                    Gap.md,
+                    Gap.lg,
+                    Gap.lg,
                   ),
-                  icon: const Icon(Icons.payments_outlined),
-                  label: Text(
-                    'Pay ${invoice.requireValue.amountDue.format()}',
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'AMOUNT DUE',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.7,
+                                ),
+                          ),
+                          Gap.h4,
+                          MoneyText(invoice.requireValue.amountDue),
+                          Gap.h12,
+                          FilledButton.icon(
+                            onPressed: () => context.pushNamed(
+                              Routes.payment,
+                              pathParameters: {'invoiceId': invoiceId},
+                            ),
+                            icon: const Icon(Icons.lock_outline_rounded),
+                            label: const Text('Pay securely'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -73,130 +106,181 @@ class _Body extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(invoiceDetailProvider(invoice.id)),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-        children: [
-          SectionCard(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          invoice.invoiceNumber,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        if (invoice.unitNumber != null)
-                          Text(
-                            '${invoice.propertyName ?? ''} · '
-                            'Unit ${invoice.unitNumber}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                      ],
+              Container(
+                padding: const EdgeInsets.all(Gap.xl),
+                decoration: BoxDecoration(
+                  color: invoice.isOverdue
+                      ? scheme.errorContainer
+                      : scheme.primaryContainer.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      invoice.isPayable ? 'AMOUNT DUE' : 'INVOICE TOTAL',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: invoice.isOverdue
+                            ? scheme.onErrorContainer
+                            : scheme.primary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.9,
+                      ),
                     ),
-                  ),
-                  StatusChip(
-                    label: invoice.status.label,
-                    tone: invoice.status.tone,
-                  ),
-                ],
+                    Gap.h8,
+                    MoneyText(
+                      invoice.isPayable ? invoice.amountDue : invoice.total,
+                      emphasise: true,
+                      color: invoice.isOverdue ? scheme.onErrorContainer : null,
+                    ),
+                    Gap.h12,
+                    Text(
+                      invoice.isPayable
+                          ? invoice.isOverdue
+                                ? 'Due ${AppDate.full(invoice.dueDate)} · Payment overdue'
+                                : 'Due ${AppDate.full(invoice.dueDate)}'
+                          : 'Issued ${AppDate.full(invoice.invoiceDate)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: invoice.isOverdue
+                            ? scheme.onErrorContainer
+                            : scheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Gap.h12,
-              DetailRow(
-                label: 'Issued',
-                value: AppDate.full(invoice.invoiceDate),
-              ),
-              DetailRow(label: 'Due', value: AppDate.full(invoice.dueDate)),
-              // Section 35: the billing period is what makes proration,
-              // termination settlement and disputes tractable, so it is shown
-              // rather than left implicit in the description.
-              if (invoice.hasBillingPeriod)
-                DetailRow(
-                  label: 'Billing period',
-                  value: AppDate.period(
-                    invoice.billingPeriodStart!,
-                    invoice.billingPeriodEnd!,
+              SectionCard(
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: Gap.md,
+                    runSpacing: Gap.sm,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            invoice.invoiceNumber,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          if (invoice.unitNumber != null)
+                            Text(
+                              '${invoice.propertyName ?? ''} · '
+                              'Unit ${invoice.unitNumber}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                        ],
+                      ),
+                      StatusChip(
+                        label: invoice.status.label,
+                        tone: invoice.status.tone,
+                      ),
+                    ],
                   ),
-                ),
-            ],
-          ),
+                  Gap.h12,
+                  DetailRow(
+                    label: 'Issued',
+                    value: AppDate.full(invoice.invoiceDate),
+                  ),
+                  DetailRow(label: 'Due', value: AppDate.full(invoice.dueDate)),
+                  // Section 35: the billing period is what makes proration,
+                  // termination settlement and disputes tractable, so it is shown
+                  // rather than left implicit in the description.
+                  if (invoice.hasBillingPeriod)
+                    DetailRow(
+                      label: 'Billing period',
+                      value: AppDate.period(
+                        invoice.billingPeriodStart!,
+                        invoice.billingPeriodEnd!,
+                      ),
+                    ),
+                ],
+              ),
 
-          Gap.h12,
-          // Section 33: never store only the total, and never show only the
-          // total either.
-          SectionCard(
-            title: 'Breakdown',
-            children: [
-              for (final line in invoice.lines) _LineRow(line: line),
-              const Divider(height: Gap.xl),
-              DetailRow(
-                label: 'Subtotal',
-                valueWidget: MoneyText(invoice.subtotal, bare: true),
-              ),
-              if (invoice.tax.isPositive)
-                DetailRow(
-                  label: 'Tax',
-                  valueWidget: MoneyText(invoice.tax, bare: true),
-                ),
-              if (invoice.discount.isPositive)
-                DetailRow(
-                  label: 'Discount',
-                  valueWidget: MoneyText(-invoice.discount, bare: true),
-                ),
-              const Divider(),
-              DetailRow(
-                label: 'Total',
-                valueWidget: MoneyText(invoice.total),
-                emphasise: true,
-              ),
-              if (invoice.amountPaid.isPositive) ...[
-                DetailRow(
-                  label: 'Paid',
-                  valueWidget: MoneyText(invoice.amountPaid, bare: true),
-                ),
-                DetailRow(
-                  label: 'Amount due',
-                  valueWidget: MoneyText(
-                    invoice.amountDue,
-                    color: invoice.isOverdue ? scheme.error : null,
+              Gap.h12,
+              // Section 33: never store only the total, and never show only the
+              // total either.
+              SectionCard(
+                title: 'Breakdown',
+                children: [
+                  for (final line in invoice.lines) _LineRow(line: line),
+                  const Divider(height: Gap.xl),
+                  DetailRow(
+                    label: 'Subtotal',
+                    valueWidget: MoneyText(invoice.subtotal, bare: true),
                   ),
-                  emphasise: true,
+                  if (invoice.tax.isPositive)
+                    DetailRow(
+                      label: 'Tax',
+                      valueWidget: MoneyText(invoice.tax, bare: true),
+                    ),
+                  if (invoice.discount.isPositive)
+                    DetailRow(
+                      label: 'Discount',
+                      valueWidget: MoneyText(-invoice.discount, bare: true),
+                    ),
+                  const Divider(),
+                  DetailRow(
+                    label: 'Total',
+                    valueWidget: MoneyText(invoice.total),
+                    emphasise: true,
+                  ),
+                  if (invoice.amountPaid.isPositive) ...[
+                    DetailRow(
+                      label: 'Paid',
+                      valueWidget: MoneyText(invoice.amountPaid, bare: true),
+                    ),
+                    DetailRow(
+                      label: 'Amount due',
+                      valueWidget: MoneyText(
+                        invoice.amountDue,
+                        color: invoice.isOverdue ? scheme.error : null,
+                      ),
+                      emphasise: true,
+                    ),
+                  ],
+                ],
+              ),
+
+              if (invoice.isOverdue) ...[
+                Gap.h12,
+                Container(
+                  padding: const EdgeInsets.all(Gap.lg),
+                  decoration: BoxDecoration(
+                    color: scheme.errorContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: scheme.onErrorContainer,
+                      ),
+                      Gap.w12,
+                      Expanded(
+                        child: Text(
+                          'This invoice is past its due date. Late payment charges '
+                          'may apply under your lease terms.',
+                          style: TextStyle(color: scheme.onErrorContainer),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ],
           ),
-
-          if (invoice.isOverdue) ...[
-            Gap.h12,
-            Container(
-              padding: const EdgeInsets.all(Gap.lg),
-              decoration: BoxDecoration(
-                color: scheme.errorContainer,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    color: scheme.onErrorContainer,
-                  ),
-                  Gap.w12,
-                  Expanded(
-                    child: Text(
-                      'This invoice is past its due date. Late payment charges '
-                      'may apply under your lease terms.',
-                      style: TextStyle(color: scheme.onErrorContainer),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -211,38 +295,49 @@ class _LineRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    final stack = MediaQuery.textScalerOf(context).scale(1) > 1.2;
+    final description = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(line.description),
+        if (line.showsQuantity)
+          Text(
+            '${line.quantity} × ${line.unitPrice.formatBare()}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        if (line.taxAmount != null && line.taxAmount!.isPositive)
+          Text(
+            'incl. ${line.taxRate?.toStringAsFixed(0)}% tax of '
+            '${line.taxAmount!.formatBare()}',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+      ],
+    );
+    final amount = MoneyText(line.amount, bare: true);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: stack
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                description,
+                Gap.h8,
+                Align(alignment: Alignment.centerRight, child: amount),
+              ],
+            )
+          : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(line.description),
-                if (line.showsQuantity)
-                  Text(
-                    '${line.quantity} × ${line.unitPrice.formatBare()}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                if (line.taxAmount != null && line.taxAmount!.isPositive)
-                  Text(
-                    'incl. ${line.taxRate?.toStringAsFixed(0)}% tax of '
-                    '${line.taxAmount!.formatBare()}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
+                Expanded(child: description),
+                Gap.w12,
+                amount,
               ],
             ),
-          ),
-          Gap.w12,
-          MoneyText(line.amount, bare: true),
-        ],
-      ),
     );
   }
 }

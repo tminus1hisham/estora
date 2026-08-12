@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../domain/repositories/repositories.dart';
 import '../../../navigation/routes.dart';
+import '../../documents/application/document_controller.dart';
 import '../application/lease_controller.dart';
 
 /// Section 77's Lease Agreement screen — read-only.
@@ -31,16 +32,14 @@ class LeaseAgreementScreen extends ConsumerWidget {
         title: const Text('Lease agreement'),
         actions: [
           IconButton(
-            tooltip: 'Download',
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'The signed PDF is available from Documents once the lease '
-                  'is signed.',
-                ),
-                behavior: SnackBarBehavior.floating,
-              ),
-            ),
+            tooltip: lease?.signedAgreementDocumentId == null
+                ? 'Available after signing'
+                : 'Download signed agreement',
+            onPressed: lease?.signedAgreementDocumentId == null
+                ? null
+                : () => ref
+                      .read(documentActionsProvider)
+                      .openDocument(context, lease!.signedAgreementDocumentId!),
             icon: const Icon(Icons.download_outlined),
           ),
           Gap.w8,
@@ -54,18 +53,35 @@ class LeaseAgreementScreen extends ConsumerWidget {
         ),
         AsyncData(:final value) => _AgreementBody(agreement: value),
       },
-      bottomNavigationBar:
-          (lease?.status.needsTenantSignature ?? false)
+      bottomNavigationBar: (lease?.status.needsTenantSignature ?? false)
           ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(Gap.lg),
-                child: FilledButton.icon(
-                  onPressed: () => context.pushReplacementNamed(
-                    Routes.signAgreement,
-                    pathParameters: {'leaseId': leaseId},
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                elevation: 8,
+                shadowColor: Colors.black26,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Gap.lg,
+                    Gap.md,
+                    Gap.lg,
+                    Gap.lg,
                   ),
-                  icon: const Icon(Icons.draw_outlined),
-                  label: const Text('Sign this agreement'),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () => context.pushReplacementNamed(
+                            Routes.signAgreement,
+                            pathParameters: {'leaseId': leaseId},
+                          ),
+                          icon: const Icon(Icons.draw_outlined),
+                          label: const Text('Sign this agreement'),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             )
@@ -83,51 +99,83 @@ class _AgreementBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.xxl),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(Gap.md),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.lock_outline_rounded,
-                size: 18,
-                color: scheme.onSurfaceVariant,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.xxl),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(Gap.md),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
               ),
-              Gap.w12,
-              Expanded(
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  Gap.w12,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Version ${agreement.version} · '
+                          '${AppDate.short(agreement.generatedAt)}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          agreement.documentHash,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                                fontFamily: 'monospace',
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Gap.h24,
+            Card(
+              child: Padding(
+                padding: EdgeInsets.all(
+                  MediaQuery.sizeOf(context).width < 400 ? Gap.lg : Gap.xl,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Icon(Icons.apartment_rounded, color: scheme.primary),
+                    Gap.h16,
                     Text(
-                      'Version ${agreement.version} · '
-                      '${AppDate.short(agreement.generatedAt)}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      'COMMERCIAL LEASE AGREEMENT',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
                     ),
-                    Text(
-                      agreement.documentHash,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontFamily: 'monospace',
+                    Gap.h24,
+                    SelectableText(
+                      agreement.body ?? 'The agreement text is not available.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        height: 1.7,
+                        color: scheme.onSurface,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        Gap.h24,
-        SelectableText(
-          agreement.body ?? 'The agreement text is not available.',
-          style: const TextStyle(height: 1.6),
-        ),
-      ],
+      ),
     );
   }
 }

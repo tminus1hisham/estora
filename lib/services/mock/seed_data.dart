@@ -42,6 +42,7 @@ void seedMockServer(MockServer server) {
     totalArea: 32000,
     totalUnits: 8,
     availableUnits: 4,
+    imageUrl: 'assets/images/property_sarit_mall.jpg',
   );
 
   server.configs[saritId] = PropertyConfig(
@@ -78,6 +79,7 @@ void seedMockServer(MockServer server) {
     totalArea: 9000,
     totalUnits: 3,
     availableUnits: 3,
+    imageUrl: 'assets/images/property_abc_business_centre.jpg',
   );
 
   server.configs[abcId] = PropertyConfig(
@@ -113,7 +115,12 @@ void seedMockServer(MockServer server) {
       name: 'East Wing',
       code: 'EAST',
     ),
-    Building(id: 'bld_abc_tower', propertyId: abcId, name: 'Tower', code: 'TWR'),
+    Building(
+      id: 'bld_abc_tower',
+      propertyId: abcId,
+      name: 'Tower',
+      code: 'TWR',
+    ),
   ]);
 
   server.floors.addAll(const [
@@ -265,6 +272,7 @@ void seedMockServer(MockServer server) {
       propertyName: 'Sarit Mall',
       buildingName: buildingName,
       floorName: floorName,
+      imageUrls: const ['assets/images/unit_retail_interior.jpg'],
     );
   }
 
@@ -375,6 +383,7 @@ void seedMockServer(MockServer server) {
     propertyName: 'ABC Business Centre',
     buildingName: 'Tower',
     floorName: 'Third Floor',
+    imageUrls: const ['assets/images/property_abc_business_centre.jpg'],
   );
 
   // -- The demo tenant ------------------------------------------------------
@@ -443,8 +452,11 @@ void seedEstablishedTenancy(
     propertyName: 'Sarit Mall',
     unitNumber: unit.unitNumber,
     startDate: leaseStart,
-    endDate: DateTime(leaseStart.year + 1, leaseStart.month, leaseStart.day)
-        .subtract(const Duration(days: 1)),
+    endDate: DateTime(
+      leaseStart.year + 1,
+      leaseStart.month,
+      leaseStart.day,
+    ).subtract(const Duration(days: 1)),
     monthlyRent: Money.fromMajor(150000, kes),
     depositAmount: Money.fromMajor(750000, kes),
     billingFrequency: BillingFrequency.monthly,

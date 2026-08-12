@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/async_button.dart';
 import '../../../components/money_text.dart';
-import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
@@ -109,128 +108,277 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     return Column(
       children: [
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              Gap.lg,
-              Gap.sm,
-              Gap.lg,
-              Gap.xxl,
-            ),
-            children: [
-              SectionCard(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.xxl,
+                ),
                 children: [
-                  Text(
-                    'Amount due',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                  const _PaymentFlowProgress(),
+                  Gap.h24,
+                  Container(
+                    padding: const EdgeInsets.all(Gap.xl),
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AMOUNT DUE',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                        ),
+                        Gap.h8,
+                        // The server's figure. Not editable, and not assembled here.
+                        MoneyText(invoice.amountDue, emphasise: true),
+                        Gap.h12,
+                        Text(
+                          invoice.invoiceNumber,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: scheme.onPrimaryContainer),
+                        ),
+                      ],
                     ),
                   ),
-                  Gap.h4,
-                  // The server's figure. Not editable, and not assembled here.
-                  MoneyText(invoice.amountDue, emphasise: true),
-                  Gap.h8,
+
+                  Gap.h16,
                   Text(
-                    'For ${invoice.invoiceNumber}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                    'How would you like to pay?',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Gap.h8,
+                  RadioGroup<PaymentMethod>(
+                    groupValue: _method,
+                    onChanged: (value) =>
+                        setState(() => _method = value ?? _method),
+                    child: Column(
+                      children: [
+                        for (final method in PaymentMethod.tenantSelectable)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: Gap.sm),
+                            child: _PaymentMethodTile(
+                              method: method,
+                              selected: method == _method,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  if (_method == PaymentMethod.mpesa) ...[
+                    Gap.h12,
+                    TextField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'M-Pesa number',
+                        hintText: '+254 712 345 678',
+                        prefixIcon: Icon(Icons.phone_android_rounded),
+                        helperText: 'The prompt is sent to this number',
+                      ),
+                    ),
+                  ],
+
+                  Gap.h16,
+                  Container(
+                    padding: const EdgeInsets.all(Gap.md),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.shield_outlined,
+                          size: 18,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                        Gap.w12,
+                        Expanded(
+                          child: Text(
+                            // Section 39, in plain language: the app does not get
+                            // to decide the payment worked.
+                            'Your payment is confirmed by your provider and '
+                            'verified by us before your invoice is marked paid.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-
-              Gap.h16,
-              Text(
-                'How would you like to pay?',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              Gap.h8,
-              RadioGroup<PaymentMethod>(
-                groupValue: _method,
-                onChanged: (value) =>
-                    setState(() => _method = value ?? _method),
-                child: Column(
-                  children: [
-                    for (final method in PaymentMethod.tenantSelectable)
-                      RadioListTile<PaymentMethod>(
-                        value: method,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(method.label),
-                        subtitle: Text(
-                          switch (method) {
-                            PaymentMethod.mpesa =>
-                              'You will get a prompt on your phone',
-                            PaymentMethod.card => 'Visa or Mastercard',
-                            PaymentMethod.bankTransfer =>
-                              'Transfer using the reference we give you',
-                            _ => '',
-                          },
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              if (_method == PaymentMethod.mpesa) ...[
-                Gap.h12,
-                TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    labelText: 'M-Pesa number',
-                    hintText: '+254 712 345 678',
-                    prefixIcon: Icon(Icons.phone_android_rounded),
-                    helperText: 'The prompt is sent to this number',
-                  ),
-                ),
-              ],
-
-              Gap.h16,
-              Container(
-                padding: const EdgeInsets.all(Gap.md),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 18,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    Gap.w12,
-                    Expanded(
-                      child: Text(
-                        // Section 39, in plain language: the app does not get
-                        // to decide the payment worked.
-                        'Your payment is confirmed by your provider and '
-                        'verified by us before your invoice is marked paid.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
         SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(Gap.lg),
-            child: AsyncButton(
-              label: 'Pay ${invoice.amountDue.format()}',
-              icon: Icons.lock_outline_rounded,
-              enabled: canPay,
-              onPressed: _pay,
+          child: Material(
+            color: scheme.surface,
+            elevation: 8,
+            shadowColor: Colors.black26,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Gap.lg,
+                Gap.md,
+                Gap.lg,
+                Gap.lg,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: AsyncButton(
+                    label: 'Pay ${invoice.amountDue.format()}',
+                    icon: Icons.lock_outline_rounded,
+                    expand: true,
+                    enabled: canPay,
+                    onPressed: _pay,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PaymentMethodTile extends StatelessWidget {
+  const _PaymentMethodTile({required this.method, required this.selected});
+
+  final PaymentMethod method;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final icon = switch (method) {
+      PaymentMethod.mpesa => Icons.phone_android_rounded,
+      PaymentMethod.card => Icons.credit_card_rounded,
+      PaymentMethod.bankTransfer => Icons.account_balance_outlined,
+      _ => Icons.payments_outlined,
+    };
+    final subtitle = switch (method) {
+      PaymentMethod.mpesa => 'Prompt sent securely to your phone',
+      PaymentMethod.card => 'Visa or Mastercard',
+      PaymentMethod.bankTransfer => 'Use a unique payment reference',
+      _ => '',
+    };
+
+    return Card(
+      color: selected
+          ? scheme.primaryContainer.withValues(alpha: 0.45)
+          : scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: selected ? scheme.primary : scheme.outlineVariant,
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      child: RadioListTile<PaymentMethod>(
+        value: method,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Gap.md,
+          vertical: Gap.xs,
+        ),
+        secondary: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: selected ? scheme.primary : scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            size: 22,
+            color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+          ),
+        ),
+        title: Text(
+          method.label,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(subtitle),
+      ),
+    );
+  }
+}
+
+class _PaymentFlowProgress extends StatelessWidget {
+  const _PaymentFlowProgress();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    const labels = ['Method', 'Authorise', 'Receipt'];
+
+    return Semantics(
+      label: 'Payment step 1 of 3: choose method',
+      child: Row(
+        children: [
+          for (var index = 0; index < labels.length; index++) ...[
+            Expanded(
+              child: Column(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: index == 0
+                          ? scheme.primary
+                          : scheme.surfaceContainerHighest,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: index == 0
+                                  ? scheme.onPrimary
+                                  : scheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                  ),
+                  Gap.h4,
+                  Text(
+                    labels[index],
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: index == 0
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
+                      fontWeight: index == 0
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (index != labels.length - 1)
+              Expanded(child: Divider(color: scheme.outlineVariant)),
+          ],
+        ],
+      ),
     );
   }
 }

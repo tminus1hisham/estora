@@ -8,8 +8,8 @@ import '../../../navigation/routes.dart';
 import '../application/auth_controller.dart';
 import 'widgets/auth_scaffold.dart';
 
-/// Section 72. Phone plus OTP is the primary flow for tenants; email and
-/// password is offered as a secondary tab for those who prefer it.
+/// Phone plus OTP is the primary flow for tenants; email and password remains
+/// available for tenants with an established password.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -17,19 +17,19 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+enum _LoginMethod { phone, email }
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneFormKey = GlobalKey<FormState>();
   final _passwordFormKey = GlobalKey<FormState>();
+  _LoginMethod _method = _LoginMethod.phone;
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _tabs.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -37,6 +37,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _sendCode() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!(_phoneFormKey.currentState?.validate() ?? false)) return;
     final sent = await ref
         .read(authControllerProvider.notifier)
@@ -45,9 +46,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _signIn() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!(_passwordFormKey.currentState?.validate() ?? false)) return;
-    // On success the router's redirect moves us to the home tab, so there is
-    // no explicit navigation here.
     await ref
         .read(authControllerProvider.notifier)
         .loginWithPassword(
@@ -56,61 +56,153 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         );
   }
 
+  void _changeMethod(Set<_LoginMethod> selection) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _method = selection.first);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
+    final scheme = Theme.of(context).colorScheme;
+    final useVerticalMethodSelector =
+        MediaQuery.textScalerOf(context).scale(14) >= 20;
 
     return AuthScaffold(
       title: 'Welcome back',
-      subtitle: 'Sign in to manage your lease, invoices and payments.',
+      subtitle: 'Access your spaces, invoices and lease documents securely.',
       failure: auth.failure,
       onDismissFailure: ref.read(authControllerProvider.notifier).clearFailure,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TabBar(
-            controller: _tabs,
-            tabs: const [
-              Tab(text: 'Phone'),
-              Tab(text: 'Email'),
-            ],
-          ),
-          Gap.h24,
-          SizedBox(
-            height: 240,
-            child: TabBarView(
-              controller: _tabs,
-              children: [_phoneTab(auth), _passwordTab(auth)],
-            ),
-          ),
-          Gap.h16,
-          // Wrap rather than Row: at 360-414dp, which is most phones, the
-          // label and the button together exceed the available width and a
-          // Row overflows.
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              const Text('New here?'),
-              TextButton(
-                onPressed: () => context.pushNamed(Routes.register),
-                child: const Text('Create an account'),
+      showBackButton: false,
+      child: AutofillGroup(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (useVerticalMethodSelector) ...[
+              _AccessibleMethodButton(
+                label: 'Phone code',
+                icon: Icons.sms_outlined,
+                selected: _method == _LoginMethod.phone,
+                onPressed: auth.isBusy
+                    ? null
+                    : () => _changeMethod({_LoginMethod.phone}),
               ),
-            ],
-          ),
-        ],
+              Gap.h8,
+              _AccessibleMethodButton(
+                label: 'Email',
+                icon: Icons.mail_outline_rounded,
+                selected: _method == _LoginMethod.email,
+                onPressed: auth.isBusy
+                    ? null
+                    : () => _changeMethod({_LoginMethod.email}),
+              ),
+            ] else
+              SegmentedButton<_LoginMethod>(
+                expandedInsets: EdgeInsets.zero,
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: _LoginMethod.phone,
+                    label: Text('Phone code'),
+                    icon: Icon(Icons.sms_outlined),
+                  ),
+                  ButtonSegment(
+                    value: _LoginMethod.email,
+                    label: Text('Email'),
+                    icon: Icon(Icons.mail_outline_rounded),
+                  ),
+                ],
+                selected: {_method},
+                onSelectionChanged: auth.isBusy ? null : _changeMethod,
+              ),
+            Gap.h24,
+            AnimatedSwitcher(
+              duration: AppMotion.standard,
+              switchInCurve: AppMotion.enter,
+              switchOutCurve: AppMotion.exit,
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                alignment: Alignment.topCenter,
+                children: [...previousChildren, ?currentChild],
+              ),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SizeTransition(
+                  sizeFactor: animation,
+                  axisAlignment: -1,
+                  child: child,
+                ),
+              ),
+              child: _method == _LoginMethod.phone
+                  ? _phoneForm(auth)
+                  : _passwordForm(auth),
+            ),
+            Gap.h24,
+            Row(
+              children: [
+                Expanded(child: Divider(color: scheme.outlineVariant)),
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpace.md,
+                    ),
+                    child: Text(
+                      'NEW TO TENANT PORTAL?',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider(color: scheme.outlineVariant)),
+              ],
+            ),
+            Gap.h16,
+            OutlinedButton.icon(
+              onPressed: auth.isBusy
+                  ? null
+                  : () => context.pushNamed(Routes.register),
+              icon: const Icon(Icons.person_add_alt_1_outlined, size: 19),
+              label: const Text('Create an account'),
+            ),
+            Gap.h16,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 15,
+                  color: scheme.onSurfaceVariant,
+                ),
+                Gap.w4,
+                Flexible(
+                  child: Text(
+                    'Your details are encrypted and kept private.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _phoneTab(AuthState auth) {
+  Widget _phoneForm(AuthState auth) {
     return Form(
       key: _phoneFormKey,
       child: Column(
+        key: const ValueKey(_LoginMethod.phone),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextFormField(
             controller: _phoneController,
+            enabled: !auth.isBusy,
             keyboardType: TextInputType.phone,
             textInputAction: TextInputAction.done,
             autofillHints: const [AutofillHints.telephoneNumber],
@@ -131,15 +223,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ),
           Gap.h8,
           Text(
-            'We will send you a one-time code to confirm it is you.',
+            'We will text you a one-time code. Standard messaging rates may apply.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           Gap.h24,
           AsyncButton(
-            label: 'Send code',
+            label: 'Continue securely',
+            loadingLabel: 'Sending your code',
             icon: Icons.arrow_forward_rounded,
+            expand: true,
             enabled: !auth.isBusy,
             onPressed: _sendCode,
           ),
@@ -148,16 +242,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  Widget _passwordTab(AuthState auth) {
+  Widget _passwordForm(AuthState auth) {
     return Form(
       key: _passwordFormKey,
       child: Column(
+        key: const ValueKey(_LoginMethod.email),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextFormField(
             controller: _emailController,
+            enabled: !auth.isBusy,
             keyboardType: TextInputType.emailAddress,
-            autofillHints: const [AutofillHints.email],
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.username, AutofillHints.email],
+            autocorrect: false,
             decoration: const InputDecoration(
               labelText: 'Email address',
               prefixIcon: Icon(Icons.mail_outline_rounded),
@@ -169,12 +267,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           Gap.h12,
           TextFormField(
             controller: _passwordController,
+            enabled: !auth.isBusy,
             obscureText: _obscurePassword,
+            textInputAction: TextInputAction.done,
             autofillHints: const [AutofillHints.password],
             decoration: InputDecoration(
               labelText: 'Password',
               prefixIcon: const Icon(Icons.lock_outline_rounded),
               suffixIcon: IconButton(
+                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                 icon: Icon(
                   _obscurePassword
                       ? Icons.visibility_outlined
@@ -191,18 +292,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () => context.pushNamed(Routes.forgotPassword),
+              onPressed: auth.isBusy
+                  ? null
+                  : () => context.pushNamed(Routes.forgotPassword),
               child: const Text('Forgot password?'),
             ),
           ),
           Gap.h8,
           AsyncButton(
             label: 'Sign in',
+            loadingLabel: 'Signing you in',
+            icon: Icons.login_rounded,
+            expand: true,
             enabled: !auth.isBusy,
             onPressed: _signIn,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AccessibleMethodButton extends StatelessWidget {
+  const _AccessibleMethodButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Text(label, textAlign: TextAlign.center);
+    return Semantics(
+      selected: selected,
+      child: selected
+          ? FilledButton.tonalIcon(
+              onPressed: onPressed,
+              icon: Icon(icon),
+              label: child,
+            )
+          : OutlinedButton.icon(
+              onPressed: onPressed,
+              icon: Icon(icon),
+              label: child,
+            ),
     );
   }
 }

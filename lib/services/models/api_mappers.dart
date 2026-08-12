@@ -173,9 +173,7 @@ Unit unitFromJson(Json json) {
 UnitRequirement unitRequirementFromJson(Json json) => UnitRequirement(
   id: _str(json['id']),
   unitId: _str(json['unitId']),
-  requirementType: RequirementType.fromApi(
-    _strOrNull(json['requirementType']),
-  ),
+  requirementType: RequirementType.fromApi(_strOrNull(json['requirementType'])),
   name: _str(json['name']),
   description: _strOrNull(json['description']),
   isMandatory: _bool(json['isMandatory']),
@@ -251,9 +249,7 @@ Booking bookingFromJson(Json json) {
 
 BookingRequirement bookingRequirementFromJson(Json json) => BookingRequirement(
   id: _str(json['id']),
-  requirementType: RequirementType.fromApi(
-    _strOrNull(json['requirementType']),
-  ),
+  requirementType: RequirementType.fromApi(_strOrNull(json['requirementType'])),
   name: _str(json['name']),
   description: _strOrNull(json['description']),
   isMandatory: _bool(json['isMandatory']),
@@ -401,9 +397,9 @@ Invoice invoiceFromJson(Json json) {
     amountDue: _money(json, 'amountDue', currency),
     currency: currency,
     status: InvoiceStatus.fromApi(_strOrNull(json['status'])),
-    lines: _list(json['lines'])
-        .map((l) => invoiceLineFromJson(l, currency))
-        .toList(growable: false),
+    lines: _list(
+      json['lines'],
+    ).map((l) => invoiceLineFromJson(l, currency)).toList(growable: false),
     documentId: _strOrNull(json['documentId']),
   );
 }
@@ -589,6 +585,7 @@ DashboardSummary dashboardFromJson(Json json) {
     currency: currency,
     propertyId: _strOrNull(json['propertyId']),
     propertyName: _strOrNull(json['propertyName']),
+    propertyImageUrl: _strOrNull(json['propertyImageUrl']),
     unitId: _strOrNull(json['unitId']),
     unitNumber: _strOrNull(json['unitNumber']),
     leaseId: _strOrNull(json['leaseId']),

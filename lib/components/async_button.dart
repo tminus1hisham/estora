@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
+
 /// A primary button that shows a spinner while its action runs and refuses to
 /// fire again until that action settles.
 ///
@@ -13,6 +15,8 @@ class AsyncButton extends StatefulWidget {
     this.icon,
     this.enabled = true,
     this.tonal = false,
+    this.expand = false,
+    this.loadingLabel,
     super.key,
   });
 
@@ -25,6 +29,8 @@ class AsyncButton extends StatefulWidget {
 
   final bool enabled;
   final bool tonal;
+  final bool expand;
+  final String? loadingLabel;
 
   @override
   State<AsyncButton> createState() => _AsyncButtonState();
@@ -47,31 +53,57 @@ class _AsyncButtonState extends State<AsyncButton> {
   Widget build(BuildContext context) {
     final disabled = !widget.enabled || widget.onPressed == null || _busy;
 
-    final child = _busy
-        ? const SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          )
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.icon != null) ...[
-                Icon(widget.icon, size: 20),
-                const SizedBox(width: 8),
+    final child = AnimatedSwitcher(
+      duration: AppMotion.fast,
+      switchInCurve: AppMotion.enter,
+      switchOutCurve: AppMotion.exit,
+      child: _busy
+          ? const SizedBox(
+              key: ValueKey('busy'),
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.2),
+            )
+          : Row(
+              key: const ValueKey('label'),
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, size: 19),
+                  Gap.w8,
+                ],
+                Flexible(
+                  child: Text(
+                    widget.label,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
               ],
-              Flexible(
-                child: Text(widget.label, overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          );
+            ),
+    );
 
+    final Widget button;
     if (widget.tonal) {
-      return FilledButton.tonal(
+      button = FilledButton.tonal(
         onPressed: disabled ? null : _run,
         child: child,
       );
+    } else {
+      button = FilledButton(onPressed: disabled ? null : _run, child: child);
     }
-    return FilledButton(onPressed: disabled ? null : _run, child: child);
+
+    return Semantics(
+      button: true,
+      enabled: !disabled,
+      label: _busy
+          ? (widget.loadingLabel ?? '${widget.label}, in progress')
+          : null,
+      child: SizedBox(
+        width: widget.expand ? double.infinity : null,
+        child: button,
+      ),
+    );
   }
 }

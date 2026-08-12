@@ -32,9 +32,7 @@ class BookingStatusScreen extends ConsumerWidget {
     final booking = ref.watch(bookingDetailProvider(bookingId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(booking.value?.bookingReference ?? 'Booking'),
-      ),
+      appBar: AppBar(title: Text(booking.value?.bookingReference ?? 'Booking')),
       body: switch (booking) {
         AsyncLoading() when !booking.hasValue => const LoadingView(),
         AsyncError(:final error) => ErrorView(
@@ -55,29 +53,35 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return RefreshIndicator(
-      onRefresh: () async =>
-          ref.invalidate(bookingDetailProvider(booking.id)),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-        children: [
-          _HeaderCard(booking: booking),
-          Gap.h12,
-          _ProgressCard(booking: booking),
-          Gap.h12,
-          _TermsCard(booking: booking),
-          if (booking.requirements.isNotEmpty) ...[
-            Gap.h12,
-            _RequirementsCard(booking: booking),
-          ],
-          if (!booking.status.isTerminal) ...[
-            Gap.h24,
-            OutlinedButton.icon(
-              onPressed: () => _confirmCancel(context, ref),
-              icon: const Icon(Icons.close_rounded),
-              label: const Text('Cancel this booking'),
-            ),
-          ],
-        ],
+      onRefresh: () async => ref.invalidate(bookingDetailProvider(booking.id)),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
+            children: [
+              _NextActionBanner(booking: booking),
+              Gap.h12,
+              _HeaderCard(booking: booking),
+              Gap.h12,
+              _ProgressCard(booking: booking),
+              Gap.h12,
+              _TermsCard(booking: booking),
+              if (booking.requirements.isNotEmpty) ...[
+                Gap.h12,
+                _RequirementsCard(booking: booking),
+              ],
+              if (!booking.status.isTerminal) ...[
+                Gap.h24,
+                OutlinedButton.icon(
+                  onPressed: () => _confirmCancel(context, ref),
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('Cancel this booking'),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -113,10 +117,106 @@ class _Body extends ConsumerWidget {
 
     if (!context.mounted) return;
     if (result.isErr) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.failureOrNull!.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.failureOrNull!.message)));
     }
+  }
+}
+
+class _NextActionBanner extends StatelessWidget {
+  const _NextActionBanner({required this.booking});
+
+  final Booking booking;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (icon, eyebrow, title, message) = switch (booking.status) {
+      BookingStatus.pendingPayment || BookingStatus.paymentPending => (
+        Icons.payments_outlined,
+        'NEXT STEP',
+        'Pay the booking fee',
+        'Payment activates the hold and starts your completion window.',
+      ),
+      BookingStatus.active when !booking.allMandatoryRequirementsSatisfied => (
+        Icons.fact_check_outlined,
+        'ACTION REQUIRED',
+        'Complete your requirements',
+        '${booking.satisfiedRequirementCount} of ${booking.mandatoryRequirementCount} mandatory items are complete.',
+      ),
+      BookingStatus.active => (
+        Icons.hourglass_top_rounded,
+        'IN REVIEW',
+        'Your booking is on track',
+        'Your completed requirements are being prepared for the lease.',
+      ),
+      BookingStatus.convertedToLease => (
+        Icons.description_outlined,
+        'COMPLETE',
+        'Your lease is ready',
+        'Continue to your lease to review the final agreement.',
+      ),
+      _ => (
+        Icons.event_note_outlined,
+        'BOOKING UPDATE',
+        booking.status.label,
+        'This booking is kept in your history for your records.',
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(Gap.lg),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: scheme.primary,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: scheme.onPrimary),
+          ),
+          Gap.w12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  eyebrow,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                Gap.h4,
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Gap.h4,
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -133,31 +233,30 @@ class _HeaderCard extends ConsumerWidget {
 
     return SectionCard(
       children: [
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: Gap.md,
+          runSpacing: Gap.sm,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Unit ${booking.unitNumber ?? '—'}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Unit ${booking.unitNumber ?? '—'}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  booking.propertyName ?? '',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
-                  Text(
-                    booking.propertyName ?? '',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-            StatusChip(
-              label: booking.status.label,
-              tone: booking.status.tone,
-            ),
+            StatusChip(label: booking.status.label, tone: booking.status.tone),
           ],
         ),
         Gap.h12,
@@ -245,11 +344,7 @@ class _ProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final steps = <(String, bool, String?)>[
-      (
-        'Booking created',
-        true,
-        AppDate.short(booking.createdAt),
-      ),
+      ('Booking created', true, AppDate.short(booking.createdAt)),
       (
         'Booking fee paid',
         !booking.status.awaitsBookingFee,
@@ -280,37 +375,46 @@ class _ProgressCard extends StatelessWidget {
           ),
         if (booking.leaseId != null) ...[
           Gap.h12,
-          FilledButton.icon(
-            onPressed: () => context.pushNamed(
-              Routes.leaseDetail,
-              pathParameters: {'leaseId': booking.leaseId!},
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => context.pushNamed(
+                Routes.leaseDetail,
+                pathParameters: {'leaseId': booking.leaseId!},
+              ),
+              icon: const Icon(Icons.description_outlined),
+              label: const Text('View your lease'),
             ),
-            icon: const Icon(Icons.description_outlined),
-            label: const Text('View your lease'),
           ),
         ],
         if (booking.status.awaitsBookingFee &&
             booking.bookingFeeInvoiceId != null) ...[
           Gap.h12,
-          FilledButton.icon(
-            onPressed: () => context.pushNamed(
-              Routes.payment,
-              pathParameters: {'invoiceId': booking.bookingFeeInvoiceId!},
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => context.pushNamed(
+                Routes.payment,
+                pathParameters: {'invoiceId': booking.bookingFeeInvoiceId!},
+              ),
+              icon: const Icon(Icons.payments_outlined),
+              label: const Text('Pay the booking fee'),
             ),
-            icon: const Icon(Icons.payments_outlined),
-            label: const Text('Pay the booking fee'),
           ),
         ],
         if (booking.status == BookingStatus.active &&
             booking.depositInvoiceId != null) ...[
           Gap.h12,
-          FilledButton.tonalIcon(
-            onPressed: () => context.pushNamed(
-              Routes.payment,
-              pathParameters: {'invoiceId': booking.depositInvoiceId!},
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: () => context.pushNamed(
+                Routes.payment,
+                pathParameters: {'invoiceId': booking.depositInvoiceId!},
+              ),
+              icon: const Icon(Icons.savings_outlined),
+              label: const Text('Pay the deposit'),
             ),
-            icon: const Icon(Icons.savings_outlined),
-            label: const Text('Pay the deposit'),
           ),
         ],
       ],
@@ -354,8 +458,7 @@ class _Step extends StatelessWidget {
                     ? Icon(Icons.check, size: 14, color: scheme.onPrimary)
                     : null,
               ),
-              if (!isLast)
-                Expanded(child: Container(width: 2, color: color)),
+              if (!isLast) Expanded(child: Container(width: 2, color: color)),
             ],
           ),
           Gap.w12,
@@ -486,80 +589,102 @@ class _RequirementsCardState extends ConsumerState<_RequirementsCard> {
       title: 'Requirements',
       trailing: Text(
         '${booking.satisfiedRequirementCount}/${booking.requirements.length}',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: scheme.onSurfaceVariant,
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
       ),
       children: [
         for (final requirement in booking.requirements)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  requirement.isSatisfied
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  size: 20,
-                  color: requirement.isSatisfied
-                      ? context.statusColors.positive
-                      : scheme.outline,
-                ),
-                Gap.w12,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        requirement.isMandatory
-                            ? requirement.name
-                            : '${requirement.name} (optional)',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      requirement.isSatisfied
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      size: 20,
+                      color: requirement.isSatisfied
+                          ? context.statusColors.positive
+                          : scheme.outline,
+                    ),
+                    Gap.w12,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            requirement.isMandatory
+                                ? requirement.name
+                                : '${requirement.name} (optional)',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          if (requirement.description != null)
+                            Text(
+                              requirement.description!,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                          if (requirement.isSatisfied &&
+                              requirement.satisfiedAt != null)
+                            Text(
+                              'Submitted ${AppDate.short(requirement.satisfiedAt!)}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: context.statusColors.positive,
+                                  ),
+                            ),
+                        ],
                       ),
-                      if (requirement.description != null)
-                        Text(
-                          requirement.description!,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      if (requirement.isSatisfied &&
-                          requirement.satisfiedAt != null)
-                        Text(
-                          'Submitted ${AppDate.short(requirement.satisfiedAt!)}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: context.statusColors.positive),
-                        ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 if (!requirement.isSatisfied &&
-                    requirement.requirementType == RequirementType.document)
-                  _uploadingId == requirement.id
-                      ? const Padding(
-                          padding: EdgeInsets.all(Gap.sm),
-                          child: SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                    requirement.requirementType ==
+                        RequirementType.document) ...[
+                  Gap.h8,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _uploadingId == requirement.id
+                        ? const Padding(
+                            padding: EdgeInsets.all(Gap.sm),
+                            child: SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : TextButton.icon(
+                            onPressed: () => _submit(requirement),
+                            icon: const Icon(Icons.upload_file_outlined),
+                            label: const Text('Upload'),
                           ),
-                        )
-                      : TextButton(
-                          onPressed: () => _submit(requirement),
-                          child: const Text('Upload'),
-                        ),
+                  ),
+                ],
                 // Payment requirements are met by paying the deposit invoice,
                 // not by uploading anything.
                 if (!requirement.isSatisfied &&
                     requirement.requirementType == RequirementType.payment &&
-                    booking.depositInvoiceId != null)
-                  TextButton(
-                    onPressed: () => context.pushNamed(
-                      Routes.payment,
-                      pathParameters: {'invoiceId': booking.depositInvoiceId!},
+                    booking.depositInvoiceId != null) ...[
+                  Gap.h8,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => context.pushNamed(
+                        Routes.payment,
+                        pathParameters: {
+                          'invoiceId': booking.depositInvoiceId!,
+                        },
+                      ),
+                      icon: const Icon(Icons.payments_outlined),
+                      label: const Text('Pay'),
                     ),
-                    child: const Text('Pay'),
                   ),
+                ],
               ],
             ),
           ),

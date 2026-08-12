@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_media.dart';
+import '../../../components/app_surface_card.dart';
 import '../../../components/money_text.dart';
+import '../../../components/page_header.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
@@ -22,8 +25,12 @@ class AvailableUnitsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final units = ref.watch(unitListProvider);
-    final filter = ref.watch(unitFilterProvider);
+    final units = ref.watch(unitListProvider(propertyId));
+    final filter = ref.watch(unitFilterProvider(propertyId));
+    final property = ref
+        .watch(propertyDetailProvider(propertyId))
+        .value
+        ?.property;
 
     return Scaffold(
       appBar: AppBar(
@@ -42,8 +49,19 @@ class AvailableUnitsScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.md),
+            child: PageHeader(
+              eyebrow: property?.name,
+              title: 'Spaces ready for you',
+              subtitle: units.hasValue
+                  ? '${units.requireValue.length} spaces match your preferences.'
+                  : 'Compare rent, location and lease requirements.',
+              compact: true,
+            ),
+          ),
           if (filter.hasActiveFilters || !filter.availableOnly)
-            _ActiveFilterBar(filter: filter),
+            _ActiveFilterBar(filter: filter, propertyId: propertyId),
           Expanded(
             child: switch (units) {
               AsyncLoading() when !units.hasValue => const LoadingView(),
@@ -51,9 +69,9 @@ class AvailableUnitsScreen extends ConsumerWidget {
                 failure: error is Failure
                     ? error
                     : UnknownFailure(error.toString()),
-                onRetry: () => ref.invalidate(unitListProvider),
+                onRetry: () => ref.invalidate(unitListProvider(propertyId)),
               ),
-              _ => _UnitList(units: units.requireValue),
+              _ => _UnitList(units: units.requireValue, propertyId: propertyId),
             },
           ),
         ],
@@ -72,9 +90,10 @@ class AvailableUnitsScreen extends ConsumerWidget {
 }
 
 class _ActiveFilterBar extends ConsumerWidget {
-  const _ActiveFilterBar({required this.filter});
+  const _ActiveFilterBar({required this.filter, required this.propertyId});
 
   final UnitFilter filter;
+  final String propertyId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,7 +110,8 @@ class _ActiveFilterBar extends ConsumerWidget {
             ),
           ),
           TextButton(
-            onPressed: () => ref.read(unitFilterProvider.notifier).clear(),
+            onPressed: () =>
+                ref.read(unitFilterProvider(propertyId).notifier).clear(),
             child: const Text('Clear'),
           ),
         ],
@@ -101,9 +121,10 @@ class _ActiveFilterBar extends ConsumerWidget {
 }
 
 class _UnitList extends ConsumerWidget {
-  const _UnitList({required this.units});
+  const _UnitList({required this.units, required this.propertyId});
 
   final List<Unit> units;
+  final String propertyId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -115,14 +136,15 @@ class _UnitList extends ConsumerWidget {
             'Nothing is available with these filters right now. Try widening '
             'them, or check back — units are released as bookings expire.',
         action: OutlinedButton(
-          onPressed: () => ref.read(unitFilterProvider.notifier).clear(),
+          onPressed: () =>
+              ref.read(unitFilterProvider(propertyId).notifier).clear(),
           child: const Text('Clear filters'),
         ),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(unitListProvider),
+      onRefresh: () async => ref.invalidate(unitListProvider(propertyId)),
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
         itemCount: units.length,
@@ -143,131 +165,153 @@ class UnitCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Card(
-      child: InkWell(
-        onTap: () => context.pushNamed(
-          Routes.unitDetail,
-          pathParameters: {'unitId': unit.id},
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(Gap.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    height: 44,
-                    width: 44,
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.storefront_outlined,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Gap.w12,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          unit.unitNumber,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        Text(
-                          unit.locationLabel,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  StatusChip(
+    final media = unit.imageUrls.isEmpty ? null : unit.imageUrls.first;
+
+    return AppSurfaceCard(
+      padding: EdgeInsets.zero,
+      elevation: AppElevation.low,
+      semanticLabel: '${unit.unitNumber}, ${unit.status.label}',
+      onTap: () => context.pushNamed(
+        Routes.unitDetail,
+        pathParameters: {'unitId': unit.id},
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppMedia(
+            source: media,
+            aspectRatio: 16 / 7.5,
+            heroTag: 'unit-${unit.id}',
+            semanticLabel: '${unit.unitNumber} interior',
+            fallbackIcon: Icons.storefront_outlined,
+            overlay: Stack(
+              children: [
+                Positioned(
+                  top: Gap.md,
+                  right: Gap.md,
+                  child: StatusChip(
                     label: unit.status.label,
                     tone: unit.status.tone,
                     dense: true,
                   ),
-                ],
-              ),
-              Gap.h12,
-              Row(
-                children: [
-                  if (unit.dimensionsLabel != null) ...[
-                    _Fact(
-                      icon: Icons.straighten_rounded,
-                      label: unit.dimensionsLabel!,
-                    ),
-                    Gap.w16,
-                  ],
-                  if (unit.areaLabel != null)
-                    _Fact(
-                      icon: Icons.square_foot_rounded,
-                      label: unit.areaLabel!,
-                    ),
-                ],
-              ),
-              Gap.h12,
-              const Divider(height: 1),
-              Gap.h12,
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Rent',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                        // Flexible on both: a Row hands its non-flex children
-                        // unbounded width, so an amount long enough to exceed
-                        // the card would overflow rather than ellipsize.
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Flexible(child: MoneyText(unit.baseRent)),
-                            Gap.w4,
-                            Flexible(
-                              child: Text(
-                                unit.billingFrequency.perPeriod,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: scheme.onSurfaceVariant),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (unit.depositMonths != null)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Deposit',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                        Text(
-                          '${unit.depositMonths} months',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.all(Gap.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            unit.unitNumber,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Gap.h4,
+                          Text(
+                            unit.locationLabel,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Gap.w12,
+                    Icon(
+                      Icons.arrow_outward_rounded,
+                      size: 20,
+                      color: scheme.primary,
+                    ),
+                  ],
+                ),
+                Gap.h16,
+                Wrap(
+                  spacing: Gap.lg,
+                  runSpacing: Gap.sm,
+                  children: [
+                    if (unit.dimensionsLabel != null)
+                      _Fact(
+                        icon: Icons.straighten_rounded,
+                        label: unit.dimensionsLabel!,
+                      ),
+                    if (unit.areaLabel != null)
+                      _Fact(
+                        icon: Icons.square_foot_rounded,
+                        label: unit.areaLabel!,
+                      ),
+                    if (unit.depositMonths != null)
+                      _Fact(
+                        icon: Icons.savings_outlined,
+                        label: '${unit.depositMonths} month deposit',
+                      ),
+                  ],
+                ),
+                Gap.h12,
+                const Divider(height: 1),
+                Gap.h12,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rent',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                          // Flexible on both: a Row hands its non-flex children
+                          // unbounded width, so an amount long enough to exceed
+                          // the card would overflow rather than ellipsize.
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Flexible(child: MoneyText(unit.baseRent)),
+                              Gap.w4,
+                              Flexible(
+                                child: Text(
+                                  unit.billingFrequency.perPeriod,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer,
+                        borderRadius: AppRadius.small,
+                      ),
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 18,
+                        color: scheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -306,10 +350,11 @@ class _FilterSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final filter = ref.watch(unitFilterProvider);
+    final filter = ref.watch(unitFilterProvider(propertyId));
     final detail = ref.watch(propertyDetailProvider(propertyId)).value;
-    final unitTypes = ref.watch(unitTypesProvider(propertyId)).value ?? const [];
-    final notifier = ref.read(unitFilterProvider.notifier);
+    final unitTypes =
+        ref.watch(unitTypesProvider(propertyId)).value ?? const [];
+    final notifier = ref.read(unitFilterProvider(propertyId).notifier);
 
     return SafeArea(
       child: Padding(
