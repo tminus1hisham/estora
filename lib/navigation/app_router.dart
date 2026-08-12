@@ -33,6 +33,7 @@ import '../modules/properties/presentation/property_detail_screen.dart';
 import '../modules/units/presentation/available_units_screen.dart';
 import '../modules/units/presentation/unit_detail_screen.dart';
 import 'app_shell.dart';
+import 'page_transitions.dart';
 import 'routes.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -82,27 +83,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.splashPath,
         name: Routes.splash,
-        builder: (_, _) => const SplashScreen(),
+        pageBuilder: (_, state) =>
+            fadePage(state: state, child: const SplashScreen()),
       ),
       GoRoute(
         path: Routes.loginPath,
         name: Routes.login,
-        builder: (_, _) => const LoginScreen(),
+        pageBuilder: (_, state) =>
+            fadePage(state: state, child: const LoginScreen()),
       ),
       GoRoute(
         path: Routes.registerPath,
         name: Routes.register,
-        builder: (_, _) => const RegisterScreen(),
+        pageBuilder: (_, state) =>
+            fadePage(state: state, child: const RegisterScreen()),
       ),
       GoRoute(
         path: Routes.otpPath,
         name: Routes.otp,
-        builder: (_, _) => const OtpScreen(),
+        pageBuilder: (_, state) =>
+            fadePage(state: state, child: const OtpScreen()),
       ),
       GoRoute(
         path: Routes.forgotPasswordPath,
         name: Routes.forgotPassword,
-        builder: (_, _) => const ForgotPasswordScreen(),
+        pageBuilder: (_, state) =>
+            fadePage(state: state, child: const ForgotPasswordScreen()),
       ),
 
       // -- Main shell (section 45) ------------------------------------------
@@ -121,13 +127,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.notificationsPath,
                     name: Routes.notifications,
-                    builder: (_, _) => const NotificationsScreen(),
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const NotificationsScreen(),
+                    ),
                   ),
                   GoRoute(
                     path: Routes.currentPropertyPath,
                     name: Routes.currentProperty,
-                    builder: (_, state) => LeaseDetailScreen(
-                      leaseId: state.pathParameters['leaseId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: LeaseDetailScreen(
+                        leaseId: state.pathParameters['leaseId']!,
+                      ),
                     ),
                   ),
                 ],
@@ -146,22 +158,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.propertyDetailPath,
                     name: Routes.propertyDetail,
-                    builder: (_, state) => PropertyDetailScreen(
-                      propertyId: state.pathParameters['propertyId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: PropertyDetailScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: Routes.availableUnitsPath,
                     name: Routes.availableUnits,
-                    builder: (_, state) => AvailableUnitsScreen(
-                      propertyId: state.pathParameters['propertyId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: AvailableUnitsScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: Routes.unitDetailPath,
                     name: Routes.unitDetail,
-                    builder: (_, state) => UnitDetailScreen(
-                      unitId: state.pathParameters['unitId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: UnitDetailScreen(
+                        unitId: state.pathParameters['unitId']!,
+                      ),
                     ),
                   ),
                   GoRoute(
@@ -171,15 +192,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     // action bar. Present it above the shell so the tab bar
                     // cannot compete with that action.
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, state) =>
-                        BookingScreen(unitId: state.pathParameters['unitId']!),
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: BookingScreen(
+                        unitId: state.pathParameters['unitId']!,
+                      ),
+                    ),
                   ),
                   GoRoute(
                     path: Routes.bookingStatusPath,
                     name: Routes.bookingStatus,
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, state) => BookingStatusScreen(
-                      bookingId: state.pathParameters['bookingId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: BookingStatusScreen(
+                        bookingId: state.pathParameters['bookingId']!,
+                      ),
                     ),
                   ),
                 ],
@@ -198,24 +226,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.leaseDetailPath,
                     name: Routes.leaseDetail,
-                    builder: (_, state) => LeaseDetailScreen(
-                      leaseId: state.pathParameters['leaseId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: LeaseDetailScreen(
+                        leaseId: state.pathParameters['leaseId']!,
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: Routes.leaseAgreementPath,
                     name: Routes.leaseAgreement,
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, state) => LeaseAgreementScreen(
-                      leaseId: state.pathParameters['leaseId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: LeaseAgreementScreen(
+                        leaseId: state.pathParameters['leaseId']!,
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: Routes.signAgreementPath,
                     name: Routes.signAgreement,
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, state) => SignAgreementScreen(
-                      leaseId: state.pathParameters['leaseId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: SignAgreementScreen(
+                        leaseId: state.pathParameters['leaseId']!,
+                      ),
                     ),
                   ),
                 ],
@@ -235,36 +272,48 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     path: Routes.paymentStatusPath,
                     name: Routes.paymentStatus,
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, state) => PaymentStatusScreen(
-                      paymentId: state.pathParameters['paymentId']!,
-                      // Passed through from the payment screen so the provider
-                      // instruction is on screen before the first poll returns.
-                      intent: state.extra is PaymentIntent
-                          ? state.extra! as PaymentIntent
-                          : null,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: PaymentStatusScreen(
+                        paymentId: state.pathParameters['paymentId']!,
+                        // Passed through from the payment screen so the provider
+                        // instruction is on screen before the first poll returns.
+                        intent: state.extra is PaymentIntent
+                            ? state.extra! as PaymentIntent
+                            : null,
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: Routes.receiptPath,
                     name: Routes.receipt,
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, state) => ReceiptScreen(
-                      receiptId: state.pathParameters['receiptId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: ReceiptScreen(
+                        receiptId: state.pathParameters['receiptId']!,
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: Routes.invoiceDetailPath,
                     name: Routes.invoiceDetail,
-                    builder: (_, state) => InvoiceDetailScreen(
-                      invoiceId: state.pathParameters['invoiceId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: InvoiceDetailScreen(
+                        invoiceId: state.pathParameters['invoiceId']!,
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: Routes.paymentPath,
                     name: Routes.payment,
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, state) => PaymentScreen(
-                      invoiceId: state.pathParameters['invoiceId']!,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: PaymentScreen(
+                        invoiceId: state.pathParameters['invoiceId']!,
+                      ),
                     ),
                   ),
                 ],
@@ -283,27 +332,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: Routes.editProfilePath,
                     name: Routes.editProfile,
-                    builder: (_, _) => const EditProfileScreen(),
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const EditProfileScreen(),
+                    ),
                   ),
                   GoRoute(
                     path: Routes.paymentHistoryPath,
                     name: Routes.paymentHistory,
-                    builder: (_, _) => const PaymentHistoryScreen(),
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const PaymentHistoryScreen(),
+                    ),
                   ),
                   GoRoute(
                     path: Routes.documentsPath,
                     name: Routes.documents,
-                    builder: (_, _) => const DocumentsScreen(),
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const DocumentsScreen(),
+                    ),
                   ),
                   GoRoute(
                     path: Routes.bookingsPath,
                     name: Routes.bookings,
-                    builder: (_, _) => const BookingsScreen(),
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const BookingsScreen(),
+                    ),
                   ),
                   GoRoute(
                     path: Routes.settingsPath,
                     name: Routes.settings,
-                    builder: (_, _) => const SettingsScreen(),
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const SettingsScreen(),
+                    ),
                   ),
                 ],
               ),
