@@ -69,6 +69,14 @@ dependencies:
   # Idempotency keys (spec section 66) and mock identifiers.
   uuid: ^4.6.0
 
+  # Entrance and state-change animation.
+  #
+  # Every animation in this app must be one-shot. A repeating animation never
+  # lets the widget tree go idle, so `pumpAndSettle` in the widget tests would
+  # block until it times out. The one exception is AppSkeleton's shimmer, which
+  # is always replaced by real content before a test asserts anything.
+  flutter_animate: ^4.5.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

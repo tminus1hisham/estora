@@ -79,6 +79,37 @@ class AppElevation {
       offset: const Offset(0, 12),
     ),
   ];
+
+  /// A two-layer shadow: a tight contact shadow that anchors the surface to
+  /// what is behind it, and a wide ambient one that gives it room.
+  ///
+  /// A single blur reads as a smudge at the sizes this app uses; the pair is
+  /// what makes a raised surface look lit rather than merely offset. [level]
+  /// runs 1–3 and scales both layers together.
+  ///
+  /// Dark surfaces need a denser shadow to register at all against a dark
+  /// background, so [brightness] scales the alpha rather than the geometry.
+  static List<BoxShadow> lifted(
+    Color shadow, {
+    int level = 1,
+    Brightness brightness = Brightness.light,
+  }) {
+    final depth = level.clamp(1, 3);
+    final density = brightness == Brightness.dark ? 2.1 : 1.0;
+
+    return [
+      BoxShadow(
+        color: shadow.withValues(alpha: 0.05 * density),
+        blurRadius: 2.0 * depth,
+        offset: Offset(0, 1.0 * depth),
+      ),
+      BoxShadow(
+        color: shadow.withValues(alpha: 0.06 * density),
+        blurRadius: 12.0 * depth,
+        offset: Offset(0, 4.0 * depth),
+      ),
+    ];
+  }
 }
 
 /// Shared durations and curves keep state changes calm and predictable.
@@ -93,6 +124,19 @@ class AppMotion {
   static const Curve enter = Curves.easeOutCubic;
   static const Curve exit = Curves.easeInCubic;
   static const Curve emphasized = Curves.easeInOutCubicEmphasized;
+
+  /// How far a surface travels while fading in. Small on purpose: the eye
+  /// reads the fade, and a long slide just makes the screen feel slow.
+  static const double enterOffset = 12;
+
+  /// The delay before the item at [index] enters.
+  ///
+  /// Capped deliberately. Un-capped stagger means the last card of a long list
+  /// waits on every card above it, so a ten-item list would take most of a
+  /// second to finish arriving; after a few items the effect has landed and
+  /// further delay is just latency.
+  static Duration stagger(int index, {int cap = 6}) =>
+      Duration(milliseconds: 45 * index.clamp(0, cap));
 }
 
 /// Width and sizing constraints for responsive layouts.

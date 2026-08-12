@@ -4,6 +4,7 @@ import 'app_palette.dart';
 import 'app_tokens.dart';
 import 'status_palette.dart';
 
+export 'app_gradients.dart';
 export 'app_palette.dart';
 export 'app_tokens.dart';
 
