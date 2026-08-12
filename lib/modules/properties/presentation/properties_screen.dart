@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../components/app_media.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/page_header.dart';
+import '../../../components/app_reveal.dart';
+import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
@@ -74,7 +76,8 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
           ),
           Expanded(
             child: switch (properties) {
-              AsyncLoading() when !properties.hasValue => const LoadingView(),
+              AsyncLoading() when !properties.hasValue =>
+                const AppSkeletonMediaList(),
               AsyncError(:final error) => ErrorView(
                 failure: error is Failure
                     ? error
@@ -112,8 +115,10 @@ class _PropertyList extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
         itemCount: properties.length,
         separatorBuilder: (_, _) => Gap.h12,
-        itemBuilder: (context, index) =>
-            _PropertyCard(property: properties[index]),
+        itemBuilder: (context, index) => AppReveal(
+          index: index,
+          child: _PropertyCard(property: properties[index]),
+        ),
       ),
     );
   }
@@ -147,15 +152,10 @@ class _PropertyCard extends StatelessWidget {
             fallbackIcon: _iconFor(property),
             overlay: Stack(
               children: [
-                const Positioned.fill(
+                Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0xA6000000)],
-                        stops: [0.48, 1],
-                      ),
+                      gradient: AppGradients.mediaScrim(strength: 0.65),
                     ),
                   ),
                 ),
@@ -168,9 +168,12 @@ class _PropertyCard extends StatelessWidget {
                       vertical: Gap.sm,
                     ),
                     decoration: BoxDecoration(
+                      // Fixed rather than themed: this badge sits on a
+                      // photograph, so it has to hold against the image, not
+                      // against the surface behind the card.
                       color: property.hasAvailability
-                          ? const Color(0xE6122522)
-                          : const Color(0xD94B4B4B),
+                          ? AppPalette.ink900.withValues(alpha: 0.9)
+                          : AppPalette.stone700.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                     child: Row(
@@ -180,7 +183,9 @@ class _PropertyCard extends StatelessWidget {
                           property.hasAvailability
                               ? Icons.check_circle_rounded
                               : Icons.schedule_rounded,
-                          color: Colors.white,
+                          color: property.hasAvailability
+                              ? AppPalette.emerald300
+                              : AppPalette.stone200,
                           size: 15,
                         ),
                         Gap.w8,
@@ -189,7 +194,7 @@ class _PropertyCard extends StatelessWidget {
                               ? '${property.availableUnits} available'
                               : 'Fully let',
                           style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: Colors.white),
+                              ?.copyWith(color: AppPalette.stone0),
                         ),
                       ],
                     ),

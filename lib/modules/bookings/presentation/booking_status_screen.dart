@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/countdown_timer.dart';
 import '../../../components/money_text.dart';
+import '../../../components/app_stepper.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
@@ -343,36 +344,35 @@ class _ProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final steps = <(String, bool, String?)>[
-      ('Booking created', true, AppDate.short(booking.createdAt)),
-      (
-        'Booking fee paid',
-        !booking.status.awaitsBookingFee,
-        booking.status.awaitsBookingFee ? 'Outstanding' : null,
+    final steps = <AppStep>[
+      AppStep(
+        label: 'Booking created',
+        done: true,
+        detail: AppDate.short(booking.createdAt),
       ),
-      (
-        'Requirements submitted',
-        booking.allMandatoryRequirementsSatisfied,
-        '${booking.satisfiedRequirementCount} of '
+      AppStep(
+        label: 'Booking fee paid',
+        done: !booking.status.awaitsBookingFee,
+        detail: booking.status.awaitsBookingFee ? 'Outstanding' : null,
+      ),
+      AppStep(
+        label: 'Requirements submitted',
+        done: booking.allMandatoryRequirementsSatisfied,
+        detail:
+            '${booking.satisfiedRequirementCount} of '
             '${booking.mandatoryRequirementCount} done',
       ),
-      (
-        'Lease generated',
-        booking.leaseId != null,
-        booking.leaseId == null ? 'Once requirements are met' : null,
+      AppStep(
+        label: 'Lease generated',
+        done: booking.leaseId != null,
+        detail: booking.leaseId == null ? 'Once requirements are met' : null,
       ),
     ];
 
     return SectionCard(
       title: 'Progress',
       children: [
-        for (var i = 0; i < steps.length; i++)
-          _Step(
-            label: steps[i].$1,
-            done: steps[i].$2,
-            detail: steps[i].$3,
-            isLast: i == steps.length - 1,
-          ),
+        AppStepper.vertical(steps: steps),
         if (booking.leaseId != null) ...[
           Gap.h12,
           SizedBox(
@@ -418,76 +418,6 @@ class _ProgressCard extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _Step extends StatelessWidget {
-  const _Step({
-    required this.label,
-    required this.done,
-    required this.isLast,
-    this.detail,
-  });
-
-  final String label;
-  final bool done;
-  final String? detail;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = done ? scheme.primary : scheme.outlineVariant;
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                height: 22,
-                width: 22,
-                decoration: BoxDecoration(
-                  color: done ? scheme.primary : Colors.transparent,
-                  border: Border.all(color: color, width: 2),
-                  shape: BoxShape.circle,
-                ),
-                child: done
-                    ? Icon(Icons.check, size: 14, color: scheme.onPrimary)
-                    : null,
-              ),
-              if (!isLast) Expanded(child: Container(width: 2, color: color)),
-            ],
-          ),
-          Gap.w12,
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : Gap.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: done ? FontWeight.w600 : FontWeight.w500,
-                      color: done ? null : scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if (detail != null)
-                    Text(
-                      detail!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

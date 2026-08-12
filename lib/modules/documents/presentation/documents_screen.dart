@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
@@ -61,7 +62,8 @@ class DocumentsScreen extends ConsumerWidget {
           ),
           Expanded(
             child: switch (documents) {
-              AsyncLoading() when !documents.hasValue => const LoadingView(),
+              AsyncLoading() when !documents.hasValue =>
+                const AppSkeletonList(),
               AsyncError(:final error) => ErrorView(
                 failure: error is Failure
                     ? error

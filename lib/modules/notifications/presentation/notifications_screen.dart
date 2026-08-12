@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
@@ -40,7 +41,7 @@ class NotificationsScreen extends ConsumerWidget {
         ],
       ),
       body: switch (notifications) {
-        AsyncLoading() when !notifications.hasValue => const LoadingView(),
+        AsyncLoading() when !notifications.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
           onRetry: () => ref.read(notificationListProvider.notifier).refresh(),

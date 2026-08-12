@@ -6,6 +6,8 @@ import '../../../components/app_media.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/money_text.dart';
 import '../../../components/page_header.dart';
+import '../../../components/app_reveal.dart';
+import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
@@ -64,7 +66,8 @@ class AvailableUnitsScreen extends ConsumerWidget {
             _ActiveFilterBar(filter: filter, propertyId: propertyId),
           Expanded(
             child: switch (units) {
-              AsyncLoading() when !units.hasValue => const LoadingView(),
+              AsyncLoading() when !units.hasValue =>
+                const AppSkeletonMediaList(),
               AsyncError(:final error) => ErrorView(
                 failure: error is Failure
                     ? error
@@ -149,7 +152,10 @@ class _UnitList extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
         itemCount: units.length,
         separatorBuilder: (_, _) => Gap.h12,
-        itemBuilder: (context, index) => UnitCard(unit: units[index]),
+        itemBuilder: (context, index) => AppReveal(
+          index: index,
+          child: UnitCard(unit: units[index]),
+        ),
       ),
     );
   }

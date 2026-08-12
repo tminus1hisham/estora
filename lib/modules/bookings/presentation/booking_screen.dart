@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/app_bottom_action_bar.dart';
+import '../../../components/app_stepper.dart';
 import '../../../components/async_button.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
@@ -131,7 +132,7 @@ class _QuoteBody extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
           children: [
-            const _BookingFlowProgress(),
+            const AppStepper.horizontal(steps: _bookingSteps, currentIndex: 0),
             Gap.h24,
             Text(
               'Secure this unit',
@@ -345,70 +346,8 @@ class _PayableSummary extends StatelessWidget {
   }
 }
 
-class _BookingFlowProgress extends StatelessWidget {
-  const _BookingFlowProgress();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    const steps = <(IconData, String)>[
-      (Icons.receipt_long_outlined, 'Review'),
-      (Icons.payments_outlined, 'Confirm'),
-      (Icons.check_circle_outline_rounded, 'Complete'),
-    ];
-
-    return Semantics(
-      label: 'Booking step 1 of 3: review',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var index = 0; index < steps.length; index++) ...[
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: index == 0
-                          ? scheme.primary
-                          : scheme.surfaceContainerHighest,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      steps[index].$1,
-                      size: 18,
-                      color: index == 0
-                          ? scheme.onPrimary
-                          : scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Gap.h4,
-                  Text(
-                    steps[index].$2,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: index == 0
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant,
-                      fontWeight: index == 0
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (index != steps.length - 1)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Divider(color: scheme.outlineVariant),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-}
+const _bookingSteps = <AppStep>[
+  AppStep(label: 'Review', icon: Icons.receipt_long_outlined),
+  AppStep(label: 'Confirm', icon: Icons.payments_outlined),
+  AppStep(label: 'Complete', icon: Icons.check_circle_outline_rounded),
+];

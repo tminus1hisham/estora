@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/app_bottom_action_bar.dart';
+import '../../../components/app_stepper.dart';
 import '../../../components/async_button.dart';
 import '../../../components/money_text.dart';
 import '../../../components/state_views.dart';
@@ -120,7 +121,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   Gap.xxl,
                 ),
                 children: [
-                  const _PaymentFlowProgress(),
+                  const AppStepper.horizontal(
+                    steps: _paymentSteps,
+                    currentIndex: 0,
+                  ),
                   Gap.h24,
                   Container(
                     padding: const EdgeInsets.all(Gap.xl),
@@ -303,65 +307,8 @@ class _PaymentMethodTile extends StatelessWidget {
   }
 }
 
-class _PaymentFlowProgress extends StatelessWidget {
-  const _PaymentFlowProgress();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    const labels = ['Method', 'Authorise', 'Receipt'];
-
-    return Semantics(
-      label: 'Payment step 1 of 3: choose method',
-      child: Row(
-        children: [
-          for (var index = 0; index < labels.length; index++) ...[
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: index == 0
-                          ? scheme.primary
-                          : scheme.surfaceContainerHighest,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${index + 1}',
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: index == 0
-                                  ? scheme.onPrimary
-                                  : scheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                    ),
-                  ),
-                  Gap.h4,
-                  Text(
-                    labels[index],
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: index == 0
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant,
-                      fontWeight: index == 0
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (index != labels.length - 1)
-              Expanded(child: Divider(color: scheme.outlineVariant)),
-          ],
-        ],
-      ),
-    );
-  }
-}
+const _paymentSteps = <AppStep>[
+  AppStep(label: 'Method'),
+  AppStep(label: 'Authorise'),
+  AppStep(label: 'Receipt'),
+];

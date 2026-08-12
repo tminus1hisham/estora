@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/money_text.dart';
+import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
@@ -29,7 +30,9 @@ class PaymentHistoryScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Payment history')),
       body: switch (payments) {
-        AsyncLoading() when !payments.hasValue => const LoadingView(),
+        AsyncLoading() when !payments.hasValue => const AppSkeletonList(
+          header: true,
+        ),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
           onRetry: () => ref.read(paymentHistoryProvider.notifier).refresh(),
