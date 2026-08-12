@@ -107,7 +107,9 @@ class _Body extends ConsumerWidget {
         Expanded(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.maxReadingWidth,
+              ),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
                   Gap.lg,
@@ -129,7 +131,7 @@ class _Body extends ConsumerWidget {
                           color: Theme.of(
                             context,
                           ).colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: AppRadius.medium,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,7 +143,7 @@ class _Body extends ConsumerWidget {
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: AppTypography.extraBold,
                                     letterSpacing: 0.8,
                                   ),
                             ),

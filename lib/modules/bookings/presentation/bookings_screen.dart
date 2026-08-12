@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/money_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/summary_banner.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
@@ -72,7 +73,9 @@ class _BookingList extends ConsumerWidget {
       onRefresh: () => ref.read(bookingListProvider.notifier).refresh(),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             itemCount: bookings.length + 1,
@@ -104,70 +107,21 @@ class _BookingOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(Gap.lg),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Booking activity',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.onPrimaryContainer,
-            ),
-          ),
-          Gap.h4,
-          Text(
-            needsAction > 0
-                ? '$needsAction ${needsAction == 1 ? 'booking needs' : 'bookings need'} your attention.'
-                : 'Everything is up to date.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: scheme.onPrimaryContainer),
-          ),
-          Gap.h16,
-          Wrap(
-            spacing: Gap.sm,
-            runSpacing: Gap.sm,
-            children: [
-              _CountPill(label: 'Total', value: total),
-              _CountPill(label: 'In progress', value: open),
-              _CountPill(label: 'Needs action', value: needsAction),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CountPill extends StatelessWidget {
-  const _CountPill({required this.label, required this.value});
-
-  final String label;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.sm),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        '$value  $label',
-        style: Theme.of(
-          context,
-        ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-      ),
+    return SummaryBanner(
+      icon: Icons.event_available_outlined,
+      headline: 'Booking activity',
+      caption: needsAction > 0
+          ? '$needsAction ${needsAction == 1 ? 'booking needs' : 'bookings need'} your attention.'
+          : 'Everything is up to date.',
+      counts: [
+        SummaryCount(label: 'Total', value: total),
+        SummaryCount(label: 'In progress', value: open),
+        SummaryCount(
+          label: 'Needs action',
+          value: needsAction,
+          tone: Theme.of(context).colorScheme.error,
+        ),
+      ],
     );
   }
 }
@@ -206,7 +160,7 @@ class _BookingCard extends StatelessWidget {
                         height: 40,
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.small,
                         ),
                         child: Icon(
                           Icons.storefront_outlined,
@@ -220,7 +174,7 @@ class _BookingCard extends StatelessWidget {
                           Text(
                             'Unit ${booking.unitNumber ?? '—'}',
                             style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                                ?.copyWith(fontWeight: AppTypography.bold),
                           ),
                           Text(
                             booking.bookingReference,
@@ -286,7 +240,7 @@ class _BookingCard extends StatelessWidget {
                         color: booking.isExpiringSoon
                             ? scheme.error
                             : scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: AppTypography.semibold,
                       ),
                     ),
                   ],

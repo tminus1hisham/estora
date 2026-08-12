@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/money_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/summary_banner.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
@@ -62,7 +63,9 @@ class _PaymentList extends ConsumerWidget {
       onRefresh: () => ref.read(paymentHistoryProvider.notifier).refresh(),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             itemCount: payments.length + 1,
@@ -84,59 +87,25 @@ class _PaymentOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final successful = payments
         .where((item) => item.status == PaymentStatus.success)
         .length;
     final processing = payments.where((item) => item.isInFlight).length;
 
-    return Container(
-      padding: const EdgeInsets.all(Gap.lg),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: scheme.primary,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              Icons.account_balance_wallet_outlined,
-              color: scheme.onPrimary,
-            ),
-          ),
-          Gap.w12,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Payment activity',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: scheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Gap.h4,
-                Text(
-                  processing > 0
-                      ? '$processing ${processing == 1 ? 'payment is' : 'payments are'} still processing.'
-                      : '$successful successful · ${payments.length} total',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return SummaryBanner(
+      icon: Icons.account_balance_wallet_outlined,
+      headline: 'Payment activity',
+      caption: processing > 0
+          ? '$processing ${processing == 1 ? 'payment is' : 'payments are'} still processing.'
+          : '$successful successful · ${payments.length} total',
+      counts: [
+        SummaryCount(label: 'Successful', value: successful),
+        SummaryCount(
+          label: 'Processing',
+          value: processing,
+          tone: Theme.of(context).colorScheme.tertiary,
+        ),
+      ],
     );
   }
 }
@@ -182,7 +151,7 @@ class _PaymentCard extends StatelessWidget {
                       Text(
                         payment.invoiceNumber ?? payment.paymentReference,
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                            ?.copyWith(fontWeight: AppTypography.bold),
                       ),
                       Text(
                         AppDate.dateTime(payment.paidAt ?? payment.createdAt),

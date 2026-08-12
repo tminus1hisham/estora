@@ -77,7 +77,7 @@ class _Body extends ConsumerWidget {
                   Text(
                     unit.name ?? unit.unitNumber,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: AppTypography.bold,
                     ),
                   ),
                   Gap.h4,
@@ -283,7 +283,9 @@ class _RequirementRow extends StatelessWidget {
                     Flexible(
                       child: Text(
                         requirement.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontWeight: AppTypography.semibold,
+                        ),
                       ),
                     ),
                     if (!requirement.isMandatory) ...[

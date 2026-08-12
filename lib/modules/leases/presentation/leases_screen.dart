@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/money_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/summary_banner.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
@@ -71,7 +72,9 @@ class _LeaseList extends ConsumerWidget {
       onRefresh: () => ref.read(leaseListProvider.notifier).refresh(),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             itemCount: leases.length + 1,
@@ -103,56 +106,25 @@ class _LeaseOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(Gap.lg),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: scheme.primary,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Icon(Icons.description_outlined, color: scheme.onPrimary),
-          ),
-          Gap.w12,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  awaitingSignature > 0
-                      ? 'Your signature is needed'
-                      : current > 0
-                      ? 'Your tenancy is active'
-                      : 'Your lease records',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: scheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Gap.h4,
-                Text(
-                  awaitingSignature > 0
-                      ? '$awaitingSignature ${awaitingSignature == 1 ? 'agreement is' : 'agreements are'} ready to review.'
-                      : '$current current · $total total',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return SummaryBanner(
+      icon: Icons.description_outlined,
+      headline: awaitingSignature > 0
+          ? 'Your signature is needed'
+          : current > 0
+          ? 'Your tenancy is active'
+          : 'Your lease records',
+      caption: awaitingSignature > 0
+          ? '$awaitingSignature ${awaitingSignature == 1 ? 'agreement is' : 'agreements are'} ready to review.'
+          : '$current current · $total total',
+      counts: [
+        SummaryCount(label: 'Current', value: current),
+        SummaryCount(
+          label: 'To sign',
+          value: awaitingSignature,
+          tone: Theme.of(context).colorScheme.tertiary,
+        ),
+        SummaryCount(label: 'Total', value: total),
+      ],
     );
   }
 }
@@ -191,7 +163,7 @@ class _LeaseCard extends StatelessWidget {
                         height: 40,
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.small,
                         ),
                         child: Icon(
                           Icons.key_outlined,
@@ -205,7 +177,7 @@ class _LeaseCard extends StatelessWidget {
                           Text(
                             'Unit ${lease.unitNumber ?? '—'}',
                             style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                                ?.copyWith(fontWeight: AppTypography.bold),
                           ),
                           Text(
                             lease.propertyName ?? '',
@@ -243,7 +215,9 @@ class _LeaseCard extends StatelessWidget {
                       Text(
                         '${AppDate.short(lease.startDate)} – '
                         '${AppDate.short(lease.endDate)}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontWeight: AppTypography.semibold,
+                        ),
                       ),
                     ],
                   ),

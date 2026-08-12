@@ -191,7 +191,9 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                   children: [
                     Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 720),
+                        constraints: const BoxConstraints(
+                          maxWidth: AppLayout.maxReadingWidth,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -201,7 +203,7 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                                 color: scheme.primaryContainer.withValues(
                                   alpha: 0.4,
                                 ),
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: AppRadius.medium,
                               ),
                               child: Row(
                                 children: [
@@ -221,7 +223,7 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                                               .textTheme
                                               .titleSmall
                                               ?.copyWith(
-                                                fontWeight: FontWeight.w700,
+                                                fontWeight: AppTypography.bold,
                                               ),
                                         ),
                                         Text(
@@ -318,7 +320,9 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                   top: false,
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
+                      constraints: const BoxConstraints(
+                        maxWidth: AppLayout.maxReadingWidth,
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -326,7 +330,7 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                           Text(
                             'Step 2 · Add your signature',
                             style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                                ?.copyWith(fontWeight: AppTypography.bold),
                           ),
                           Gap.h8,
                           Row(
@@ -397,7 +401,7 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                                         ),
                                       ),
                                     ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: AppRadius.small,
                                       child: Signature(
                                         controller: _signatureController,
                                         height: 140,

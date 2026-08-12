@@ -128,7 +128,7 @@ class _QuoteBody extends StatelessWidget {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
+        constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
           children: [
@@ -136,9 +136,9 @@ class _QuoteBody extends StatelessWidget {
             Gap.h24,
             Text(
               'Secure this unit',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: AppTypography.bold,
+              ),
             ),
             Gap.h4,
             Text(
@@ -172,7 +172,7 @@ class _QuoteBody extends StatelessWidget {
                   padding: const EdgeInsets.all(Gap.md),
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: AppRadius.small,
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,

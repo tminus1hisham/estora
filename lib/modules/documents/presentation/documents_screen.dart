@@ -100,7 +100,7 @@ class DocumentsScreen extends ConsumerWidget {
                   Text(
                     'What are you uploading?',
                     style: Theme.of(sheetContext).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                        ?.copyWith(fontWeight: AppTypography.bold),
                   ),
                   Gap.h8,
                   Text(
@@ -256,7 +256,7 @@ class _DocumentList extends ConsumerWidget {
             ),
             title: Text(
               document.fileName,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: AppTypography.semibold),
             ),
             subtitle: Text(
               [

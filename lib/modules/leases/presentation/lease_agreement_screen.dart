@@ -81,7 +81,7 @@ class _AgreementBody extends StatelessWidget {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
+        constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.xxl),
           children: [
@@ -89,7 +89,7 @@ class _AgreementBody extends StatelessWidget {
               padding: const EdgeInsets.all(Gap.md),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppRadius.small,
               ),
               child: Row(
                 children: [
@@ -106,7 +106,9 @@ class _AgreementBody extends StatelessWidget {
                         Text(
                           'Version ${agreement.version} · '
                           '${AppDate.short(agreement.generatedAt)}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            fontWeight: AppTypography.semibold,
+                          ),
                         ),
                         Text(
                           agreement.documentHash,
@@ -146,7 +148,7 @@ class _AgreementBody extends StatelessWidget {
                       'COMMERCIAL LEASE AGREEMENT',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: scheme.primary,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: AppTypography.extraBold,
                         letterSpacing: 1,
                       ),
                     ),

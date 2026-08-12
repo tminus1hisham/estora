@@ -38,7 +38,9 @@ class SummaryBanner extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     final accent = tone ?? scheme.primary;
-    final onAccent = tone == null ? scheme.onPrimaryContainer : scheme.onSurface;
+    final onAccent = tone == null
+        ? scheme.onPrimaryContainer
+        : scheme.onSurface;
 
     return Container(
       padding: const EdgeInsets.all(AppSpace.lg),
@@ -94,9 +96,7 @@ class SummaryBanner extends StatelessWidget {
             Wrap(
               spacing: AppSpace.sm,
               runSpacing: AppSpace.sm,
-              children: [
-                for (final count in counts) _CountPill(count: count),
-              ],
+              children: [for (final count in counts) _CountPill(count: count)],
             ),
           ],
         ],

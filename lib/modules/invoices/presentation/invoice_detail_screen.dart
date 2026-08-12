@@ -88,7 +88,9 @@ class _Body extends ConsumerWidget {
       onRefresh: () async => ref.invalidate(invoiceDetailProvider(invoice.id)),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             children: [
@@ -98,7 +100,7 @@ class _Body extends ConsumerWidget {
                   color: invoice.isOverdue
                       ? scheme.errorContainer
                       : scheme.primaryContainer.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: AppRadius.large,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,7 +111,7 @@ class _Body extends ConsumerWidget {
                         color: invoice.isOverdue
                             ? scheme.onErrorContainer
                             : scheme.primary,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: AppTypography.extraBold,
                         letterSpacing: 0.9,
                       ),
                     ),
@@ -150,7 +152,7 @@ class _Body extends ConsumerWidget {
                           Text(
                             invoice.invoiceNumber,
                             style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                                ?.copyWith(fontWeight: AppTypography.bold),
                           ),
                           if (invoice.unitNumber != null)
                             Text(
@@ -238,7 +240,7 @@ class _Body extends ConsumerWidget {
                   padding: const EdgeInsets.all(Gap.lg),
                   decoration: BoxDecoration(
                     color: scheme.errorContainer,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: AppRadius.medium,
                   ),
                   child: Row(
                     children: [

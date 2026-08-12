@@ -121,7 +121,9 @@ class _NotificationTile extends ConsumerWidget {
           title: Text(
             item.title,
             style: TextStyle(
-              fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
+              fontWeight: item.isRead
+                  ? AppTypography.medium
+                  : AppTypography.bold,
             ),
           ),
           subtitle: Column(

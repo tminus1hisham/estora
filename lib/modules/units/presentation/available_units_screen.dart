@@ -372,9 +372,9 @@ class _FilterSheet extends ConsumerWidget {
             children: [
               Text(
                 'Filter units',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: AppTypography.bold,
+                ),
               ),
               Gap.h16,
               SwitchListTile(
@@ -511,7 +511,7 @@ class _FilterLabel extends StatelessWidget {
         text,
         style: Theme.of(
           context,
-        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        ).textTheme.labelLarge?.copyWith(fontWeight: AppTypography.bold),
       ),
     );
   }

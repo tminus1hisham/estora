@@ -112,7 +112,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         Expanded(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.maxReadingWidth,
+              ),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
                   Gap.lg,
@@ -130,7 +132,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     padding: const EdgeInsets.all(Gap.xl),
                     decoration: BoxDecoration(
                       color: scheme.primaryContainer.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: AppRadius.large,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,7 +142,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
                                 color: scheme.primary,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: AppTypography.extraBold,
                                 letterSpacing: 0.8,
                               ),
                         ),
@@ -161,7 +163,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   Text(
                     'How would you like to pay?',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: AppTypography.bold,
                     ),
                   ),
                   Gap.h8,
@@ -203,7 +205,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     padding: const EdgeInsets.all(Gap.md),
                     decoration: BoxDecoration(
                       color: scheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: AppRadius.small,
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,7 +308,7 @@ class _PaymentMethodTile extends StatelessWidget {
         ),
         title: Text(
           method.label,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: const TextStyle(fontWeight: AppTypography.bold),
         ),
         subtitle: Text(subtitle),
       ),

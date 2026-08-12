@@ -57,7 +57,9 @@ class _Body extends ConsumerWidget {
       onRefresh: () async => ref.invalidate(bookingDetailProvider(booking.id)),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             children: [
@@ -170,7 +172,7 @@ class _NextActionBanner extends StatelessWidget {
       padding: const EdgeInsets.all(Gap.lg),
       decoration: BoxDecoration(
         color: scheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.large,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,7 +182,7 @@ class _NextActionBanner extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: scheme.primary,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: AppRadius.medium,
             ),
             child: Icon(icon, color: scheme.onPrimary),
           ),
@@ -193,7 +195,7 @@ class _NextActionBanner extends StatelessWidget {
                   eyebrow,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: scheme.primary,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: AppTypography.extraBold,
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -202,7 +204,7 @@ class _NextActionBanner extends StatelessWidget {
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: scheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: AppTypography.bold,
                   ),
                 ),
                 Gap.h4,
@@ -245,9 +247,9 @@ class _HeaderCard extends ConsumerWidget {
               children: [
                 Text(
                   'Unit ${booking.unitNumber ?? '—'}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: AppTypography.bold,
+                  ),
                 ),
                 Text(
                   booking.propertyName ?? '',
@@ -287,7 +289,7 @@ class _HeaderCard extends ConsumerWidget {
                 padding: const EdgeInsets.all(Gap.md),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.small,
                 ),
                 child: Row(
                   children: [
@@ -309,7 +311,7 @@ class _HeaderCard extends ConsumerWidget {
                                 : AppDate.countdown(remaining),
                             style: TextStyle(
                               fontSize: 22,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: AppTypography.bold,
                               fontFeatures: const [
                                 FontFeature.tabularFigures(),
                               ],
@@ -551,7 +553,9 @@ class _RequirementsCardState extends ConsumerState<_RequirementsCard> {
                             requirement.isMandatory
                                 ? requirement.name
                                 : '${requirement.name} (optional)',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontWeight: AppTypography.semibold,
+                            ),
                           ),
                           if (requirement.description != null)
                             Text(

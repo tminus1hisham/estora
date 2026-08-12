@@ -105,9 +105,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     setState(() => _saving = false);
 
     if (result.isErr) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.failureOrNull!.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.failureOrNull!.message)));
       return;
     }
 

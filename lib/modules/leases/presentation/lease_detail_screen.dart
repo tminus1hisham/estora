@@ -79,7 +79,9 @@ class _Body extends ConsumerWidget {
       onRefresh: () async => ref.invalidate(leaseDetailProvider(lease.id)),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
             children: [
@@ -94,7 +96,7 @@ class _Body extends ConsumerWidget {
                         Text(
                           'Ready for your signature',
                           style: TextStyle(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: AppTypography.bold,
                             color: scheme.onPrimaryContainer,
                           ),
                         ),
@@ -126,7 +128,7 @@ class _Body extends ConsumerWidget {
                           Text(
                             'Unit ${lease.unitNumber ?? '—'}',
                             style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                                ?.copyWith(fontWeight: AppTypography.bold),
                           ),
                           Text(
                             lease.propertyName ?? '',
@@ -171,7 +173,7 @@ class _Body extends ConsumerWidget {
                     padding: const EdgeInsets.all(Gap.lg),
                     decoration: BoxDecoration(
                       color: scheme.primaryContainer.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: AppRadius.medium,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,7 +184,7 @@ class _Body extends ConsumerWidget {
                               ?.copyWith(
                                 color: scheme.primary,
                                 letterSpacing: 0.8,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: AppTypography.extraBold,
                               ),
                         ),
                         Gap.h4,
@@ -309,7 +311,7 @@ class _Body extends ConsumerWidget {
                                   child: Text(
                                     signature.signerName ?? 'Tenant',
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: AppTypography.semibold,
                                     ),
                                   ),
                                 ),

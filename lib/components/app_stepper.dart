@@ -69,7 +69,10 @@ class AppStepper extends StatelessWidget {
         : _VerticalSteps(steps: steps);
 
     if (label == null) return body;
-    return Semantics(label: label, child: ExcludeSemantics(child: body));
+    return Semantics(
+      label: label,
+      child: ExcludeSemantics(child: body),
+    );
   }
 }
 
@@ -131,7 +134,10 @@ class _HorizontalStep extends StatelessWidget {
     final active = state != _StepState.upcoming;
 
     final (background, foreground) = switch (state) {
-      _StepState.complete => (scheme.primaryContainer, scheme.onPrimaryContainer),
+      _StepState.complete => (
+        scheme.primaryContainer,
+        scheme.onPrimaryContainer,
+      ),
       _StepState.current => (scheme.primary, scheme.onPrimary),
       _StepState.upcoming => (
         scheme.surfaceContainerHighest,

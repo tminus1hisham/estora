@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/theme/app_theme.dart';
 import '../domain/entities/billing.dart';
 import '../modules/auth/application/auth_controller.dart';
 import '../modules/auth/presentation/forgot_password_screen.dart';
@@ -380,17 +381,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       appBar: AppBar(),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpace.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.error_outline_rounded, size: 48),
-              const SizedBox(height: 16),
+              Gap.h16,
               Text(
                 'That page could not be found.',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 24),
+              Gap.h24,
               FilledButton(
                 onPressed: () => context.goNamed(Routes.home),
                 child: const Text('Go home'),

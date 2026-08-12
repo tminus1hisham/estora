@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/money_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/summary_banner.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
@@ -44,7 +45,9 @@ class InvoicesScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayout.maxReadingWidth,
+                  ),
                   child: _InvoiceOverview(invoices: allInvoices),
                 ),
               ),
@@ -99,100 +102,29 @@ class _InvoiceOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final outstanding = invoices.where((item) => item.isPayable).length;
     final overdue = invoices.where((item) => item.isOverdue).length;
     final paid = invoices
         .where((item) => item.status == InvoiceStatus.paid)
         .length;
 
-    return Container(
-      padding: const EdgeInsets.all(Gap.lg),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: scheme.primary,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  Icons.receipt_long_outlined,
-                  color: scheme.onPrimary,
-                ),
-              ),
-              Gap.w12,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      overdue > 0
-                          ? '$overdue overdue ${overdue == 1 ? 'invoice' : 'invoices'}'
-                          : outstanding > 0
-                          ? '$outstanding outstanding'
-                          : 'You are all paid up',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: scheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      'Your billing position at a glance',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Gap.h16,
-          Wrap(
-            spacing: Gap.sm,
-            runSpacing: Gap.sm,
-            children: [
-              _InvoiceCount(label: 'Outstanding', value: outstanding),
-              _InvoiceCount(label: 'Overdue', value: overdue),
-              _InvoiceCount(label: 'Settled', value: paid),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InvoiceCount extends StatelessWidget {
-  const _InvoiceCount({required this.label, required this.value});
-
-  final String label;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.sm),
-      decoration: BoxDecoration(
-        color: scheme.surface.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        '$value  $label',
-        style: Theme.of(
-          context,
-        ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-      ),
+    return SummaryBanner(
+      icon: Icons.receipt_long_outlined,
+      headline: overdue > 0
+          ? '$overdue overdue ${overdue == 1 ? 'invoice' : 'invoices'}'
+          : outstanding > 0
+          ? '$outstanding outstanding'
+          : 'You are all paid up',
+      caption: 'Your billing position at a glance',
+      counts: [
+        SummaryCount(label: 'Outstanding', value: outstanding),
+        SummaryCount(
+          label: 'Overdue',
+          value: overdue,
+          tone: Theme.of(context).colorScheme.error,
+        ),
+        SummaryCount(label: 'Settled', value: paid),
+      ],
     );
   }
 }
@@ -226,7 +158,9 @@ class _InvoiceList extends ConsumerWidget {
       onRefresh: () => ref.read(invoiceListProvider.notifier).refresh(),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
             itemCount: invoices.length,
@@ -274,7 +208,7 @@ class InvoiceCard extends StatelessWidget {
                         height: 40,
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: AppRadius.small,
                         ),
                         child: Icon(
                           Icons.description_outlined,
@@ -288,7 +222,7 @@ class InvoiceCard extends StatelessWidget {
                           Text(
                             invoice.invoiceNumber,
                             style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                                ?.copyWith(fontWeight: AppTypography.bold),
                           ),
                           if (invoice.hasBillingPeriod)
                             Text(
@@ -332,7 +266,7 @@ class InvoiceCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                           letterSpacing: 0.6,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: AppTypography.bold,
                         ),
                       ),
                       Gap.h4,
@@ -359,7 +293,7 @@ class InvoiceCard extends StatelessWidget {
                               : invoice.invoiceDate,
                         ),
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
+                          fontWeight: AppTypography.semibold,
                           color: invoice.isOverdue ? scheme.error : null,
                         ),
                       ),
@@ -378,7 +312,7 @@ class InvoiceCard extends StatelessWidget {
                       color: invoice.isOverdue
                           ? scheme.error
                           : scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: AppTypography.semibold,
                     ),
                   ),
                   Gap.h8,

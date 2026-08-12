@@ -233,7 +233,7 @@ class _VerifiedValue extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+            style: const TextStyle(fontWeight: AppTypography.semibold),
             overflow: TextOverflow.ellipsis,
           ),
         ),

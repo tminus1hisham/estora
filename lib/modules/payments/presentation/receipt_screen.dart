@@ -60,7 +60,7 @@ class _Body extends ConsumerWidget {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
+        constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xl, Gap.lg, Gap.xxl),
           children: [
@@ -99,7 +99,7 @@ class _Body extends ConsumerWidget {
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: scheme.primary,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: AppTypography.extraBold,
                         letterSpacing: 0.8,
                       ),
                     ),
@@ -109,7 +109,7 @@ class _Body extends ConsumerWidget {
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: AppTypography.bold,
                         letterSpacing: 0.7,
                       ),
                     ),

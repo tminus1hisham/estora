@@ -264,7 +264,7 @@ class _TenancyCard extends StatelessWidget {
                       width: 44,
                       decoration: BoxDecoration(
                         color: scheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: AppRadius.small,
                       ),
                       child: Icon(
                         Icons.storefront_rounded,
@@ -678,7 +678,7 @@ class _ActionBanner extends StatelessWidget {
       padding: const EdgeInsets.all(Gap.lg),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.medium,
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Column(
