@@ -244,7 +244,7 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                                         .labelLarge
                                         ?.copyWith(
                                           color: scheme.primary,
-                                          fontWeight: FontWeight.w800,
+                                          fontWeight: AppTypography.extraBold,
                                         ),
                                   ),
                                 ],
@@ -289,14 +289,7 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                       child: Container(
                         height: 48,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              scheme.surface.withValues(alpha: 0),
-                              scheme.surface,
-                            ],
-                          ),
+                          gradient: AppGradients.fadeOut(scheme.surface),
                         ),
                       ),
                     ),
@@ -312,10 +305,13 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
             constraints: BoxConstraints(
               maxHeight: constraints.maxHeight * 0.62,
             ),
+            // Not an AppBottomActionBar: this panel scrolls and holds the
+            // signature pad, rather than being a strip of actions. It takes
+            // the same shadow tokens so it is lit like one.
             child: Material(
               color: scheme.surfaceContainerLow,
-              elevation: 8,
-              shadowColor: Colors.black26,
+              elevation: AppElevation.medium,
+              shadowColor: scheme.shadow.withValues(alpha: 0.16),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(Gap.lg),
                 child: SafeArea(
@@ -364,17 +360,29 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
                             ],
                           ),
                           Gap.h12,
-                          Opacity(
+                          // The pad unlocking is the reward for reading the
+                          // agreement, so it fades and brightens into place
+                          // rather than snapping. The gate itself stays an
+                          // IgnorePointer plus a null onPressed further down —
+                          // the animation is presentation only and never what
+                          // decides whether signing is allowed.
+                          AnimatedOpacity(
+                            duration: AppMotion.standard,
+                            curve: AppMotion.enter,
                             opacity: _hasScrolledToEnd ? 1 : 0.45,
                             child: IgnorePointer(
                               ignoring: !_hasScrolledToEnd,
-                              child: Container(
+                              child: AnimatedContainer(
+                                duration: AppMotion.standard,
+                                curve: AppMotion.enter,
                                 height: 140,
                                 decoration: BoxDecoration(
                                   color: scheme.surface,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: AppRadius.small,
                                   border: Border.all(
-                                    color: scheme.outlineVariant,
+                                    color: _hasScrolledToEnd
+                                        ? scheme.primary.withValues(alpha: 0.6)
+                                        : scheme.outlineVariant,
                                   ),
                                 ),
                                 child: Stack(

@@ -113,7 +113,16 @@ class _AgreementBody extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: scheme.onSurfaceVariant,
-                                fontFamily: 'monospace',
+                                // No monospace face is bundled, so naming
+                                // one silently fell back to Manrope.
+                                // Tabular figures and a little tracking
+                                // give the hash the even, technical look
+                                // the family was reaching for, using a
+                                // font the app actually ships.
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                                letterSpacing: 0.6,
                               ),
                         ),
                       ],
