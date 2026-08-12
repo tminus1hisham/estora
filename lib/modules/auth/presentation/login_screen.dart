@@ -84,8 +84,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
           ),
           Gap.h16,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          // Wrap rather than Row: at 360-414dp, which is most phones, the
+          // label and the button together exceed the available width and a
+          // Row overflows.
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text('New here?'),
               TextButton(

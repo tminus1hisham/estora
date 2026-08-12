@@ -226,16 +226,22 @@ class UnitCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
+                        // Flexible on both: a Row hands its non-flex children
+                        // unbounded width, so an amount long enough to exceed
+                        // the card would overflow rather than ellipsize.
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            MoneyText(unit.baseRent),
+                            Flexible(child: MoneyText(unit.baseRent)),
                             Gap.w4,
-                            Text(
-                              unit.billingFrequency.perPeriod,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            Flexible(
+                              child: Text(
+                                unit.billingFrequency.perPeriod,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                              ),
                             ),
                           ],
                         ),

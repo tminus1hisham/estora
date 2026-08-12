@@ -45,7 +45,12 @@ dependencies:
   dio: ^5.11.0
 
   # Token storage. secure_storage on mobile, shared_preferences elsewhere.
-  flutter_secure_storage: '>=9.0.0 <12.0.0'
+  #
+  # Held below 11.0.0 deliberately: that release requires compileSdk 37, which
+  # is newer than this Flutter SDK's own default of 36, so the Android build
+  # fails unless every developer installs an extra platform. 10.3.x offers the
+  # same API surface we use.
+  flutter_secure_storage: '>=10.0.0 <11.0.0'
   shared_preferences: ^2.5.5
 
   # Currency and date formatting.

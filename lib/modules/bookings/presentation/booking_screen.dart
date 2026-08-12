@@ -89,14 +89,26 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Both sides flexible: an emphasised amount is set in a
+                    // headline size, and a Row hands its non-flex children
+                    // unbounded width, so a large total would overflow a
+                    // narrow phone rather than shrink to fit.
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Payable now',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                        Flexible(
+                          child: Text(
+                            'Payable now',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
                         ),
-                        const Spacer(),
-                        MoneyText(quote.requireValue.total, emphasise: true),
+                        Gap.w12,
+                        Flexible(
+                          child: MoneyText(
+                            quote.requireValue.total,
+                            emphasise: true,
+                          ),
+                        ),
                       ],
                     ),
                     Gap.h12,
