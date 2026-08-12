@@ -6,6 +6,11 @@ import '../core/theme/app_theme.dart';
 ///
 /// Unlike [Card], this exposes the few presentation choices feature screens
 /// commonly need while retaining one radius, border and interaction language.
+///
+/// [gradient] and [shadows] are what a hero surface reaches for. They are
+/// layered outside the [Material] rather than folded into it so that the
+/// shape's border still draws over clipped content — a card whose first child
+/// is a photograph needs the border on top of the image, not under it.
 class AppSurfaceCard extends StatelessWidget {
   const AppSurfaceCard({
     required this.child,
@@ -13,6 +18,8 @@ class AppSurfaceCard extends StatelessWidget {
     this.margin = EdgeInsets.zero,
     this.onTap,
     this.color,
+    this.gradient,
+    this.shadows,
     this.borderColor,
     this.borderRadius = AppRadius.large,
     this.elevation = AppElevation.none,
@@ -26,6 +33,14 @@ class AppSurfaceCard extends StatelessWidget {
   final EdgeInsetsGeometry margin;
   final VoidCallback? onTap;
   final Color? color;
+
+  /// Fills the card instead of [color]. Reserved for the one surface on a
+  /// screen that carries the money or the moment.
+  final Gradient? gradient;
+
+  /// Replaces Material's elevation shadow. Use [AppElevation.lifted].
+  final List<BoxShadow>? shadows;
+
   final Color? borderColor;
   final BorderRadius borderRadius;
   final double elevation;
@@ -51,17 +66,41 @@ class AppSurfaceCard extends StatelessWidget {
       );
     }
 
-    final result = Padding(
-      padding: margin,
-      child: Material(
-        color: color ?? scheme.surfaceContainerLowest,
-        elevation: elevation,
-        shadowColor: scheme.shadow.withValues(alpha: 0.12),
-        shape: shape,
-        clipBehavior: clipBehavior,
-        child: content,
-      ),
+    // A custom shadow replaces Material's own, rather than stacking with it.
+    final usesCustomShadow = shadows != null;
+
+    Widget surface = Material(
+      color: gradient != null
+          ? Colors.transparent
+          : (color ?? scheme.surfaceContainerLowest),
+      elevation: usesCustomShadow ? AppElevation.none : elevation,
+      shadowColor: scheme.shadow.withValues(alpha: 0.12),
+      shape: shape,
+      clipBehavior: clipBehavior,
+      child: content,
     );
+
+    if (gradient != null) {
+      surface = DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: borderRadius,
+        ),
+        child: surface,
+      );
+    }
+
+    if (usesCustomShadow) {
+      surface = DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          boxShadow: shadows,
+        ),
+        child: surface,
+      );
+    }
+
+    final result = Padding(padding: margin, child: surface);
 
     if (semanticLabel == null) return result;
     return Semantics(container: true, label: semanticLabel, child: result);

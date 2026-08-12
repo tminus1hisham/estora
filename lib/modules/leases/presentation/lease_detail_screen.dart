@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
@@ -35,45 +36,24 @@ class LeaseDetailScreen extends ConsumerWidget {
         _ => _Body(lease: lease.requireValue),
       },
       bottomNavigationBar: lease.hasValue
-          ? SafeArea(
-              child: Material(
-                color: Theme.of(context).colorScheme.surface,
-                elevation: 8,
-                shadowColor: Colors.black26,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Gap.lg,
-                    Gap.md,
-                    Gap.lg,
-                    Gap.lg,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: lease.requireValue.status.needsTenantSignature
-                            ? FilledButton.icon(
-                                onPressed: () => context.pushNamed(
-                                  Routes.signAgreement,
-                                  pathParameters: {'leaseId': leaseId},
-                                ),
-                                icon: const Icon(Icons.draw_outlined),
-                                label: const Text('Review and sign'),
-                              )
-                            : OutlinedButton.icon(
-                                onPressed: () => context.pushNamed(
-                                  Routes.leaseAgreement,
-                                  pathParameters: {'leaseId': leaseId},
-                                ),
-                                icon: const Icon(Icons.description_outlined),
-                                label: const Text('View the agreement'),
-                              ),
+          ? AppBottomActionBar(
+              child: lease.requireValue.status.needsTenantSignature
+                  ? FilledButton.icon(
+                      onPressed: () => context.pushNamed(
+                        Routes.signAgreement,
+                        pathParameters: {'leaseId': leaseId},
                       ),
+                      icon: const Icon(Icons.draw_outlined),
+                      label: const Text('Review and sign'),
+                    )
+                  : OutlinedButton.icon(
+                      onPressed: () => context.pushNamed(
+                        Routes.leaseAgreement,
+                        pathParameters: {'leaseId': leaseId},
+                      ),
+                      icon: const Icon(Icons.description_outlined),
+                      label: const Text('View the agreement'),
                     ),
-                  ),
-                ),
-              ),
             )
           : null,
     );

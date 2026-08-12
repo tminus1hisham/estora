@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
@@ -54,35 +55,14 @@ class LeaseAgreementScreen extends ConsumerWidget {
         AsyncData(:final value) => _AgreementBody(agreement: value),
       },
       bottomNavigationBar: (lease?.status.needsTenantSignature ?? false)
-          ? SafeArea(
-              child: Material(
-                color: Theme.of(context).colorScheme.surface,
-                elevation: 8,
-                shadowColor: Colors.black26,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Gap.lg,
-                    Gap.md,
-                    Gap.lg,
-                    Gap.lg,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () => context.pushReplacementNamed(
-                            Routes.signAgreement,
-                            pathParameters: {'leaseId': leaseId},
-                          ),
-                          icon: const Icon(Icons.draw_outlined),
-                          label: const Text('Sign this agreement'),
-                        ),
-                      ),
-                    ),
-                  ),
+          ? AppBottomActionBar(
+              child: FilledButton.icon(
+                onPressed: () => context.pushReplacementNamed(
+                  Routes.signAgreement,
+                  pathParameters: {'leaseId': leaseId},
                 ),
+                icon: const Icon(Icons.draw_outlined),
+                label: const Text('Sign this agreement'),
               ),
             )
           : null,

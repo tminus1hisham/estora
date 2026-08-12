@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
@@ -83,44 +84,25 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           onAcceptedChanged: (v) => setState(() => _acceptedTerms = v),
         ),
       },
+      // AppBottomActionBar keeps the height factor this screen needs: a bottom
+      // navigation child receives the scaffold's full height as its upper
+      // bound, and without one the bar expands to that bound and leaves almost
+      // no viewport for the quote list above it.
       bottomNavigationBar: quote.hasValue
-          ? SafeArea(
-              child: Material(
-                color: Theme.of(context).colorScheme.surface,
-                elevation: 8,
-                shadowColor: Colors.black26,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Gap.lg,
-                    Gap.md,
-                    Gap.lg,
-                    Gap.lg,
+          ? AppBottomActionBar(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _PayableSummary(amount: quote.requireValue.total),
+                  Gap.h12,
+                  AsyncButton(
+                    label: 'Confirm booking',
+                    icon: Icons.lock_outline_rounded,
+                    expand: true,
+                    enabled: _acceptedTerms,
+                    onPressed: _confirm,
                   ),
-                  child: Center(
-                    // A bottom navigation child receives the scaffold's full
-                    // height as its upper bound. Without a height factor,
-                    // Center expands to that bound and leaves almost no
-                    // viewport for the quote list above it.
-                    heightFactor: 1,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _PayableSummary(amount: quote.requireValue.total),
-                          Gap.h12,
-                          AsyncButton(
-                            label: 'Confirm booking',
-                            icon: Icons.lock_outline_rounded,
-                            expand: true,
-                            enabled: _acceptedTerms,
-                            onPressed: _confirm,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                ],
               ),
             )
           : null,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
 import '../../../components/money_text.dart';
 import '../../../components/state_views.dart';
@@ -226,31 +227,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
           ),
         ),
-        SafeArea(
-          child: Material(
-            color: scheme.surface,
-            elevation: 8,
-            shadowColor: Colors.black26,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Gap.lg,
-                Gap.md,
-                Gap.lg,
-                Gap.lg,
-              ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: AsyncButton(
-                    label: 'Pay ${invoice.amountDue.format()}',
-                    icon: Icons.lock_outline_rounded,
-                    expand: true,
-                    enabled: canPay,
-                    onPressed: _pay,
-                  ),
-                ),
-              ),
-            ),
+        AppBottomActionBar(
+          child: AsyncButton(
+            label: 'Pay ${invoice.amountDue.format()}',
+            icon: Icons.lock_outline_rounded,
+            expand: true,
+            enabled: canPay,
+            onPressed: _pay,
           ),
         ),
       ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
@@ -33,37 +34,13 @@ class ReceiptScreen extends ConsumerWidget {
         AsyncData(:final value) => _Body(receipt: value),
       },
       bottomNavigationBar: receipt.value?.documentId != null
-          ? SafeArea(
-              child: Material(
-                color: Theme.of(context).colorScheme.surface,
-                elevation: 8,
-                shadowColor: Colors.black26,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Gap.lg,
-                    Gap.md,
-                    Gap.lg,
-                    Gap.lg,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 680),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: () => ref
-                              .read(documentActionsProvider)
-                              .openDocument(
-                                context,
-                                receipt.requireValue.documentId!,
-                              ),
-                          icon: const Icon(Icons.download_outlined),
-                          label: const Text('Download PDF'),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+          ? AppBottomActionBar(
+              child: FilledButton.icon(
+                onPressed: () => ref
+                    .read(documentActionsProvider)
+                    .openDocument(context, receipt.requireValue.documentId!),
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Download PDF'),
               ),
             )
           : null,

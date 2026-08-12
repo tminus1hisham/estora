@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
@@ -42,52 +43,31 @@ class InvoiceDetailScreen extends ConsumerWidget {
         _ => _Body(invoice: invoice.requireValue),
       },
       bottomNavigationBar: (invoice.value?.isPayable ?? false)
-          ? SafeArea(
-              child: Material(
-                color: Theme.of(context).colorScheme.surface,
-                elevation: 8,
-                shadowColor: Colors.black26,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Gap.lg,
-                    Gap.md,
-                    Gap.lg,
-                    Gap.lg,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'AMOUNT DUE',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.7,
-                                ),
-                          ),
-                          Gap.h4,
-                          MoneyText(invoice.requireValue.amountDue),
-                          Gap.h12,
-                          FilledButton.icon(
-                            onPressed: () => context.pushNamed(
-                              Routes.payment,
-                              pathParameters: {'invoiceId': invoiceId},
-                            ),
-                            icon: const Icon(Icons.lock_outline_rounded),
-                            label: const Text('Pay securely'),
-                          ),
-                        ],
-                      ),
+          ? AppBottomActionBar(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'AMOUNT DUE',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: AppTypography.bold,
+                      letterSpacing: 0.7,
                     ),
                   ),
-                ),
+                  Gap.h4,
+                  MoneyText(invoice.requireValue.amountDue),
+                  Gap.h12,
+                  FilledButton.icon(
+                    onPressed: () => context.pushNamed(
+                      Routes.payment,
+                      pathParameters: {'invoiceId': invoiceId},
+                    ),
+                    icon: const Icon(Icons.lock_outline_rounded),
+                    label: const Text('Pay securely'),
+                  ),
+                ],
               ),
             )
           : null,
