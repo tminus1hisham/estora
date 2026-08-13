@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../components/amount_text.dart';
-import '../../../../components/app_surface_card.dart';
+import '../../../../components/record_group.dart';
 import '../../../../components/surface_atoms.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
@@ -44,39 +44,12 @@ class InvoiceMonthSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // One surface per month with hairlines between its rows, rather than a card
+    // per invoice. [RecordGroup] carries that shape for the whole app now.
+    return RecordGroup(
+      heading: AppDate.monthYear(group.month),
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.xs, 0, Gap.xs, Gap.sm),
-          child: Text(
-            AppDate.monthYear(group.month).toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-        // One surface per month with hairlines between its rows, rather than a
-        // card per invoice: a stack of separate cards reads as a stack of
-        // unrelated decisions, and the shadows alone made the old list heavy.
-        AppSurfaceCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (final (index, invoice) in group.invoices.indexed) ...[
-                if (index > 0)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 68),
-                    child: Hairline(),
-                  ),
-                InvoiceRow(invoice: invoice),
-              ],
-            ],
-          ),
-        ),
+        for (final invoice in group.invoices) InvoiceRow(invoice: invoice),
       ],
     );
   }
