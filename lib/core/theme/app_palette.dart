@@ -38,6 +38,7 @@ abstract final class AppPalette {
   // A restrained warm accent for deadlines and premium highlights.
   static const Color brass700 = Color(0xFF8B5D16);
   static const Color brass500 = Color(0xFFB9842E);
+  static const Color brass300 = Color(0xFFD6B477);
   static const Color brass200 = Color(0xFFEBCB8F);
   static const Color brass100 = Color(0xFFF8E9C9);
 

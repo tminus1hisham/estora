@@ -5,8 +5,8 @@ import '../core/theme/app_theme.dart';
 /// The Tenant Portal brand mark, drawn in code so it stays crisp at every
 /// display density and does not delay first paint.
 ///
-/// The ink block represents the building, the warm-stone portal represents a
-/// welcoming commercial space, and the emerald threshold represents access.
+/// The porcelain arch represents the property, the open brass door represents
+/// a welcoming commercial space, and the emerald threshold represents access.
 class AppBrandMark extends StatelessWidget {
   const AppBrandMark({
     this.size = 56,
@@ -21,8 +21,6 @@ class AppBrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-
     return Semantics(
       image: true,
       label: semanticLabel,
@@ -30,14 +28,12 @@ class AppBrandMark extends StatelessWidget {
         dimension: size,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(size * 0.27),
+            borderRadius: BorderRadius.circular(size * 0.21875),
             boxShadow: withShadow
                 ? AppElevation.soft(Colors.black)
                 : const <BoxShadow>[],
           ),
-          child: CustomPaint(
-            painter: _BrandMarkPainter(brightness: brightness),
-          ),
+          child: CustomPaint(painter: const _BrandMarkPainter()),
         ),
       ),
     );
@@ -45,89 +41,65 @@ class AppBrandMark extends StatelessWidget {
 }
 
 class _BrandMarkPainter extends CustomPainter {
-  const _BrandMarkPainter({required this.brightness});
+  const _BrandMarkPainter();
 
-  final Brightness brightness;
+  static const _artboardSize = 512.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final radius = Radius.circular(size.shortestSide * 0.27);
-    final background = Paint()
-      ..color = brightness == Brightness.dark
-          ? AppPalette.ink800
-          : AppPalette.ink950;
-    canvas.drawRRect(RRect.fromRectAndRadius(rect, radius), background);
-
-    final portal = Path()..fillType = PathFillType.evenOdd;
-    portal
-      ..moveTo(size.width * 0.25, size.height * 0.73)
-      ..lineTo(size.width * 0.25, size.height * 0.47)
-      ..cubicTo(
-        size.width * 0.25,
-        size.height * 0.28,
-        size.width * 0.36,
-        size.height * 0.20,
-        size.width * 0.50,
-        size.height * 0.20,
-      )
-      ..cubicTo(
-        size.width * 0.64,
-        size.height * 0.20,
-        size.width * 0.75,
-        size.height * 0.28,
-        size.width * 0.75,
-        size.height * 0.47,
-      )
-      ..lineTo(size.width * 0.75, size.height * 0.73)
-      ..close()
-      ..moveTo(size.width * 0.40, size.height * 0.73)
-      ..lineTo(size.width * 0.40, size.height * 0.49)
-      ..cubicTo(
-        size.width * 0.40,
-        size.height * 0.40,
-        size.width * 0.44,
-        size.height * 0.36,
-        size.width * 0.50,
-        size.height * 0.36,
-      )
-      ..cubicTo(
-        size.width * 0.56,
-        size.height * 0.36,
-        size.width * 0.60,
-        size.height * 0.40,
-        size.width * 0.60,
-        size.height * 0.49,
-      )
-      ..lineTo(size.width * 0.60, size.height * 0.73)
-      ..close();
-
-    canvas.drawPath(
-      portal,
-      Paint()
-        ..color = brightness == Brightness.dark
-            ? AppPalette.stone100
-            : AppPalette.stone50,
-    );
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          size.width * 0.22,
-          size.height * 0.71,
-          size.width * 0.56,
-          size.height * 0.09,
+    canvas
+      ..save()
+      ..scale(size.width / _artboardSize, size.height / _artboardSize)
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(0, 0, _artboardSize, _artboardSize),
+          const Radius.circular(112),
         ),
-        Radius.circular(size.height * 0.045),
-      ),
-      Paint()
-        ..color = brightness == Brightness.dark
-            ? AppPalette.emerald300
-            : AppPalette.emerald500,
-    );
+        Paint()..color = AppPalette.ink900,
+      );
+
+    final arch = Path()
+      ..moveTo(112, 400)
+      ..lineTo(112, 222)
+      ..cubicTo(112, 129, 176, 72, 256, 72)
+      ..cubicTo(336, 72, 400, 129, 400, 222)
+      ..lineTo(400, 400)
+      ..lineTo(326, 400)
+      ..lineTo(326, 224)
+      ..cubicTo(326, 178, 297, 148, 256, 148)
+      ..cubicTo(215, 148, 186, 178, 186, 224)
+      ..lineTo(186, 400)
+      ..close();
+    canvas.drawPath(arch, Paint()..color = AppPalette.stone50);
+
+    final keystone = Path()
+      ..moveTo(232, 104)
+      ..lineTo(280, 104)
+      ..lineTo(269, 153)
+      ..cubicTo(260, 149, 252, 149, 243, 153)
+      ..close();
+    canvas.drawPath(keystone, Paint()..color = AppPalette.brass300);
+
+    final openDoor = Path()
+      ..moveTo(216, 246)
+      ..lineTo(263, 255)
+      ..cubicTo(284, 259, 296, 274, 296, 294)
+      ..lineTo(296, 370)
+      ..lineTo(216, 398)
+      ..close();
+    canvas.drawPath(openDoor, Paint()..color = AppPalette.brass300);
+
+    canvas
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(164, 384, 184, 24),
+          const Radius.circular(12),
+        ),
+        Paint()..color = AppPalette.emerald500,
+      )
+      ..restore();
   }
 
   @override
-  bool shouldRepaint(_BrandMarkPainter oldDelegate) =>
-      brightness != oldDelegate.brightness;
+  bool shouldRepaint(_BrandMarkPainter oldDelegate) => false;
 }

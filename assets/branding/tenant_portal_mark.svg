@@ -1,6 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#122522"/>
-  <path d="M132 386V198c0-25 10-49 28-67 18-18 42-28 67-28h58c25 0 49 10 67 28 18 18 28 42 28 67v188h-72V201c0-16-13-29-29-29h-46c-16 0-29 13-29 29v185h-72Z" fill="#F3EBDD"/>
-  <path d="M228 224h56c13 0 24 11 24 24v138h-104V248c0-13 11-24 24-24Z" fill="#D6B477"/>
-  <rect x="176" y="386" width="160" height="22" rx="11" fill="#42A57B"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Tenant Portal</title>
+  <desc id="desc">An architectural arch, open brass door, and emerald threshold.</desc>
+  <rect width="512" height="512" rx="112" fill="#0D211D"/>
+  <path fill="#FAF8F3" d="M112 400V222C112 129 176 72 256 72s144 57 144 150v178h-74V224c0-46-29-76-70-76s-70 30-70 76v176h-74Z"/>
+  <path fill="#D6B477" d="m232 104 48 0-11 49c-9-4-17-4-26 0l-11-49Z"/>
+  <path fill="#D6B477" d="m216 246 47 9c21 4 33 19 33 39v76l-80 28V246Z"/>
+  <rect x="164" y="384" width="184" height="24" rx="12" fill="#159775"/>
 </svg>
