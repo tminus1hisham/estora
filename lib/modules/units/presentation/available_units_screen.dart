@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/amount_text.dart';
 import '../../../components/app_media.dart';
-import '../../../components/app_surface_card.dart';
-import '../../../components/money_text.dart';
-import '../../../components/page_header.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/app_surface_card.dart';
+import '../../../components/page_header.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
@@ -282,7 +282,7 @@ class UnitCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.baseline,
                             textBaseline: TextBaseline.alphabetic,
                             children: [
-                              Flexible(child: MoneyText(unit.baseRent)),
+                              Flexible(child: AmountText(unit.baseRent)),
                               Gap.w4,
                               Flexible(
                                 child: Text(

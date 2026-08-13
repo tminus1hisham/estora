@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_stepper.dart';
 import '../../../components/async_button.dart';
-import '../../../components/money_text.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
@@ -148,7 +148,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         ),
                         Gap.h8,
                         // The server's figure. Not editable, and not assembled here.
-                        MoneyText(invoice.amountDue, emphasise: true),
+                        // The one figure this screen exists to show, so it takes
+                        // the hero scale — size carries it, not weight.
+                        AmountText(invoice.amountDue, scale: AmountScale.hero),
                         Gap.h12,
                         Text(
                           invoice.invoiceNumber,

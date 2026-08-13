@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../components/countdown_timer.dart';
-import '../../../components/money_text.dart';
+import '../../../components/amount_text.dart';
 import '../../../components/app_stepper.dart';
+import '../../../components/countdown_timer.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
@@ -437,15 +437,15 @@ class _TermsCard extends StatelessWidget {
       children: [
         DetailRow(
           label: 'Monthly rent',
-          valueWidget: MoneyText(booking.monthlyRent),
+          valueWidget: AmountText(booking.monthlyRent, align: TextAlign.end),
         ),
         DetailRow(
           label: 'Security deposit',
-          valueWidget: MoneyText(booking.depositAmount),
+          valueWidget: AmountText(booking.depositAmount, align: TextAlign.end),
         ),
         DetailRow(
           label: 'Booking fee',
-          valueWidget: MoneyText(booking.bookingFee),
+          valueWidget: AmountText(booking.bookingFee, align: TextAlign.end),
         ),
         Gap.h8,
         Text(

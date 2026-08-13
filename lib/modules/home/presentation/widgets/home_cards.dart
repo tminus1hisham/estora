@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../components/amount_text.dart';
 import '../../../../components/app_surface_card.dart';
-import '../../../../components/money_text.dart';
 import '../../../../components/status_chip.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
@@ -96,7 +96,11 @@ class RecentPaymentsCard extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      MoneyText(payment.amount, bare: true),
+                      AmountText(
+                        payment.amount,
+                        showCurrency: false,
+                        align: TextAlign.end,
+                      ),
                       Gap.h4,
                       StatusChip(
                         label: payment.status.label,

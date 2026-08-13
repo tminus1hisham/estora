@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_success_mark.dart';
-import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
@@ -114,7 +114,13 @@ class _Body extends ConsumerWidget {
                       ),
                     ),
                     Gap.h8,
-                    Center(child: MoneyText(receipt.amount, emphasise: true)),
+                    Center(
+                      child: AmountText(
+                        receipt.amount,
+                        scale: AmountScale.hero,
+                        align: TextAlign.center,
+                      ),
+                    ),
                     Gap.h4,
                     Text(
                       AppDate.full(receipt.issuedAt),

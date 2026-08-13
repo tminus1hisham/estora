@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_stepper.dart';
 import '../../../components/async_button.dart';
-import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
@@ -153,19 +153,30 @@ class _QuoteBody extends StatelessWidget {
               children: [
                 DetailRow(
                   label: 'Booking fee',
-                  valueWidget: MoneyText(quote.bookingFee),
+                  valueWidget: AmountText(
+                    quote.bookingFee,
+                    align: TextAlign.end,
+                  ),
                 ),
                 if (quote.taxAmount != null && quote.taxAmount!.isPositive)
                   DetailRow(
                     label: quote.taxLabel ?? 'Tax',
-                    valueWidget: MoneyText(quote.taxAmount!),
+                    valueWidget: AmountText(
+                      quote.taxAmount!,
+                      align: TextAlign.end,
+                    ),
                   ),
                 const Divider(),
                 DetailRow(
                   label: 'Total',
-                  // The server's total, rendered as received.
-                  valueWidget: MoneyText(quote.total),
-                  emphasise: true,
+                  // The server's total, rendered as received. Set at the scale
+                  // that closes a group, which is what carries the emphasis
+                  // here — the row does not need to shout as well.
+                  valueWidget: AmountText(
+                    quote.total,
+                    scale: AmountScale.title,
+                    align: TextAlign.end,
+                  ),
                 ),
                 Gap.h8,
                 Container(
@@ -205,7 +216,10 @@ class _QuoteBody extends StatelessWidget {
                   label: quote.depositMonths == null
                       ? 'Security deposit'
                       : 'Security deposit (${quote.depositMonths} months)',
-                  valueWidget: MoneyText(quote.depositAmount),
+                  valueWidget: AmountText(
+                    quote.depositAmount,
+                    align: TextAlign.end,
+                  ),
                 ),
                 Gap.h8,
                 Text(
@@ -224,8 +238,11 @@ class _QuoteBody extends StatelessWidget {
               children: [
                 DetailRow(
                   label: 'Monthly rent',
-                  valueWidget: MoneyText(quote.monthlyRent),
-                  emphasise: true,
+                  valueWidget: AmountText(
+                    quote.monthlyRent,
+                    scale: AmountScale.title,
+                    align: TextAlign.end,
+                  ),
                 ),
                 Gap.h8,
                 Text(
@@ -329,7 +346,12 @@ class _PayableSummary extends StatelessWidget {
         ),
       ],
     );
-    final value = MoneyText(amount, emphasise: true);
+    final value = AmountText(
+      amount,
+      scale: AmountScale.title,
+      // Trails the label when the two sit across, leads when they stack.
+      align: stack ? TextAlign.start : TextAlign.end,
+    );
 
     return stack
         ? Column(

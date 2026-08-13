@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../components/amount_text.dart';
 import '../../../../components/app_surface_card.dart';
 import '../../../../components/money_count_up.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -41,11 +42,11 @@ class BalanceCard extends StatelessWidget {
     final pill = TonePill(label: statusLabel, tone: statusTone);
     final amount = MoneyCountUp(
       summary.outstandingBalance,
-      // A step above `emphasise`. This is the largest figure in the app and
-      // the screen is built around it.
-      style: theme.textTheme.displaySmall?.copyWith(
-        fontWeight: AppTypography.extraBold,
-      ),
+      // The largest figure in the app, and the screen is built around it — but
+      // it is set at the same weight as every other amount. Its size, its
+      // colour and the dark card under it already carry the emphasis; adding
+      // weight on top made a tenant who is up to date read as one in trouble.
+      scale: AmountScale.hero,
       color: summary.hasOverdue ? AppPalette.red300 : kHomeOnDark,
       delay: const Duration(milliseconds: 260),
     );

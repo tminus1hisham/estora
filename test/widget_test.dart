@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mall/components/amount_text.dart';
 import 'package:mall/components/countdown_timer.dart';
-import 'package:mall/components/money_text.dart';
 import 'package:mall/components/status_chip.dart';
 import 'package:mall/core/theme/app_theme.dart';
 import 'package:mall/core/utils/money.dart';
@@ -24,25 +24,61 @@ void main() {
 
   Widget wrap(Widget child) => ProviderScope(child: app(child));
 
-  group('MoneyText', () {
+  group('AmountText', () {
     testWidgets('renders the amount as supplied, with its currency', (
       tester,
     ) async {
       await tester.pumpWidget(
-        wrap(Scaffold(body: MoneyText(Money.fromMajor(150000, 'KES')))),
+        wrap(Scaffold(body: AmountText(Money.fromMajor(150000, 'KES')))),
       );
 
+      // The code and the figure are separate spans but one string on the page.
       expect(find.text('KES 150,000'), findsOneWidget);
     });
 
-    testWidgets('bare drops the currency for line items', (tester) async {
+    testWidgets('showCurrency drops the code for line items', (tester) async {
       await tester.pumpWidget(
         wrap(
-          Scaffold(body: MoneyText(Money.fromMajor(150000, 'KES'), bare: true)),
+          Scaffold(
+            body: AmountText(
+              Money.fromMajor(150000, 'KES'),
+              showCurrency: false,
+            ),
+          ),
         ),
       );
 
       expect(find.text('150,000'), findsOneWidget);
+    });
+
+    testWidgets('every scale sets the figure in the weight the app reserves '
+        'for money', (tester) async {
+      // The guard on section 84's quiet-money rule: an amount is never set
+      // heavier than medium at the two display scales, whatever screen it is
+      // on. Row keeps semibold because it competes with a label beside it.
+      const expected = {
+        AmountScale.hero: AppTypography.medium,
+        AmountScale.title: AppTypography.medium,
+        AmountScale.row: AppTypography.semibold,
+      };
+
+      for (final MapEntry(key: scale, value: weight) in expected.entries) {
+        await tester.pumpWidget(
+          wrap(
+            Scaffold(
+              body: AmountText(Money.fromMajor(150000, 'KES'), scale: scale),
+            ),
+          ),
+        );
+
+        final span = tester.widget<Text>(find.byType(Text)).textSpan!;
+        final figure = (span as TextSpan).children!.last as TextSpan;
+        expect(
+          figure.style?.fontWeight,
+          weight,
+          reason: '$scale must not draw money heavier than $weight',
+        );
+      }
     });
   });
 

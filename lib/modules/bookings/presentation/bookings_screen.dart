@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../components/money_text.dart';
+import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
-import '../../../components/summary_banner.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
+import '../../../components/summary_banner.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_format.dart';
@@ -215,7 +215,7 @@ class _BookingCard extends StatelessWidget {
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
-                      MoneyText(booking.monthlyRent),
+                      AmountText(booking.monthlyRent, align: TextAlign.end),
                     ],
                   ),
                 ],

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_media.dart';
 import '../../../components/app_surface_card.dart';
-import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
@@ -129,9 +129,9 @@ class _Body extends ConsumerWidget {
                 ),
               ),
               Gap.h8,
-              MoneyText(
+              AmountText(
                 unit.baseRent,
-                emphasise: true,
+                scale: AmountScale.hero,
                 color: scheme.onSecondary,
               ),
               if (unit.depositMonths != null || unit.bookingFee != null) ...[
@@ -189,7 +189,7 @@ class _Body extends ConsumerWidget {
               for (final price in futurePricing)
                 DetailRow(
                   label: 'From ${AppDate.short(price.effectiveFrom)}',
-                  valueWidget: MoneyText(price.amount),
+                  valueWidget: AmountText(price.amount, align: TextAlign.end),
                 ),
               Gap.h8,
               Text(

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_success_mark.dart';
-import '../../../components/money_text.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
@@ -148,7 +148,7 @@ class _Body extends ConsumerWidget {
                                   ),
                             ),
                             Gap.h4,
-                            MoneyText(payment.amount, emphasise: true),
+                            AmountText(payment.amount, scale: AmountScale.hero),
                           ],
                         ),
                       ),
@@ -189,9 +189,10 @@ class _Body extends ConsumerWidget {
                             label:
                                 allocation.invoiceNumber ??
                                 allocation.invoiceId,
-                            valueWidget: MoneyText(
+                            valueWidget: AmountText(
                               allocation.amount,
-                              bare: true,
+                              showCurrency: false,
+                              align: TextAlign.end,
                             ),
                           ),
                       ],

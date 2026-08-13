@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mall/app.dart';
+import 'package:mall/components/amount_text.dart';
 import 'package:mall/components/app_brand_mark.dart';
 import 'package:mall/components/app_media.dart';
 import 'package:mall/components/money_count_up.dart';
-import 'package:mall/components/money_text.dart';
 import 'package:mall/components/status_chip.dart';
 import 'package:mall/core/theme/app_theme.dart';
 import 'package:mall/core/theme/status_palette.dart';
@@ -244,7 +244,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('MoneyText keeps a long amount complete without ellipsis', (
+  testWidgets('AmountText keeps a long amount complete without ellipsis', (
     tester,
   ) async {
     usePhoneViewport(tester, const Size(360, 640), textScale: 2);
@@ -256,7 +256,7 @@ void main() {
           body: Center(
             child: SizedBox(
               width: 180,
-              child: MoneyText(amount, emphasise: true),
+              child: AmountText(amount, scale: AmountScale.title),
             ),
           ),
         ),
@@ -264,18 +264,18 @@ void main() {
     );
 
     final amountFinder = find.descendant(
-      of: find.byType(MoneyText),
+      of: find.byType(AmountText),
       matching: find.byType(Text),
     );
     final amountText = tester.widget<Text>(amountFinder);
     final paragraph = tester.renderObject<RenderParagraph>(
       find.descendant(
-        of: find.byType(MoneyText),
+        of: find.byType(AmountText),
         matching: find.byType(RichText),
       ),
     );
 
-    expect(amountText.data, amount.format());
+    expect(amountText.textSpan!.toPlainText(), amount.format());
     expect(amountText.overflow, isNot(TextOverflow.ellipsis));
     expect(paragraph.didExceedMaxLines, isFalse);
     expect(find.byType(FittedBox), findsOneWidget);
