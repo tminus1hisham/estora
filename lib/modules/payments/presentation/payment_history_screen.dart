@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
-import '../../../components/status_chip.dart';
 import '../../../components/summary_banner.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/status_palette.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../domain/entities/billing.dart';
 import '../../../domain/enums/domain_enums.dart';
@@ -59,6 +60,8 @@ class _PaymentList extends ConsumerWidget {
       );
     }
 
+    final months = _groupByMonth(payments);
+
     return RefreshIndicator(
       onRefresh: () => ref.read(paymentHistoryProvider.notifier).refresh(),
       child: Center(
@@ -68,15 +71,48 @@ class _PaymentList extends ConsumerWidget {
           ),
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-            itemCount: payments.length + 1,
-            separatorBuilder: (_, _) => Gap.h12,
-            itemBuilder: (context, index) => index == 0
-                ? _PaymentOverview(payments: payments)
-                : _PaymentCard(payment: payments[index - 1]),
+            itemCount: months.length + 1,
+            separatorBuilder: (_, _) => Gap.h24,
+            itemBuilder: (context, index) {
+              if (index == 0) return _PaymentOverview(payments: payments);
+              final month = months[index - 1];
+              return RecordGroup(
+                heading: AppDate.monthYear(month.month),
+                children: [
+                  for (final payment in month.payments)
+                    _PaymentRow(payment: payment),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
+  }
+
+  /// Payments grouped by the month they were made, newest first.
+  ///
+  /// The same reading the invoice statement gets: a tenant looking for a
+  /// payment remembers roughly when they made it, not its reference.
+  static List<({DateTime month, List<Payment> payments})> _groupByMonth(
+    List<Payment> payments,
+  ) {
+    final sorted = [...payments]
+      ..sort(
+        (a, b) => (b.paidAt ?? b.createdAt).compareTo(a.paidAt ?? a.createdAt),
+      );
+
+    final months = <({DateTime month, List<Payment> payments})>[];
+    for (final payment in sorted) {
+      final local = (payment.paidAt ?? payment.createdAt).toLocal();
+      final key = DateTime(local.year, local.month);
+      if (months.isNotEmpty && months.last.month == key) {
+        months.last.payments.add(payment);
+      } else {
+        months.add((month: key, payments: [payment]));
+      }
+    }
+    return months;
   }
 }
 
@@ -110,133 +146,71 @@ class _PaymentOverview extends StatelessWidget {
   }
 }
 
-class _PaymentCard extends StatelessWidget {
-  const _PaymentCard({required this.payment});
+/// One payment, as a line of the ledger.
+///
+/// The old card said "Amount" above the figure and carried a status chip, a
+/// divider and a wallet glyph beside the method. In a list where every entry is
+/// a payment, all four of those are restating the column they are in.
+class _PaymentRow extends StatelessWidget {
+  const _PaymentRow({required this.payment});
 
   final Payment payment;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final tone = context.statusColors.resolve(payment.status.tone);
 
-    return Card(
-      child: InkWell(
-        onTap: () {
-          if (payment.hasReceipt) {
-            context.pushNamed(
-              Routes.receipt,
-              pathParameters: {'receiptId': payment.receiptId!},
-            );
-          } else if (payment.isInFlight) {
-            context.pushNamed(
-              Routes.paymentStatus,
-              pathParameters: {'paymentId': payment.id},
-            );
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(Gap.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: Gap.md,
-                runSpacing: Gap.sm,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        payment.invoiceNumber ?? payment.paymentReference,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: AppTypography.bold),
-                      ),
-                      Text(
-                        AppDate.dateTime(payment.paidAt ?? payment.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  StatusChip(
-                    label: payment.status.label,
-                    tone: payment.status.tone,
-                  ),
-                ],
-              ),
-              Gap.h12,
-              Divider(color: scheme.outlineVariant),
-              Gap.h12,
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.end,
-                spacing: Gap.md,
-                runSpacing: Gap.sm,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.account_balance_wallet_outlined,
-                        size: 16,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      Gap.w8,
-                      Text(
-                        payment.paymentMethod.label,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Amount',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      AmountText(payment.amount, align: TextAlign.end),
-                    ],
-                  ),
-                ],
-              ),
-              if (payment.failureReason != null) ...[
-                Gap.h8,
-                Text(
-                  payment.failureReason!,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: scheme.error),
-                ),
-              ],
-              if (payment.hasReceipt) ...[
-                Gap.h8,
-                Row(
-                  children: [
-                    Icon(
-                      Icons.receipt_outlined,
-                      size: 14,
-                      color: scheme.primary,
-                    ),
-                    Gap.w4,
-                    Text(
-                      'Receipt available',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: scheme.primary),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
+    return RecordRow(
+      icon: _icon,
+      iconColor: tone,
+      title: payment.invoiceNumber ?? payment.paymentReference,
+      subtitle:
+          '${payment.paymentMethod.label} · '
+          '${AppDate.short(payment.paidAt ?? payment.createdAt)}',
+      amount: AmountText(payment.amount, align: TextAlign.end),
+      caption: payment.hasReceipt ? 'Receipt' : payment.status.label,
+      captionColor: payment.hasReceipt
+          ? scheme.primary
+          : payment.status == PaymentStatus.success
+          ? scheme.onSurfaceVariant
+          : tone,
+      // A failed payment is the one entry that has to explain itself, and the
+      // reason is why a tenant opened the list at all.
+      footnote: payment.failureReason == null
+          ? null
+          : Text(
+              payment.failureReason!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.error),
+            ),
+      onTap: _destination(context),
     );
   }
+
+  /// Only tappable where there is somewhere to go. A row that highlights and
+  /// then does nothing is worse than one that never offered.
+  VoidCallback? _destination(BuildContext context) {
+    if (payment.hasReceipt) {
+      return () => context.pushNamed(
+        Routes.receipt,
+        pathParameters: {'receiptId': payment.receiptId!},
+      );
+    }
+    if (payment.isInFlight) {
+      return () => context.pushNamed(
+        Routes.paymentStatus,
+        pathParameters: {'paymentId': payment.id},
+      );
+    }
+    return null;
+  }
+
+  IconData get _icon => switch (payment.status) {
+    PaymentStatus.success => Icons.check_rounded,
+    PaymentStatus.failed => Icons.priority_high_rounded,
+    PaymentStatus.cancelled => Icons.block_rounded,
+    _ => Icons.timelapse_rounded,
+  };
 }

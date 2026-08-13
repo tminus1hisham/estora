@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../components/amount_text.dart';
 import '../../../../components/record_group.dart';
 import '../../../../components/surface_atoms.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
 import '../../../../core/utils/date_format.dart';
 import '../../../../domain/entities/billing.dart';
@@ -63,91 +62,24 @@ class InvoiceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final tone = context.statusColors.resolve(invoice.status.tone);
+    final scheme = Theme.of(context).colorScheme;
     final (caption, captionColor) = _caption(context);
-    final stacked = prefersStacked(context);
 
-    final leading = ToneIconTile(icon: _icon, color: tone, size: 40);
-    final title = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          invoice.invoiceNumber,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: AppTypography.semibold,
-          ),
-        ),
-        Gap.h4,
-        Text(
-          _subtitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-    final trailing = Column(
-      crossAxisAlignment: stacked
-          ? CrossAxisAlignment.start
-          : CrossAxisAlignment.end,
-      children: [
-        AmountText(
-          invoice.isPayable ? invoice.amountDue : invoice.total,
-          color: invoice.isOverdue ? scheme.error : scheme.onSurface,
-          align: stacked ? TextAlign.start : TextAlign.end,
-        ),
-        Gap.h4,
-        Text(
-          caption,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall?.copyWith(color: captionColor),
-        ),
-      ],
-    );
-
-    return InkWell(
+    return RecordRow(
+      icon: _icon,
+      iconColor: context.statusColors.resolve(invoice.status.tone),
+      title: invoice.invoiceNumber,
+      subtitle: _subtitle,
+      amount: AmountText(
+        invoice.isPayable ? invoice.amountDue : invoice.total,
+        color: invoice.isOverdue ? scheme.error : scheme.onSurface,
+        align: prefersStacked(context) ? TextAlign.start : TextAlign.end,
+      ),
+      caption: caption,
+      captionColor: captionColor,
       onTap: () => context.pushNamed(
         Routes.invoiceDetail,
         pathParameters: {'invoiceId': invoice.id},
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Gap.lg,
-          vertical: Gap.lg,
-        ),
-        child: stacked
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      leading,
-                      Gap.w12,
-                      Expanded(child: title),
-                    ],
-                  ),
-                  Gap.h12,
-                  trailing,
-                ],
-              )
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  leading,
-                  Gap.w12,
-                  Expanded(flex: 5, child: title),
-                  Gap.w12,
-                  Expanded(flex: 4, child: trailing),
-                ],
-              ),
       ),
     );
   }

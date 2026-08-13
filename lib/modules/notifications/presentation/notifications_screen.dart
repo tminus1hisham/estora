@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
+import '../../../components/surface_atoms.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/status_palette.dart';
@@ -74,7 +75,13 @@ class _NotificationList extends ConsumerWidget {
       child: ListView.separated(
         padding: const EdgeInsets.only(bottom: Gap.xxl),
         itemCount: items.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
+        // The app's hairline rather than a Divider, inset to where the tile's
+        // text starts, so this list is separated the same way every other one
+        // is. A Divider carries list spacing and a thickness meant for menus.
+        separatorBuilder: (_, _) => const Padding(
+          padding: EdgeInsetsDirectional.only(start: 72),
+          child: Hairline(),
+        ),
         itemBuilder: (context, index) => _NotificationTile(item: items[index]),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/app_surface_card.dart';
+import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_format.dart';
@@ -169,35 +170,33 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ],
 
-          Gap.h12,
-          Card(
-            child: Column(
-              children: [
-                _NavTile(
-                  icon: Icons.receipt_long_outlined,
-                  label: 'Payment history',
-                  onTap: () => context.pushNamed(Routes.paymentHistory),
-                ),
-                const Divider(height: 1),
-                _NavTile(
-                  icon: Icons.folder_outlined,
-                  label: 'Documents',
-                  onTap: () => context.pushNamed(Routes.documents),
-                ),
-                const Divider(height: 1),
-                _NavTile(
-                  icon: Icons.event_note_outlined,
-                  label: 'My bookings',
-                  onTap: () => context.pushNamed(Routes.bookings),
-                ),
-                const Divider(height: 1),
-                _NavTile(
-                  icon: Icons.settings_outlined,
-                  label: 'Settings',
-                  onTap: () => context.pushNamed(Routes.settings),
-                ),
-              ],
-            ),
+          Gap.h24,
+          RecordGroup(
+            heading: 'Your account',
+            // A ListTile's own leading icon sits 56 in, not 68.
+            rowInset: 56,
+            children: [
+              _NavTile(
+                icon: Icons.receipt_long_outlined,
+                label: 'Payment history',
+                onTap: () => context.pushNamed(Routes.paymentHistory),
+              ),
+              _NavTile(
+                icon: Icons.folder_outlined,
+                label: 'Documents',
+                onTap: () => context.pushNamed(Routes.documents),
+              ),
+              _NavTile(
+                icon: Icons.event_note_outlined,
+                label: 'My bookings',
+                onTap: () => context.pushNamed(Routes.bookings),
+              ),
+              _NavTile(
+                icon: Icons.settings_outlined,
+                label: 'Settings',
+                onTap: () => context.pushNamed(Routes.settings),
+              ),
+            ],
           ),
 
           if (user?.lastLoginAt != null) ...[

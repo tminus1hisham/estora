@@ -90,3 +90,151 @@ class RecordGroup extends StatelessWidget {
     );
   }
 }
+
+/// One entry in a [RecordGroup]: a tonal glyph, what it is, and what it cost.
+///
+/// The anatomy is fixed on purpose. Every ledger in this app answers the same
+/// three questions in the same three places — what happened, what it was for,
+/// how much — and a reader who has learned that on the invoice list should not
+/// have to learn it again on the payment list.
+///
+/// Above roughly a 19-point body size the amount drops beneath the title
+/// instead of sitting across from it. Squeezed side by side at that size the
+/// title has nothing left to live in, and a truncated invoice number identifies
+/// nothing.
+class RecordRow extends StatelessWidget {
+  const RecordRow({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    this.subtitle,
+    this.amount,
+    this.caption,
+    this.captionColor,
+    this.footnote,
+    this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+
+  /// Usually resolved from the entry's [StatusTone] via `context.statusColors`.
+  final Color iconColor;
+
+  final String title;
+
+  /// What the entry covers, in one line. Ellipsised rather than wrapped — a
+  /// row that grows to three lines stops being a row.
+  final String? subtitle;
+
+  /// The figure, normally an `AmountText`. Passed as a widget because only the
+  /// caller knows whether the amount is due, paid or refunded, and that decides
+  /// its colour.
+  final Widget? amount;
+
+  /// The line under the amount: when it falls due, or where it ended up.
+  final String? caption;
+  final Color? captionColor;
+
+  /// An extra line across the full width, below everything else. For the rare
+  /// entry that has to explain itself — a failure reason, most often.
+  final Widget? footnote;
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final stacked = prefersStacked(context);
+
+    final leading = ToneIconTile(icon: icon, color: iconColor, size: 40);
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: AppTypography.semibold,
+          ),
+        ),
+        if (subtitle != null) ...[
+          Gap.h4,
+          Text(
+            subtitle!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+
+    final trailingBlock = (amount == null && caption == null)
+        ? null
+        : Column(
+            crossAxisAlignment: stacked
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.end,
+            children: [
+              ?amount,
+              if (caption != null) ...[
+                if (amount != null) Gap.h4,
+                Text(
+                  caption!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: captionColor ?? scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          );
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (stacked)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [leading, Gap.w12, Expanded(child: titleBlock)],
+              ),
+              if (trailingBlock != null) ...[Gap.h12, trailingBlock],
+            ],
+          )
+        else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              leading,
+              Gap.w12,
+              Expanded(flex: 5, child: titleBlock),
+              if (trailingBlock != null) ...[
+                Gap.w12,
+                Expanded(flex: 4, child: trailingBlock),
+              ],
+            ],
+          ),
+        if (footnote != null) ...[Gap.h8, footnote!],
+      ],
+    );
+
+    final padded = Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Gap.lg,
+        vertical: Gap.lg,
+      ),
+      child: body,
+    );
+
+    return onTap == null ? padded : InkWell(onTap: onTap, child: padded);
+  }
+}

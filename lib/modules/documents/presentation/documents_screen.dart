@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
+import '../../../components/surface_atoms.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
@@ -238,7 +239,10 @@ class _DocumentList extends ConsumerWidget {
       child: ListView.separated(
         padding: const EdgeInsets.only(bottom: 96),
         itemCount: documents.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
+        separatorBuilder: (_, _) => const Padding(
+          padding: EdgeInsetsDirectional.only(start: 72),
+          child: Hairline(),
+        ),
         itemBuilder: (context, index) {
           final document = documents[index];
           final scheme = Theme.of(context).colorScheme;

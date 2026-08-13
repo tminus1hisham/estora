@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
-import '../../../components/status_chip.dart';
 import '../../../components/summary_banner.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/status_palette.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../domain/entities/booking.dart';
 import '../../../navigation/routes.dart';
@@ -69,6 +70,11 @@ class _BookingList extends ConsumerWidget {
         .where((item) => item.status.awaitsBookingFee)
         .length;
 
+    // Live bookings first and named as such. An expired booking is kept for the
+    // record, but it is not what someone opening this screen came to see.
+    final live = bookings.where((item) => !item.status.isTerminal).toList();
+    final past = bookings.where((item) => item.status.isTerminal).toList();
+
     return RefreshIndicator(
       onRefresh: () => ref.read(bookingListProvider.notifier).refresh(),
       child: Center(
@@ -76,17 +82,33 @@ class _BookingList extends ConsumerWidget {
           constraints: const BoxConstraints(
             maxWidth: AppLayout.maxReadingWidth,
           ),
-          child: ListView.separated(
+          child: ListView(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-            itemCount: bookings.length + 1,
-            separatorBuilder: (_, _) => Gap.h12,
-            itemBuilder: (context, index) => index == 0
-                ? _BookingOverview(
-                    total: bookings.length,
-                    open: openCount,
-                    needsAction: actionCount,
-                  )
-                : _BookingCard(booking: bookings[index - 1]),
+            children: [
+              _BookingOverview(
+                total: bookings.length,
+                open: openCount,
+                needsAction: actionCount,
+              ),
+              if (live.isNotEmpty) ...[
+                Gap.h24,
+                RecordGroup(
+                  heading: 'In progress',
+                  children: [
+                    for (final booking in live) _BookingRow(booking: booking),
+                  ],
+                ),
+              ],
+              if (past.isNotEmpty) ...[
+                Gap.h24,
+                RecordGroup(
+                  heading: 'Closed',
+                  children: [
+                    for (final booking in past) _BookingRow(booking: booking),
+                  ],
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -126,138 +148,42 @@ class _BookingOverview extends StatelessWidget {
   }
 }
 
-class _BookingCard extends StatelessWidget {
-  const _BookingCard({required this.booking});
+/// One booking, as a line of the list.
+///
+/// The countdown is the one thing here that changes on its own, so it takes the
+/// caption slot where the eye already goes for status — an expiring hold is the
+/// reason this screen gets opened.
+class _BookingRow extends StatelessWidget {
+  const _BookingRow({required this.booking});
 
   final Booking booking;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final counting =
+        booking.status.isCountingDown && booking.timeRemaining != null;
 
-    return Card(
-      child: InkWell(
-        onTap: () => context.pushNamed(
-          Routes.bookingStatus,
-          pathParameters: {'bookingId': booking.id},
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(Gap.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: Gap.md,
-                runSpacing: Gap.sm,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: scheme.primaryContainer.withValues(alpha: 0.6),
-                          borderRadius: AppRadius.small,
-                        ),
-                        child: Icon(
-                          Icons.storefront_outlined,
-                          color: scheme.onPrimaryContainer,
-                        ),
-                      ),
-                      Gap.w12,
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Unit ${booking.unitNumber ?? '—'}',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: AppTypography.bold),
-                          ),
-                          Text(
-                            booking.bookingReference,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  StatusChip(
-                    label: booking.status.label,
-                    tone: booking.status.tone,
-                  ),
-                ],
-              ),
-              Gap.h12,
-              Divider(color: scheme.outlineVariant),
-              Gap.h12,
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.end,
-                spacing: Gap.md,
-                runSpacing: Gap.sm,
-                children: [
-                  Text(
-                    booking.propertyName ?? '',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Monthly rent',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      AmountText(booking.monthlyRent, align: TextAlign.end),
-                    ],
-                  ),
-                ],
-              ),
-              if (booking.status.isCountingDown &&
-                  booking.timeRemaining != null) ...[
-                Gap.h8,
-                Row(
-                  children: [
-                    Icon(
-                      Icons.timer_outlined,
-                      size: 14,
-                      color: booking.isExpiringSoon
-                          ? scheme.error
-                          : scheme.onSurfaceVariant,
-                    ),
-                    Gap.w4,
-                    Text(
-                      'Expires in '
-                      '${AppDate.humanDuration(booking.timeRemaining!)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: booking.isExpiringSoon
-                            ? scheme.error
-                            : scheme.onSurfaceVariant,
-                        fontWeight: AppTypography.semibold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              Gap.h8,
-              Align(
-                alignment: Alignment.centerRight,
-                child: Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 20,
-                  color: scheme.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
+    return RecordRow(
+      icon: Icons.storefront_outlined,
+      iconColor: context.statusColors.resolve(booking.status.tone),
+      title: 'Unit ${booking.unitNumber ?? '—'}',
+      subtitle: [
+        booking.bookingReference,
+        if (booking.propertyName != null) booking.propertyName!,
+      ].join(' · '),
+      amount: AmountText(booking.monthlyRent, align: TextAlign.end),
+      caption: counting
+          ? 'Expires in ${AppDate.humanDuration(booking.timeRemaining!)}'
+          : booking.status.label,
+      captionColor: counting && booking.isExpiringSoon
+          ? scheme.error
+          : counting
+          ? context.statusColors.warning
+          : scheme.onSurfaceVariant,
+      onTap: () => context.pushNamed(
+        Routes.bookingStatus,
+        pathParameters: {'bookingId': booking.id},
       ),
     );
   }
