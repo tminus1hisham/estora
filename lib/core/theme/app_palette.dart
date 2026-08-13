@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 /// Brand colours for the tenant experience.
 ///
-/// Ink gives financial screens authority, warm stone keeps large surfaces
-/// comfortable, and emerald marks interactive and successful states.
+/// Navy gives financial screens authority, warm stone keeps large surfaces
+/// comfortable, and the azure ramp — deep navy blue through sky — marks
+/// interactive states.
 abstract final class AppPalette {
-  // Ink
-  static const Color ink950 = Color(0xFF071512);
-  static const Color ink900 = Color(0xFF0D211D);
-  static const Color ink800 = Color(0xFF17332D);
-  static const Color ink700 = Color(0xFF294942);
-  static const Color ink600 = Color(0xFF3D5C55);
+  // Navy — the dark neutral the brand is grounded in.
+  static const Color navy950 = Color(0xFF050E1C);
+  static const Color navy900 = Color(0xFF0A1A30);
+  static const Color navy800 = Color(0xFF142B4C);
+  static const Color navy700 = Color(0xFF26426B);
+  static const Color navy600 = Color(0xFF3C567F);
 
   // Warm stone
   static const Color stone0 = Color(0xFFFFFEFB);
@@ -23,17 +24,21 @@ abstract final class AppPalette {
   static const Color stone600 = Color(0xFF5C635E);
   static const Color stone700 = Color(0xFF414B46);
 
-  // Emerald
-  static const Color emerald950 = Color(0xFF032C23);
-  static const Color emerald900 = Color(0xFF064535);
-  static const Color emerald800 = Color(0xFF075B45);
-  static const Color emerald700 = Color(0xFF087057);
-  static const Color emerald600 = Color(0xFF0B8062);
-  static const Color emerald500 = Color(0xFF159775);
-  static const Color emerald300 = Color(0xFF69D3AD);
-  static const Color emerald200 = Color(0xFFA5E7CE);
-  static const Color emerald100 = Color(0xFFD9F5EA);
-  static const Color emerald50 = Color(0xFFECFBF5);
+  // Azure — navy blue at the dark end, sky blue at the light end.
+  //
+  // One ramp rather than two: light mode takes its primary from the navy end
+  // so buttons read as authoritative on cream, and dark mode takes its primary
+  // from the sky end so the same role stays legible on a navy ground.
+  static const Color azure950 = Color(0xFF04203F);
+  static const Color azure900 = Color(0xFF072F5E);
+  static const Color azure800 = Color(0xFF0A3D7C);
+  static const Color azure700 = Color(0xFF104B93);
+  static const Color azure600 = Color(0xFF1660B0);
+  static const Color azure500 = Color(0xFF2078CE);
+  static const Color azure300 = Color(0xFF7EC2F5);
+  static const Color azure200 = Color(0xFFB2DBFA);
+  static const Color azure100 = Color(0xFFDCEDFD);
+  static const Color azure50 = Color(0xFFEFF7FE);
 
   // A restrained warm accent for deadlines and premium highlights.
   static const Color brass700 = Color(0xFF8B5D16);
@@ -46,8 +51,14 @@ abstract final class AppPalette {
   static const Color red700 = Color(0xFFA93832);
   static const Color red300 = Color(0xFFF09B94);
   static const Color red100 = Color(0xFFFFE3E0);
-  static const Color blue700 = Color(0xFF2B5F91);
-  static const Color blue300 = Color(0xFF8EC4F1);
+  // Green carries "paid" and "active" on its own now that the brand ramp is
+  // blue — a status badge in the brand colour would read as a control.
+  static const Color green700 = Color(0xFF1A6E47);
+  static const Color green300 = Color(0xFF6FD3A2);
+  // Steel blue for work in flight. Deliberately cooler and lighter than
+  // [azure700] so a PENDING badge does not read as a primary action.
+  static const Color blue700 = Color(0xFF1F6E9C);
+  static const Color blue300 = Color(0xFF8FCEF0);
   static const Color violet700 = Color(0xFF61558F);
   static const Color violet300 = Color(0xFFC2B8EE);
 }

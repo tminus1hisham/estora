@@ -6,7 +6,7 @@ import '../core/theme/app_theme.dart';
 /// display density and does not delay first paint.
 ///
 /// The porcelain arch represents the property, the open brass door represents
-/// a welcoming commercial space, and the emerald threshold represents access.
+/// a welcoming commercial space, and the azure threshold represents access.
 class AppBrandMark extends StatelessWidget {
   const AppBrandMark({
     this.size = 56,
@@ -55,7 +55,7 @@ class _BrandMarkPainter extends CustomPainter {
           const Rect.fromLTWH(0, 0, _artboardSize, _artboardSize),
           const Radius.circular(112),
         ),
-        Paint()..color = AppPalette.ink900,
+        Paint()..color = AppPalette.navy900,
       );
 
     final arch = Path()
@@ -95,7 +95,7 @@ class _BrandMarkPainter extends CustomPainter {
           const Rect.fromLTWH(164, 384, 184, 24),
           const Radius.circular(12),
         ),
-        Paint()..color = AppPalette.emerald500,
+        Paint()..color = AppPalette.azure500,
       )
       ..restore();
   }

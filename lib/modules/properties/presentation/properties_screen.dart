@@ -172,7 +172,7 @@ class _PropertyCard extends StatelessWidget {
                       // photograph, so it has to hold against the image, not
                       // against the surface behind the card.
                       color: property.hasAvailability
-                          ? AppPalette.ink900.withValues(alpha: 0.9)
+                          ? AppPalette.navy900.withValues(alpha: 0.9)
                           : AppPalette.stone700.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
@@ -184,7 +184,7 @@ class _PropertyCard extends StatelessWidget {
                               ? Icons.check_circle_rounded
                               : Icons.schedule_rounded,
                           color: property.hasAvailability
-                              ? AppPalette.emerald300
+                              ? AppPalette.azure300
                               : AppPalette.stone200,
                           size: 15,
                         ),

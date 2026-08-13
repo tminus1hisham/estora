@@ -248,14 +248,14 @@ class _BrandPanel extends StatelessWidget {
       child: ClipRRect(
         borderRadius: AppRadius.extraLarge,
         child: ColoredBox(
-          color: isDark ? AppPalette.ink800 : AppPalette.ink950,
+          color: isDark ? AppPalette.navy800 : AppPalette.navy950,
           child: Stack(
             fit: StackFit.expand,
             children: [
               const Positioned(
                 top: -110,
                 right: -90,
-                child: _AmbientOrb(size: 340, color: AppPalette.emerald700),
+                child: _AmbientOrb(size: 340, color: AppPalette.azure700),
               ),
               const Positioned(
                 bottom: -130,

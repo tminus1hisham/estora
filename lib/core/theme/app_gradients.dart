@@ -13,22 +13,22 @@ import 'app_palette.dart';
 abstract final class AppGradients {
   /// The brand surface for the one element on a screen that carries the money.
   ///
-  /// Ink to emerald rather than a lighter tint of either: the amount sits on
-  /// this, and a dark ground is what makes a large white number feel like a
-  /// statement instead of a label.
+  /// Navy into deep azure rather than a lighter tint of either: the amount
+  /// sits on this, and a dark ground is what makes a large white number feel
+  /// like a statement instead of a label.
   static const LinearGradient brandHero = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [AppPalette.ink800, AppPalette.ink900, AppPalette.emerald950],
+    colors: [AppPalette.navy800, AppPalette.navy900, AppPalette.azure950],
     stops: [0, 0.55, 1],
   );
 
   /// A softer variant for surfaces that sit beside [brandHero] and should not
   /// compete with it.
-  static const LinearGradient inkSurface = LinearGradient(
+  static const LinearGradient navySurface = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [AppPalette.ink800, AppPalette.ink900],
+    colors: [AppPalette.navy800, AppPalette.navy900],
   );
 
   /// Darkens the foot of a photograph so text and badges stay legible.

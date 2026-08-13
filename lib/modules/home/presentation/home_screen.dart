@@ -391,7 +391,7 @@ class _TenancyCard extends StatelessWidget {
                         color: foreground,
                         fontWeight: AppTypography.bold,
                         shadows: const [
-                          Shadow(color: AppPalette.ink950, blurRadius: 12),
+                          Shadow(color: AppPalette.navy950, blurRadius: 12),
                         ],
                       ),
                     ),
@@ -403,7 +403,7 @@ class _TenancyCard extends StatelessWidget {
                         color: foreground.withValues(alpha: 0.86),
                         fontWeight: AppTypography.medium,
                         shadows: const [
-                          Shadow(color: AppPalette.ink950, blurRadius: 12),
+                          Shadow(color: AppPalette.navy950, blurRadius: 12),
                         ],
                       ),
                     ),
@@ -469,7 +469,7 @@ class _MediaStatusChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
         decoration: BoxDecoration(
-          color: AppPalette.ink950.withValues(alpha: 0.55),
+          color: AppPalette.navy950.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(AppRadius.pill),
           border: Border.all(color: color.withValues(alpha: 0.45)),
         ),
@@ -580,7 +580,7 @@ class _BalanceCard extends StatelessWidget {
       // its own padding.
       padding: EdgeInsets.zero,
       shadows: AppElevation.lifted(
-        AppPalette.ink950,
+        AppPalette.navy950,
         level: 3,
         brightness: theme.brightness,
       ),
@@ -593,7 +593,7 @@ class _BalanceCard extends StatelessWidget {
             top: -70,
             right: -50,
             child: _Glow(
-              color: AppPalette.emerald500.withValues(alpha: 0.38),
+              color: AppPalette.azure500.withValues(alpha: 0.38),
               size: 210,
             ),
           ),
@@ -664,8 +664,8 @@ class _BalanceCard extends StatelessWidget {
                       // container is itself dark once the app is in dark mode,
                       // which would leave this button invisible against the
                       // gradient.
-                      backgroundColor: AppPalette.emerald100,
-                      foregroundColor: AppPalette.emerald950,
+                      backgroundColor: AppPalette.azure100,
+                      foregroundColor: AppPalette.azure950,
                       minimumSize: const Size.fromHeight(
                         AppLayout.controlHeight,
                       ),
@@ -712,7 +712,8 @@ class _BalanceCard extends StatelessWidget {
     if (days == 0) return ('Due today', StatusTone.warning);
     if (days == 1) return ('Due tomorrow', StatusTone.warning);
     // Neutral rather than `progress`: a date three weeks out is not news, and
-    // the informational blue pulls against the emerald the hero is built from.
+    // the informational steel blue muddles against the navy the hero is built
+    // from.
     return ('Due in $days days', StatusTone.neutral);
   }
 }

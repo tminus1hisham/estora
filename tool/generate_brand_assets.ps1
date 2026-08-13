@@ -14,10 +14,10 @@ public static class TenantPortalNativeIcon
 '@
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$ink = [System.Drawing.Color]::FromArgb(255, 13, 33, 29)
+$navy = [System.Drawing.Color]::FromArgb(255, 10, 26, 48)
 $porcelain = [System.Drawing.Color]::FromArgb(255, 250, 248, 243)
 $brass = [System.Drawing.Color]::FromArgb(255, 214, 180, 119)
-$emerald = [System.Drawing.Color]::FromArgb(255, 21, 151, 117)
+$azure = [System.Drawing.Color]::FromArgb(255, 32, 120, 206)
 
 function New-BrandBitmap {
     param(
@@ -41,7 +41,7 @@ function New-BrandBitmap {
         $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
         $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
         $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $graphics.Clear($(if ($Transparent) { [System.Drawing.Color]::Transparent } else { $ink }))
+        $graphics.Clear($(if ($Transparent) { [System.Drawing.Color]::Transparent } else { $navy }))
 
         $edgeInset = $Size * (1.0 - $MarkScale) / 2.0
         $graphics.TranslateTransform([single] $edgeInset, [single] $edgeInset)
@@ -97,7 +97,7 @@ function New-BrandBitmap {
             $door.Dispose()
         }
 
-        $thresholdBrush = New-Object System.Drawing.SolidBrush($emerald)
+        $thresholdBrush = New-Object System.Drawing.SolidBrush($azure)
         try {
             $graphics.FillRectangle($thresholdBrush, 176, 384, 160, 24)
             $graphics.FillEllipse($thresholdBrush, 164, 384, 24, 24)

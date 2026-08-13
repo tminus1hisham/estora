@@ -49,7 +49,7 @@ class StatusColors extends ThemeExtension<StatusColors> {
   final Color neutral;
 
   static const StatusColors light = StatusColors(
-    positive: AppPalette.emerald700,
+    positive: AppPalette.green700,
     progress: AppPalette.blue700,
     warning: AppPalette.brass700,
     danger: AppPalette.red700,
@@ -58,7 +58,7 @@ class StatusColors extends ThemeExtension<StatusColors> {
   );
 
   static const StatusColors dark = StatusColors(
-    positive: AppPalette.emerald300,
+    positive: AppPalette.green300,
     progress: AppPalette.blue300,
     warning: AppPalette.brass200,
     danger: AppPalette.red300,
