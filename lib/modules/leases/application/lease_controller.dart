@@ -49,9 +49,7 @@ final leaseAgreementProvider = FutureProvider.family<LeaseAgreement, String>((
   ref,
   leaseId,
 ) async {
-  final result = await ref
-      .watch(leaseRepositoryProvider)
-      .getAgreement(leaseId);
+  final result = await ref.watch(leaseRepositoryProvider).getAgreement(leaseId);
   return switch (result) {
     Ok(:final value) => value,
     Err(:final failure) => throw failure,

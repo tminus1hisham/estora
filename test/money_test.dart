@@ -26,20 +26,17 @@ void main() {
     });
 
     test('parses a JSON number or a decimal string identically', () {
-      expect(
-        Money.fromJson(150000, 'KES'),
-        Money.fromJson('150000', 'KES'),
-      );
-      expect(
-        Money.fromJson(1500.75, 'KES'),
-        Money.fromJson('1500.75', 'KES'),
-      );
+      expect(Money.fromJson(150000, 'KES'), Money.fromJson('150000', 'KES'));
+      expect(Money.fromJson(1500.75, 'KES'), Money.fromJson('1500.75', 'KES'));
     });
 
-    test('a missing or unparseable amount becomes zero rather than throwing', () {
-      expect(Money.fromJson(null, 'KES').isZero, isTrue);
-      expect(Money.fromJson('not a number', 'KES').isZero, isTrue);
-    });
+    test(
+      'a missing or unparseable amount becomes zero rather than throwing',
+      () {
+        expect(Money.fromJson(null, 'KES').isZero, isTrue);
+        expect(Money.fromJson('not a number', 'KES').isZero, isTrue);
+      },
+    );
 
     test('round-trips through JSON without drift', () {
       final original = Money.fromMajor(150000, 'KES');
@@ -91,10 +88,7 @@ void main() {
     });
 
     test('equality is by amount and currency together', () {
-      expect(
-        Money.fromMajor(100, 'KES'),
-        isNot(Money.fromMajor(100, 'USD')),
-      );
+      expect(Money.fromMajor(100, 'KES'), isNot(Money.fromMajor(100, 'USD')));
       expect(Money.fromMajor(100, 'KES'), Money.fromMajor(100, 'KES'));
     });
   });

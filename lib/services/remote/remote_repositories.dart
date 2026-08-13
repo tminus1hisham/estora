@@ -43,9 +43,7 @@ class RemoteAuthRepository implements AuthRepository {
   Future<Result<AuthSession>> _storeAndBuild(Json payload) async {
     final access = payload['accessToken']?.toString();
     final refresh = payload['refreshToken']?.toString();
-    final expiresAt = DateTime.tryParse(
-      payload['expiresAt']?.toString() ?? '',
-    );
+    final expiresAt = DateTime.tryParse(payload['expiresAt']?.toString() ?? '');
 
     if (access == null || refresh == null || expiresAt == null) {
       return const Err(ServerFailure('The sign-in response was incomplete.'));
@@ -368,7 +366,9 @@ String _base64(List<int> bytes) {
 
     buffer.write(chars[b0 >> 2]);
     buffer.write(chars[((b0 & 0x03) << 4) | ((b1 ?? 0) >> 4)]);
-    buffer.write(b1 == null ? '=' : chars[((b1 & 0x0F) << 2) | ((b2 ?? 0) >> 6)]);
+    buffer.write(
+      b1 == null ? '=' : chars[((b1 & 0x0F) << 2) | ((b2 ?? 0) >> 6)],
+    );
     buffer.write(b2 == null ? '=' : chars[b2 & 0x3F]);
   }
   return buffer.toString();
@@ -567,11 +567,12 @@ class RemoteTenantRepository implements TenantRepository {
       _api.get(Endpoints.currentTenant, parse: tenantFromJson);
 
   @override
-  Future<Result<TenantProfile>> updateProfile(TenantProfile profile) => _api.put(
-    Endpoints.tenantProfile,
-    body: tenantProfileToJson(profile),
-    parse: tenantProfileFromJson,
-  );
+  Future<Result<TenantProfile>> updateProfile(TenantProfile profile) =>
+      _api.put(
+        Endpoints.tenantProfile,
+        body: tenantProfileToJson(profile),
+        parse: tenantProfileFromJson,
+      );
 }
 
 // ---------------------------------------------------------------------------

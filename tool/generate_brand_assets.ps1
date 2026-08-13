@@ -14,10 +14,66 @@ public static class TenantPortalNativeIcon
 '@
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
+
+# The mark: a navy arcade on a warm stone tile, brass on the centre pier.
+# Geometry is normalised to a 512 artboard and shared with
+# assets/branding/tenant_portal_mark.svg and lib/components/app_brand_mark.dart.
 $navy = [System.Drawing.Color]::FromArgb(255, 10, 26, 48)
-$porcelain = [System.Drawing.Color]::FromArgb(255, 250, 248, 243)
-$brass = [System.Drawing.Color]::FromArgb(255, 214, 180, 119)
-$azure = [System.Drawing.Color]::FromArgb(255, 32, 120, 206)
+$brass = [System.Drawing.Color]::FromArgb(255, 185, 132, 46)
+$stone0 = [System.Drawing.Color]::FromArgb(255, 255, 254, 251)
+$stone50 = [System.Drawing.Color]::FromArgb(255, 250, 248, 243)
+$stone100 = [System.Drawing.Color]::FromArgb(255, 243, 240, 233)
+
+$cornerRatio = 0.21875   # 112 / 512
+
+function New-RoundedRectPath {
+    param(
+        [Parameter(Mandatory = $true)][double] $X,
+        [Parameter(Mandatory = $true)][double] $Y,
+        [Parameter(Mandatory = $true)][double] $W,
+        [Parameter(Mandatory = $true)][double] $H,
+        [Parameter(Mandatory = $true)][double] $R
+    )
+
+    $d = $R * 2
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $path.AddArc([single] $X, [single] $Y, [single] $d, [single] $d, 180, 90)
+    $path.AddArc([single] ($X + $W - $d), [single] $Y, [single] $d, [single] $d, 270, 90)
+    $path.AddArc(
+        [single] ($X + $W - $d),
+        [single] ($Y + $H - $d),
+        [single] $d,
+        [single] $d,
+        0,
+        90
+    )
+    $path.AddArc([single] $X, [single] ($Y + $H - $d), [single] $d, [single] $d, 90, 90)
+    $path.CloseFigure()
+    return $path
+}
+
+function New-ArcadePath {
+    # Outer piers of 48, a centre pier of 64 and two bays of 84, cut as one
+    # outline so the arches are true negative space. Arc sweeps are negative
+    # because GDI+ measures positive angles clockwise on a y-down canvas, and
+    # each arch climbs from its right springing point over the crown to its
+    # left one.
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $path.StartFigure()
+    $path.AddLine(92, 118, 420, 118)
+    $path.AddLine(420, 118, 420, 394)
+    $path.AddLine(420, 394, 372, 394)
+    $path.AddLine(372, 394, 372, 220)
+    $path.AddArc(288, 178, 84, 84, 0, -180)
+    $path.AddLine(288, 220, 288, 394)
+    $path.AddLine(288, 394, 224, 394)
+    $path.AddLine(224, 394, 224, 220)
+    $path.AddArc(140, 178, 84, 84, 0, -180)
+    $path.AddLine(140, 220, 140, 394)
+    $path.AddLine(140, 394, 92, 394)
+    $path.CloseFigure()
+    return $path
+}
 
 function New-BrandBitmap {
     param(
@@ -41,70 +97,59 @@ function New-BrandBitmap {
         $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
         $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
         $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $graphics.Clear($(if ($Transparent) { [System.Drawing.Color]::Transparent } else { $navy }))
+        $graphics.Clear([System.Drawing.Color]::Transparent)
+
+        # Launcher PNGs stay square and full-bleed — every platform applies its
+        # own mask, and a pre-rounded corner shows up as a seam inside it. The
+        # transparent variant is the standalone launch mark, so that one carries
+        # the rounded tile itself.
+        $clipPath = $null
+        if ($Transparent) {
+            $clipPath = New-RoundedRectPath -X 0 -Y 0 -W $Size -H $Size -R ($Size * $cornerRatio)
+            $graphics.SetClip($clipPath)
+        }
+
+        $tileRect = New-Object System.Drawing.RectangleF(0, 0, [single] $Size, [single] $Size)
+        $tileBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $tileRect, $stone0, $stone100, [single] 45.0
+        )
+        try {
+            $blend = New-Object System.Drawing.Drawing2D.ColorBlend(3)
+            $blend.Colors = @($stone0, $stone50, $stone100)
+            $blend.Positions = @([single] 0.0, [single] 0.55, [single] 1.0)
+            $tileBrush.InterpolationColors = $blend
+            $graphics.FillRectangle($tileBrush, $tileRect)
+        }
+        finally {
+            $tileBrush.Dispose()
+        }
 
         $edgeInset = $Size * (1.0 - $MarkScale) / 2.0
         $graphics.TranslateTransform([single] $edgeInset, [single] $edgeInset)
         $scale = $Size * $MarkScale / 512.0
         $graphics.ScaleTransform([single] $scale, [single] $scale)
 
-        $arch = New-Object System.Drawing.Drawing2D.GraphicsPath
+        $navyBrush = New-Object System.Drawing.SolidBrush($navy)
         try {
-            $arch.StartFigure()
-            $arch.AddLine(112, 400, 112, 222)
-            $arch.AddBezier(112, 222, 112, 129, 176, 72, 256, 72)
-            $arch.AddBezier(256, 72, 336, 72, 400, 129, 400, 222)
-            $arch.AddLine(400, 222, 400, 400)
-            $arch.AddLine(400, 400, 326, 400)
-            $arch.AddLine(326, 400, 326, 224)
-            $arch.AddBezier(326, 224, 326, 178, 297, 148, 256, 148)
-            $arch.AddBezier(256, 148, 215, 148, 186, 178, 186, 224)
-            $arch.AddLine(186, 224, 186, 400)
-            $arch.CloseFigure()
-            $brush = New-Object System.Drawing.SolidBrush($porcelain)
-            try { $graphics.FillPath($brush, $arch) } finally { $brush.Dispose() }
+            $arcade = New-ArcadePath
+            try { $graphics.FillPath($navyBrush, $arcade) } finally { $arcade.Dispose() }
         }
         finally {
-            $arch.Dispose()
+            $navyBrush.Dispose()
         }
 
-        $keystone = New-Object System.Drawing.Drawing2D.GraphicsPath
+        # The load-bearing centre pier.
+        $brassBrush = New-Object System.Drawing.SolidBrush($brass)
         try {
-            $keystone.StartFigure()
-            $keystone.AddLine(232, 104, 280, 104)
-            $keystone.AddLine(280, 104, 269, 153)
-            $keystone.AddBezier(269, 153, 260, 149, 252, 149, 243, 153)
-            $keystone.CloseFigure()
-            $brush = New-Object System.Drawing.SolidBrush($brass)
-            try { $graphics.FillPath($brush, $keystone) } finally { $brush.Dispose() }
+            $graphics.FillRectangle($brassBrush, 224, 118, 64, 276)
         }
         finally {
-            $keystone.Dispose()
+            $brassBrush.Dispose()
         }
 
-        $door = New-Object System.Drawing.Drawing2D.GraphicsPath
-        try {
-            $door.StartFigure()
-            $door.AddLine(216, 246, 263, 255)
-            $door.AddBezier(263, 255, 284, 259, 296, 274, 296, 294)
-            $door.AddLine(296, 294, 296, 370)
-            $door.AddLine(296, 370, 216, 398)
-            $door.CloseFigure()
-            $brush = New-Object System.Drawing.SolidBrush($brass)
-            try { $graphics.FillPath($brush, $door) } finally { $brush.Dispose() }
-        }
-        finally {
-            $door.Dispose()
-        }
-
-        $thresholdBrush = New-Object System.Drawing.SolidBrush($azure)
-        try {
-            $graphics.FillRectangle($thresholdBrush, 176, 384, 160, 24)
-            $graphics.FillEllipse($thresholdBrush, 164, 384, 24, 24)
-            $graphics.FillEllipse($thresholdBrush, 324, 384, 24, 24)
-        }
-        finally {
-            $thresholdBrush.Dispose()
+        if ($null -ne $clipPath) {
+            $graphics.ResetClip()
+            $clipPath.Dispose()
         }
     }
     finally {
@@ -259,4 +304,4 @@ finally {
     $icoStream.Dispose()
 }
 
-Write-Output "Generated $($appIconTargets.Count + 5) PNG assets and the Windows ICO from the Tenant Portal master mark."
+Write-Output "Generated $($appIconTargets.Count + 5) PNG assets and the Windows ICO from the Tenant Portal arcade mark."

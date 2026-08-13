@@ -71,16 +71,17 @@ class Invoice {
 
   bool get isPayable => status.isPayable && amountDue.isPositive;
 
-  int get daysUntilDue =>
-      DateTime(dueDate.year, dueDate.month, dueDate.day)
-          .difference(DateTime.now().copyWith(
-            hour: 0,
-            minute: 0,
-            second: 0,
-            millisecond: 0,
-            microsecond: 0,
-          ))
-          .inDays;
+  int get daysUntilDue => DateTime(dueDate.year, dueDate.month, dueDate.day)
+      .difference(
+        DateTime.now().copyWith(
+          hour: 0,
+          minute: 0,
+          second: 0,
+          millisecond: 0,
+          microsecond: 0,
+        ),
+      )
+      .inDays;
 
   bool get isDueSoon =>
       status.isPayable && daysUntilDue >= 0 && daysUntilDue <= 7;

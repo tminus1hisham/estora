@@ -2,23 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../components/money_text.dart';
+import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
-import '../../../components/summary_banner.dart';
 import '../../../components/state_views.dart';
-import '../../../components/status_chip.dart';
+import '../../../components/surface_atoms.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/date_format.dart';
 import '../../../domain/entities/lease.dart';
 import '../../../navigation/routes.dart';
 import '../application/lease_controller.dart';
+import 'widgets/lease_hero_card.dart';
+import 'widgets/lease_list.dart';
 
 /// Section 45's "My Lease" tab.
 ///
 /// A tenant usually has one live lease, but section 54 requires a renewal to
-/// create a new lease rather than overwrite the old one, so this is a list —
-/// the history has to remain reachable.
+/// create a new lease rather than overwrite the old one, so the history has to
+/// remain reachable. That shape — one agreement that matters and a record
+/// behind it — is now what the screen looks like: the live lease as a single
+/// tall surface, and everything else as a quiet list under it.
 class LeasesScreen extends ConsumerWidget {
   const LeasesScreen({super.key});
 
@@ -29,234 +31,140 @@ class LeasesScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('My lease')),
       body: switch (leases) {
-        AsyncLoading() when !leases.hasValue => const AppSkeletonList(
-          header: true,
+        AsyncLoading() when !leases.hasValue => const AppSkeletonDetail(
+          heroHeight: 300,
         ),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
           onRetry: () => ref.read(leaseListProvider.notifier).refresh(),
         ),
-        _ => _LeaseList(leases: leases.requireValue),
+        _ => _LeaseBody(leases: leases.requireValue),
       },
     );
   }
 }
 
-class _LeaseList extends ConsumerWidget {
-  const _LeaseList({required this.leases});
+class _LeaseBody extends ConsumerWidget {
+  const _LeaseBody({required this.leases});
 
   final List<Lease> leases;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    Future<void> refresh() => ref.read(leaseListProvider.notifier).refresh();
+
     if (leases.isEmpty) {
-      return EmptyState(
-        icon: Icons.description_outlined,
-        title: 'No lease yet',
-        message:
-            'Once you book a unit and complete the requirements, your lease '
-            'will appear here to review and sign.',
-        action: FilledButton.tonal(
-          onPressed: () => context.goNamed(Routes.browse),
-          child: const Text('Browse available units'),
+      return RefreshIndicator(
+        onRefresh: refresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: Icons.vpn_key_outlined,
+                title: 'No lease yet',
+                message:
+                    'Once you book a unit and complete the requirements, your '
+                    'lease will appear here to review and sign.',
+                action: FilledButton.tonal(
+                  onPressed: () => context.goNamed(Routes.browse),
+                  child: const Text('Browse available units'),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    final currentCount = leases.where((item) => item.status.isCurrent).length;
-    final signatureCount = leases
-        .where((item) => item.status.needsTenantSignature)
-        .length;
+    final primary = _primaryOf(leases);
+    final rest = leases.where((lease) => lease.id != primary.id).toList();
+
+    final sections = <Widget>[
+      LeaseHeroCard(lease: primary, actions: _actionsFor(context, primary)),
+      if (rest.isNotEmpty)
+        LeaseHistorySection(
+          title:
+              rest.any(
+                (lease) =>
+                    lease.status.isCurrent || lease.status.needsTenantSignature,
+              )
+              ? 'Other leases'
+              : 'Previous leases',
+          leases: rest,
+        ),
+    ];
 
     return RefreshIndicator(
-      onRefresh: () => ref.read(leaseListProvider.notifier).refresh(),
+      onRefresh: refresh,
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(
             maxWidth: AppLayout.maxReadingWidth,
           ),
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-            itemCount: leases.length + 1,
-            separatorBuilder: (_, _) => Gap.h12,
-            itemBuilder: (context, index) => index == 0
-                ? _LeaseOverview(
-                    total: leases.length,
-                    current: currentCount,
-                    awaitingSignature: signatureCount,
-                  )
-                : _LeaseCard(lease: leases[index - 1]),
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),
+            itemCount: sections.length,
+            separatorBuilder: (_, _) => Gap.h32,
+            itemBuilder: (context, index) =>
+                AppReveal(index: index, child: sections[index]),
           ),
         ),
       ),
     );
   }
-}
 
-class _LeaseOverview extends StatelessWidget {
-  const _LeaseOverview({
-    required this.total,
-    required this.current,
-    required this.awaitingSignature,
-  });
-
-  final int total;
-  final int current;
-  final int awaitingSignature;
-
-  @override
-  Widget build(BuildContext context) {
-    return SummaryBanner(
-      icon: Icons.description_outlined,
-      headline: awaitingSignature > 0
-          ? 'Your signature is needed'
-          : current > 0
-          ? 'Your tenancy is active'
-          : 'Your lease records',
-      caption: awaitingSignature > 0
-          ? '$awaitingSignature ${awaitingSignature == 1 ? 'agreement is' : 'agreements are'} ready to review.'
-          : '$current current · $total total',
-      counts: [
-        SummaryCount(label: 'Current', value: current),
-        SummaryCount(
-          label: 'To sign',
-          value: awaitingSignature,
-          tone: Theme.of(context).colorScheme.tertiary,
-        ),
-        SummaryCount(label: 'Total', value: total),
-      ],
+  /// The lease the screen is about.
+  ///
+  /// A signature that is being waited on outranks a live tenancy: it is the one
+  /// thing on this screen the tenant can actually do something about.
+  static Lease _primaryOf(List<Lease> leases) {
+    final ordered = [...leases]
+      ..sort((a, b) => b.startDate.compareTo(a.startDate));
+    return ordered.firstWhere(
+      (lease) => lease.status.needsTenantSignature,
+      orElse: () => ordered.firstWhere(
+        (lease) => lease.status.isCurrent,
+        orElse: () => ordered.first,
+      ),
     );
   }
-}
 
-class _LeaseCard extends StatelessWidget {
-  const _LeaseCard({required this.lease});
+  static List<Widget> _actionsFor(BuildContext context, Lease lease) {
+    void openDetail() => context.pushNamed(
+      Routes.leaseDetail,
+      pathParameters: {'leaseId': lease.id},
+    );
 
-  final Lease lease;
+    if (lease.status.needsTenantSignature) {
+      return [
+        OnDarkAction(
+          label: 'Review and sign',
+          icon: Icons.draw_outlined,
+          style: OnDarkActionStyle.primary,
+          onPressed: () => context.pushNamed(
+            Routes.signAgreement,
+            pathParameters: {'leaseId': lease.id},
+          ),
+        ),
+        OnDarkAction(label: 'Lease details', onPressed: openDetail),
+      ];
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Card(
-      child: InkWell(
-        onTap: () => context.pushNamed(
-          Routes.leaseDetail,
+    return [
+      OnDarkAction(
+        label: 'Lease details',
+        style: OnDarkActionStyle.tonal,
+        onPressed: openDetail,
+      ),
+      OnDarkAction(
+        label: 'Agreement',
+        onPressed: () => context.pushNamed(
+          Routes.leaseAgreement,
           pathParameters: {'leaseId': lease.id},
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(Gap.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: Gap.md,
-                runSpacing: Gap.sm,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: scheme.primaryContainer.withValues(alpha: 0.6),
-                          borderRadius: AppRadius.small,
-                        ),
-                        child: Icon(
-                          Icons.key_outlined,
-                          color: scheme.onPrimaryContainer,
-                        ),
-                      ),
-                      Gap.w12,
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Unit ${lease.unitNumber ?? '—'}',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: AppTypography.bold),
-                          ),
-                          Text(
-                            lease.propertyName ?? '',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  StatusChip(
-                    label: lease.status.label,
-                    tone: lease.status.tone,
-                  ),
-                ],
-              ),
-              Gap.h12,
-              Divider(color: scheme.outlineVariant),
-              Gap.h12,
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.end,
-                spacing: Gap.md,
-                runSpacing: Gap.md,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Term',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        '${AppDate.short(lease.startDate)} – '
-                        '${AppDate.short(lease.endDate)}',
-                        style: const TextStyle(
-                          fontWeight: AppTypography.semibold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Monthly rent',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                      MoneyText(lease.monthlyRent),
-                    ],
-                  ),
-                ],
-              ),
-              if (lease.status.needsTenantSignature) ...[
-                Gap.h12,
-                FilledButton.icon(
-                  onPressed: () => context.pushNamed(
-                    Routes.signAgreement,
-                    pathParameters: {'leaseId': lease.id},
-                  ),
-                  icon: const Icon(Icons.draw_outlined),
-                  label: const Text('Review and sign'),
-                ),
-              ],
-              if (lease.isExpiringSoon) ...[
-                Gap.h8,
-                Text(
-                  'Expires in ${lease.daysUntilExpiry} days',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
-    );
+    ];
   }
 }

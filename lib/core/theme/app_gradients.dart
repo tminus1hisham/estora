@@ -31,6 +31,86 @@ abstract final class AppGradients {
     colors: [AppPalette.navy800, AppPalette.navy900],
   );
 
+  /// The fill for the one control a screen is built around.
+  ///
+  /// Ends darker than it begins so the button reads as a lit surface rather
+  /// than a coloured rectangle. Both stops are dark enough to carry the label
+  /// in [AppPalette.stone0] at the app's bold label weight.
+  static const LinearGradient action = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [AppPalette.azure600, AppPalette.azure800],
+  );
+
+  /// The veil over the photograph on the sign-in stage.
+  ///
+  /// Heavier at both ends than across the middle, because the middle is where
+  /// the building's own lights sit in the photograph and the top and bottom
+  /// are where the app's text sits. Keeping one warm band alive is the whole
+  /// point of putting a photograph there; letting it reach the headline is how
+  /// a sign-in screen becomes unreadable at dusk.
+  static final LinearGradient stageVeil = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      AppPalette.navy950.withValues(alpha: 0.84),
+      AppPalette.navy900.withValues(alpha: 0.56),
+      AppPalette.navy900.withValues(alpha: 0.48),
+      AppPalette.navy950.withValues(alpha: 0.95),
+    ],
+    stops: const [0, 0.34, 0.62, 1],
+  );
+
+  /// Darkens the trailing edge of the stage, for the split layout.
+  ///
+  /// The single-column layout keeps its text over the dark head and foot of
+  /// [stageVeil]. Side by side, the controls sit over the middle of the
+  /// photograph instead — which is the part deliberately left bright — and the
+  /// captions outside the glass have nothing to be read against. Directional
+  /// so the shaded edge follows the column rather than the compass.
+  static final LinearGradient stageEdgeVeil = LinearGradient(
+    begin: AlignmentDirectional.centerStart,
+    end: AlignmentDirectional.centerEnd,
+    colors: [
+      Colors.transparent,
+      AppPalette.navy950.withValues(alpha: 0.5),
+      AppPalette.navy950.withValues(alpha: 0.84),
+    ],
+    stops: const [0.4, 0.66, 1],
+  );
+
+  /// Darkens the head of a full-bleed header, so a status bar, brand mark and
+  /// action icons stay readable over whatever photograph is behind them.
+  ///
+  /// Navy rather than black: the header runs straight into the balance card
+  /// below it, and a neutral black veil over a warm photograph reads as a
+  /// different material from the navy the card is built from.
+  static final LinearGradient headerVeil = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      AppPalette.navy950.withValues(alpha: 0.62),
+      AppPalette.navy950.withValues(alpha: 0),
+    ],
+    stops: const [0, 0.55],
+  );
+
+  /// Darkens the foot of a full-bleed header.
+  ///
+  /// Heavier than [mediaScrim] on purpose: the tenant's own name sits on this
+  /// at display size, and a name that has to be squinted at is worse than no
+  /// photograph at all.
+  static final LinearGradient headerScrim = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      AppPalette.navy950.withValues(alpha: 0),
+      AppPalette.navy950.withValues(alpha: 0.58),
+      AppPalette.navy950.withValues(alpha: 0.95),
+    ],
+    stops: const [0.15, 0.6, 1],
+  );
+
   /// Darkens the foot of a photograph so text and badges stay legible.
   ///
   /// [strength] is the alpha at the bottom edge. The default suits a caption;

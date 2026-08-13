@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mall/app.dart';
 import 'package:mall/components/app_brand_mark.dart';
 import 'package:mall/components/app_media.dart';
+import 'package:mall/components/money_count_up.dart';
 import 'package:mall/components/money_text.dart';
 import 'package:mall/components/status_chip.dart';
 import 'package:mall/core/theme/app_theme.dart';
@@ -22,6 +23,8 @@ import 'package:mall/modules/bookings/application/booking_controller.dart';
 import 'package:mall/modules/bookings/presentation/booking_screen.dart';
 import 'package:mall/modules/home/application/dashboard_controller.dart';
 import 'package:mall/modules/home/presentation/home_screen.dart';
+import 'package:mall/modules/home/presentation/widgets/balance_card.dart';
+import 'package:mall/modules/home/presentation/widgets/home_hero.dart';
 import 'package:mall/modules/notifications/application/notification_controller.dart';
 import 'package:mall/modules/properties/application/property_controller.dart';
 import 'package:mall/navigation/routes.dart';
@@ -390,5 +393,92 @@ void main() {
     expect(find.text('KES 150,000'), findsOneWidget);
     expect(find.bySemanticsLabel('Sarit Mall property'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('home survives a small phone at an accessibility text size', (
+    tester,
+  ) async {
+    // The home screen puts two figures on one line, four actions in a row and
+    // a balance card over a photograph. Each of those has a stacked fallback;
+    // this is the viewport that has to reach all of them at once.
+    usePhoneViewport(tester, const Size(320, 640), textScale: 2);
+    await tester.pumpWidget(signedInApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('KES 150,000'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Everything below the header stays reachable rather than being clipped.
+    await tester.scrollUntilVisible(
+      find.text('Documents'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Documents'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the balance card overlaps the header it sits on', (
+    tester,
+  ) async {
+    usePhoneViewport(tester, const Size(390, 844));
+    await tester.pumpWidget(signedInApp());
+    await tester.pumpAndSettle();
+
+    final headerBottom = tester.getRect(find.byType(HomeHero)).bottom;
+    final card = tester.getRect(find.byType(BalanceCard));
+
+    // The card rides up onto the photograph rather than queueing below it.
+    expect(card.top, lessThan(headerBottom));
+
+    // And a touch inside the overlap still lands on the card. The card is
+    // translated out of its layout box to get there, so this is only true
+    // because hit testing follows the transform rather than the box.
+    final probe = tester.hitTestOnBinding(Offset(card.center.dx, card.top + 8));
+    expect(
+      probe.path.map((entry) => entry.target),
+      contains(tester.renderObject(find.byType(BalanceCard))),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  group('MoneyCountUp', () {
+    const amount = Money(15000000, 'KES');
+
+    testWidgets('settles on exactly the amount it was given', (tester) async {
+      await tester.pumpWidget(
+        themed(
+          child: const Scaffold(body: Center(child: MoneyCountUp(amount))),
+        ),
+      );
+
+      // Mid-count it is showing something else entirely; that is the point.
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(find.text(amount.format()), findsNothing);
+
+      await tester.pumpAndSettle();
+      expect(find.text(amount.format()), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('shows the amount directly under reduced motion', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        themed(
+          child: const MediaQuery(
+            data: MediaQueryData(disableAnimations: true),
+            child: Scaffold(body: Center(child: MoneyCountUp(amount))),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text(amount.format()), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

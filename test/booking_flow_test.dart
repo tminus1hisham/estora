@@ -83,10 +83,7 @@ void main() {
 
     test('a booked unit disappears from the available list', () async {
       final before = await units.listUnits();
-      expect(
-        before.value.items.map((u) => u.id),
-        contains('unt_shop_102'),
-      );
+      expect(before.value.items.map((u) => u.id), contains('unt_shop_102'));
 
       await bookings.createBooking(
         unitId: 'unt_shop_102',
@@ -102,22 +99,24 @@ void main() {
   });
 
   group('idempotency (section 66)', () {
-    test('replaying a key returns the original booking, not a second one',
-        () async {
-      final first = await bookings.createBooking(
-        unitId: 'unt_shop_102',
-        idempotencyKey: 'same-key',
-      );
-      final replay = await bookings.createBooking(
-        unitId: 'unt_shop_102',
-        idempotencyKey: 'same-key',
-      );
+    test(
+      'replaying a key returns the original booking, not a second one',
+      () async {
+        final first = await bookings.createBooking(
+          unitId: 'unt_shop_102',
+          idempotencyKey: 'same-key',
+        );
+        final replay = await bookings.createBooking(
+          unitId: 'unt_shop_102',
+          idempotencyKey: 'same-key',
+        );
 
-      expect(replay.isOk, isTrue);
-      expect(replay.value.id, first.value.id);
-      expect(replay.value.bookingReference, first.value.bookingReference);
-      expect(server.bookings.length, 1);
-    });
+        expect(replay.isOk, isTrue);
+        expect(replay.value.id, first.value.id);
+        expect(replay.value.bookingReference, first.value.bookingReference);
+        expect(server.bookings.length, 1);
+      },
+    );
 
     test('replaying a payment key does not charge twice', () async {
       final booking = await bookings.createBooking(
@@ -194,26 +193,28 @@ void main() {
   });
 
   group('expiry (section 23)', () {
-    test('the hold clock starts when the fee is paid, not at creation',
-        () async {
-      final booking = await bookings.createBooking(
-        unitId: 'unt_shop_102',
-        idempotencyKey: 'key-1',
-      );
+    test(
+      'the hold clock starts when the fee is paid, not at creation',
+      () async {
+        final booking = await bookings.createBooking(
+          unitId: 'unt_shop_102',
+          idempotencyKey: 'key-1',
+        );
 
-      // Nothing paid yet, so nothing is being held yet.
-      expect(booking.value.expiresAt, isNull);
+        // Nothing paid yet, so nothing is being held yet.
+        expect(booking.value.expiresAt, isNull);
 
-      await _payInvoice(server, booking.value.bookingFeeInvoiceId!);
+        await _payInvoice(server, booking.value.bookingFeeInvoiceId!);
 
-      final active = await bookings.getBooking(booking.value.id);
-      expect(active.value.status, BookingStatus.active);
-      expect(active.value.expiresAt, isNotNull);
+        final active = await bookings.getBooking(booking.value.id);
+        expect(active.value.status, BookingStatus.active);
+        expect(active.value.expiresAt, isNotNull);
 
-      // Section 80's configuration: 48 hours.
-      final hold = active.value.expiresAt!.difference(server.now);
-      expect(hold.inHours, closeTo(48, 1));
-    });
+        // Section 80's configuration: 48 hours.
+        final hold = active.value.expiresAt!.difference(server.now);
+        expect(hold.inHours, closeTo(48, 1));
+      },
+    );
 
     test('an expired booking releases the unit but is not deleted', () async {
       var now = DateTime(2026, 9, 1, 9);
@@ -238,10 +239,7 @@ void main() {
 
       // And the unit is bookable again.
       final available = await units.listUnits();
-      expect(
-        available.value.items.map((u) => u.id),
-        contains('unt_shop_102'),
-      );
+      expect(available.value.items.map((u) => u.id), contains('unt_shop_102'));
     });
 
     test('a booking that has not expired keeps its hold', () async {
@@ -263,24 +261,25 @@ void main() {
   });
 
   group('payment activates the booking (section 22)', () {
-    test('paying the fee makes the booking active and raises the deposit',
-        () async {
-      final booking = await bookings.createBooking(
-        unitId: 'unt_shop_102',
-        idempotencyKey: 'key-1',
-      );
+    test(
+      'paying the fee makes the booking active and raises the deposit',
+      () async {
+        final booking = await bookings.createBooking(
+          unitId: 'unt_shop_102',
+          idempotencyKey: 'key-1',
+        );
 
-      await _payInvoice(server, booking.value.bookingFeeInvoiceId!);
+        await _payInvoice(server, booking.value.bookingFeeInvoiceId!);
 
-      final active = await bookings.getBooking(booking.value.id);
-      expect(active.value.status, BookingStatus.active);
+        final active = await bookings.getBooking(booking.value.id);
+        expect(active.value.status, BookingStatus.active);
 
-      // Section 31: the deposit arrives as an invoice, not a flag.
-      expect(active.value.depositInvoiceId, isNotNull);
-      final depositInvoice =
-          server.invoices[active.value.depositInvoiceId!]!;
-      expect(depositInvoice.total, Money.fromMajor(750000, 'KES'));
-    });
+        // Section 31: the deposit arrives as an invoice, not a flag.
+        expect(active.value.depositInvoiceId, isNotNull);
+        final depositInvoice = server.invoices[active.value.depositInvoiceId!]!;
+        expect(depositInvoice.total, Money.fromMajor(750000, 'KES'));
+      },
+    );
 
     test('the unit reads as reserved while the booking is active', () async {
       final booking = await bookings.createBooking(
@@ -296,16 +295,18 @@ void main() {
   });
 
   group('quotes (section 65)', () {
-    test('the server supplies the total rather than the client summing it',
-        () async {
-      final quote = await bookings.getQuote('unt_shop_102');
+    test(
+      'the server supplies the total rather than the client summing it',
+      () async {
+        final quote = await bookings.getQuote('unt_shop_102');
 
-      // Sarit Mall has tax disabled, so the total is the fee.
-      expect(quote.value.bookingFee, Money.fromMajor(20000, 'KES'));
-      expect(quote.value.total, Money.fromMajor(20000, 'KES'));
-      expect(quote.value.expiryHours, 48);
-      expect(quote.value.depositMonths, 5);
-    });
+        // Sarit Mall has tax disabled, so the total is the fee.
+        expect(quote.value.bookingFee, Money.fromMajor(20000, 'KES'));
+        expect(quote.value.total, Money.fromMajor(20000, 'KES'));
+        expect(quote.value.expiryHours, 48);
+        expect(quote.value.depositMonths, 5);
+      },
+    );
 
     test('a taxed property returns fee plus tax in the total', () async {
       // ABC Business Centre: 16% VAT, and a booking fee of 10% of rent.

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../components/app_surface_card.dart';
-import '../../../components/async_button.dart';
 import '../../../core/theme/app_theme.dart';
 import '../application/auth_controller.dart';
-import 'widgets/auth_scaffold.dart';
+import 'widgets/auth_controls.dart';
+import 'widgets/auth_page.dart';
+import 'widgets/auth_stage.dart';
 
 /// Requests a password reset without revealing whether an account exists.
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -42,17 +42,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     if (_sent) {
-      return AuthScaffold(
+      return AuthPage(
         eyebrow: 'Next step',
         title: 'Check your inbox',
         subtitle:
             'If an account exists for ${_email.text.trim()}, a secure reset link is on its way.',
-        child: Column(
+        console: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            AppSurfaceCard(
-              color: scheme.primaryContainer.withValues(alpha: 0.56),
-              borderColor: scheme.primary.withValues(alpha: 0.2),
+            AuthInsetCard(
+              accent: true,
               child: Column(
                 children: [
                   Container(
@@ -72,66 +72,64 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   Text(
                     'The link expires for your security.',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: kAuthOnDark),
                   ),
                   Gap.h8,
-                  Text(
-                    'Check your spam folder if it does not arrive within a few minutes.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                  const AuthNote(
+                    'Check your spam folder if it does not arrive within a few '
+                    'minutes.',
+                    align: TextAlign.center,
                   ),
                 ],
               ),
             ),
             Gap.h24,
-            OutlinedButton.icon(
+            AuthGhostButton(
+              label: 'Use a different address',
+              icon: Icons.edit_outlined,
               onPressed: () => setState(() => _sent = false),
-              icon: const Icon(Icons.edit_outlined, size: 19),
-              label: const Text('Use a different address'),
             ),
           ],
         ),
       );
     }
 
-    return AuthScaffold(
+    return AuthPage(
       eyebrow: 'Account recovery',
       title: 'Reset your password',
       subtitle:
           'Enter your account email and we will send a secure reset link.',
       failure: auth.failure,
       onDismissFailure: ref.read(authControllerProvider.notifier).clearFailure,
-      child: AutofillGroup(
+      console: AutofillGroup(
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(
+              AuthField(
                 controller: _email,
                 enabled: !auth.isBusy,
+                label: 'Email address',
+                icon: Icons.mail_outline_rounded,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.done,
                 autofillHints: const [AutofillHints.email],
-                autofocus: true,
                 autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'Email address',
-                  prefixIcon: Icon(Icons.mail_outline_rounded),
-                ),
+                autofocus: true,
                 validator: (value) => (value?.trim().contains('@') ?? false)
                     ? null
                     : 'Enter a valid email address',
-                onFieldSubmitted: (_) => _submit(),
+                onSubmitted: (_) => _submit(),
               ),
               Gap.h24,
-              AsyncButton(
+              AuthPrimaryAction(
                 label: 'Send reset link',
                 loadingLabel: 'Sending reset link',
                 icon: Icons.arrow_forward_rounded,
-                expand: true,
                 enabled: !auth.isBusy,
                 onPressed: _submit,
               ),
@@ -142,16 +140,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   Icon(
                     Icons.shield_outlined,
                     size: 16,
-                    color: scheme.onSurfaceVariant,
+                    color: kAuthOnDark.withValues(alpha: 0.62),
                   ),
                   Gap.w8,
-                  Flexible(
-                    child: Text(
+                  const Flexible(
+                    child: AuthNote(
                       'We never disclose whether an email is registered.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                      align: TextAlign.center,
                     ),
                   ),
                 ],

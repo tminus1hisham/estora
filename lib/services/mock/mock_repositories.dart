@@ -42,7 +42,12 @@ mixin _MockLatency {
 Page<T> _paginate<T>(List<T> items, int page, {int pageSize = 20}) {
   final start = (page - 1) * pageSize;
   if (start >= items.length) {
-    return Page(items: const [], page: page, pageSize: pageSize, total: items.length);
+    return Page(
+      items: const [],
+      page: page,
+      pageSize: pageSize,
+      total: items.length,
+    );
   }
   final end = (start + pageSize).clamp(0, items.length);
   return Page(

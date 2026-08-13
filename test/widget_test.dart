@@ -20,8 +20,7 @@ void main() {
   // `Override` is not exported from flutter_riverpod 3, so overrides are passed
   // as a list literal at each call site and inferred there rather than being
   // threaded through a typed helper parameter.
-  Widget app(Widget child) =>
-      MaterialApp(theme: AppTheme.light, home: child);
+  Widget app(Widget child) => MaterialApp(theme: AppTheme.light, home: child);
 
   Widget wrap(Widget child) => ProviderScope(child: app(child));
 
@@ -30,9 +29,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        wrap(
-          Scaffold(body: MoneyText(Money.fromMajor(150000, 'KES'))),
-        ),
+        wrap(Scaffold(body: MoneyText(Money.fromMajor(150000, 'KES')))),
       );
 
       expect(find.text('KES 150,000'), findsOneWidget);
@@ -41,9 +38,7 @@ void main() {
     testWidgets('bare drops the currency for line items', (tester) async {
       await tester.pumpWidget(
         wrap(
-          Scaffold(
-            body: MoneyText(Money.fromMajor(150000, 'KES'), bare: true),
-          ),
+          Scaffold(body: MoneyText(Money.fromMajor(150000, 'KES'), bare: true)),
         ),
       );
 

@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../components/app_surface_card.dart';
-import '../../../components/async_button.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/mock/mock_server.dart';
 import '../application/auth_controller.dart';
-import 'widgets/auth_scaffold.dart';
+import 'widgets/auth_controls.dart';
+import 'widgets/auth_page.dart';
+import 'widgets/auth_stage.dart';
 
 /// Verifies the six-digit code sent to the pending phone number.
 class OtpScreen extends ConsumerStatefulWidget {
@@ -89,13 +89,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     final phone = auth.pendingPhone ?? 'your phone';
     final scheme = Theme.of(context).colorScheme;
 
-    return AuthScaffold(
+    return AuthPage(
       eyebrow: 'Secure verification',
       title: 'Enter your code',
       subtitle: 'We sent a six-digit code to $phone.',
       failure: auth.failure,
       onDismissFailure: ref.read(authControllerProvider.notifier).clearFailure,
-      child: Column(
+      console: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _OtpInput(
@@ -115,11 +115,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             ),
           ],
           Gap.h24,
-          AsyncButton(
+          AuthPrimaryAction(
             label: 'Verify and continue',
             loadingLabel: 'Verifying your code',
             icon: Icons.arrow_forward_rounded,
-            expand: true,
             enabled: !auth.isBusy,
             onPressed: _verify,
           ),
@@ -128,12 +127,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             child: _resendIn > 0
                 ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-                    child: Text(
+                    child: AuthNote(
                       'You can request a new code in ${_resendIn}s',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                      align: TextAlign.center,
                     ),
                   )
                 : TextButton.icon(
@@ -187,11 +183,15 @@ class _OtpInput extends StatelessWidget {
                   children: List.generate(6, (index) {
                     final active = focusNode.hasFocus && digits.length == index;
                     final filled = digits.length > index;
+                    // Built from the foreground rather than from surface
+                    // colours: these cells sit on the console's glass, where a
+                    // tonal surface reads as a hole punched in it and the
+                    // scheme's outline all but disappears.
                     final borderColor = hasError
                         ? scheme.error
                         : active
                         ? scheme.primary
-                        : scheme.outlineVariant;
+                        : kAuthOnDark.withValues(alpha: filled ? 0.28 : 0.16);
                     return Expanded(
                       child: Padding(
                         padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
@@ -201,15 +201,24 @@ class _OtpInput extends StatelessWidget {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: filled
-                                ? scheme.primaryContainer.withValues(
-                                    alpha: 0.48,
-                                  )
-                                : scheme.surfaceContainerLow,
+                                ? scheme.primary.withValues(alpha: 0.16)
+                                : kAuthOnDark.withValues(alpha: 0.055),
                             borderRadius: AppRadius.small,
                             border: Border.all(
                               color: borderColor,
                               width: active || hasError ? 1.6 : 1,
                             ),
+                            boxShadow: active
+                                ? [
+                                    BoxShadow(
+                                      color: scheme.primary.withValues(
+                                        alpha: 0.26,
+                                      ),
+                                      blurRadius: 20,
+                                      spreadRadius: -6,
+                                    ),
+                                  ]
+                                : const <BoxShadow>[],
                           ),
                           child: MediaQuery.withClampedTextScaling(
                             maxScaleFactor: 1.35,
@@ -217,6 +226,7 @@ class _OtpInput extends StatelessWidget {
                               filled ? digits[index] : '',
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
+                                    color: kAuthOnDark,
                                     fontWeight: AppTypography.extraBold,
                                   ),
                             ),
@@ -264,10 +274,7 @@ class _DemoHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return AppSurfaceCard(
-      color: scheme.tertiaryContainer.withValues(alpha: 0.5),
-      borderColor: scheme.tertiary.withValues(alpha: 0.22),
-      borderRadius: AppRadius.small,
+    return AuthInsetCard(
       padding: const EdgeInsets.all(AppSpace.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,7 +294,7 @@ class _DemoHint extends StatelessWidget {
                 ],
               ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: scheme.onTertiaryContainer,
+                color: kAuthOnDark.withValues(alpha: 0.78),
               ),
             ),
           ),

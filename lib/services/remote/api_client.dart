@@ -222,7 +222,9 @@ class ApiClient {
 
       final access = payload['accessToken']?.toString();
       final refresh = payload['refreshToken']?.toString();
-      final expiresAt = DateTime.tryParse(payload['expiresAt']?.toString() ?? '');
+      final expiresAt = DateTime.tryParse(
+        payload['expiresAt']?.toString() ?? '',
+      );
       if (access == null || refresh == null || expiresAt == null) {
         await _tokenStore.clear();
         return null;
@@ -258,7 +260,9 @@ class ApiClient {
       ),
       // Section 74: a tenant reaching another tenant's record must be refused
       // outright, not retried.
-      403 => ForbiddenFailure(message ?? 'You do not have access to this item.'),
+      403 => ForbiddenFailure(
+        message ?? 'You do not have access to this item.',
+      ),
       404 => NotFoundFailure(message ?? 'We could not find that item.'),
       409 => ConflictFailure(
         message ?? 'That is no longer possible. Please refresh and try again.',
@@ -295,7 +299,9 @@ class ApiClient {
     ),
     DioExceptionType.connectionError ||
     DioExceptionType.unknown => const NetworkFailure(),
-    DioExceptionType.cancel => const UnknownFailure('The request was cancelled.'),
+    DioExceptionType.cancel => const UnknownFailure(
+      'The request was cancelled.',
+    ),
     DioExceptionType.badCertificate => const NetworkFailure(
       'The connection is not secure.',
     ),

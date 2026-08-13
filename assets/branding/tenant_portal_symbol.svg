@@ -1,8 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Tenant Portal symbol</title>
-  <desc id="desc">An architectural arch, open brass door, and azure threshold.</desc>
-  <path fill="#FAF8F3" d="M112 400V222C112 129 176 72 256 72s144 57 144 150v178h-74V224c0-46-29-76-70-76s-70 30-70 76v176h-74Z"/>
-  <path fill="#D6B477" d="m232 104 48 0-11 49c-9-4-17-4-26 0l-11-49Z"/>
-  <path fill="#D6B477" d="m216 246 47 9c21 4 33 19 33 39v76l-80 28V246Z"/>
-  <rect x="164" y="384" width="184" height="24" rx="12" fill="#2078CE"/>
+  <desc id="desc">A navy arcade of three piers and two arches, the load-bearing centre pier in brass.</desc>
+  <path fill="#0A1A30" d="M92 118h328v276h-48V220a42 42 0 0 0-84 0v174h-64V220a42 42 0 0 0-84 0v174H92Z"/>
+  <rect x="224" y="118" width="64" height="276" fill="#B9842E"/>
 </svg>

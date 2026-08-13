@@ -20,6 +20,7 @@ class AppMedia extends StatelessWidget {
     this.semanticLabel,
     this.heroTag,
     this.overlay,
+    this.backgroundColor,
     super.key,
   });
 
@@ -30,6 +31,14 @@ class AppMedia extends StatelessWidget {
   final double? aspectRatio;
   final BorderRadius? borderRadius;
   final IconData fallbackIcon;
+
+  /// What shows for the frame before the image decodes.
+  ///
+  /// Defaults to a tonal surface, which is right in a card. Pass a dark colour
+  /// when light text sits on the image: the header's scrims are tuned for a
+  /// photograph, and a pale ground behind them for one frame is a flash of
+  /// unreadable white-on-cream.
+  final Color? backgroundColor;
   final String? semanticLabel;
   final Object? heroTag;
   final Widget? overlay;
@@ -47,7 +56,9 @@ class AppMedia extends StatelessWidget {
     media = ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: ColoredBox(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        color:
+            backgroundColor ??
+            Theme.of(context).colorScheme.surfaceContainerHigh,
         child: media,
       ),
     );

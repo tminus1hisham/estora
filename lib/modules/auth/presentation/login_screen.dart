@@ -2,12 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../components/async_button.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../navigation/routes.dart';
 import '../application/auth_controller.dart';
-import 'widgets/auth_scaffold.dart';
+import 'widgets/auth_controls.dart';
+import 'widgets/auth_method_switch.dart';
+import 'widgets/auth_page.dart';
+import 'widgets/auth_stage.dart';
 
+/// The first thing anyone sees of this app.
+///
+/// It is built as one image and one object: a commercial frontage at dusk
+/// running edge to edge under the status bar, and a plate of frosted glass
+/// carrying the two fields that stand between a tenant and their account.
+/// Everything else — the brand mark, the invitation to register, the promise
+/// about encryption — is arranged around that object rather than stacked into
+/// a form. [AuthPage] owns that arrangement; this screen owns what goes in it.
+///
 /// Phone plus OTP is the primary flow for tenants; email and password remains
 /// available for tenants with an established password.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -56,139 +67,89 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
   }
 
-  void _changeMethod(Set<_LoginMethod> selection) {
+  void _changeMethod(int index) {
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _method = selection.first);
+    setState(() => _method = _LoginMethod.values[index]);
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
-    final scheme = Theme.of(context).colorScheme;
-    final useVerticalMethodSelector =
-        MediaQuery.textScalerOf(context).scale(14) >= 20;
 
-    return AuthScaffold(
+    return AuthPage(
       title: 'Welcome back',
-      subtitle: 'Access your spaces, invoices and lease documents securely.',
+      subtitle: 'Your spaces, invoices and leases in one secure place.',
+      // Nowhere to go back to: this is where the app starts.
+      showBackButton: false,
       failure: auth.failure,
       onDismissFailure: ref.read(authControllerProvider.notifier).clearFailure,
-      showBackButton: false,
-      child: AutofillGroup(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (useVerticalMethodSelector) ...[
-              _AccessibleMethodButton(
-                label: 'Phone code',
-                icon: Icons.sms_outlined,
-                selected: _method == _LoginMethod.phone,
-                onPressed: auth.isBusy
-                    ? null
-                    : () => _changeMethod({_LoginMethod.phone}),
-              ),
-              Gap.h8,
-              _AccessibleMethodButton(
+      trustPoints: const [
+        AuthTrustPoint(
+          icon: Icons.verified_user_outlined,
+          label: 'Secure tenant access, protected end to end',
+        ),
+        AuthTrustPoint(
+          icon: Icons.receipt_long_outlined,
+          label: 'Invoices, receipts and payments in one ledger',
+        ),
+        AuthTrustPoint(
+          icon: Icons.draw_outlined,
+          label: 'Review and sign your lease from anywhere',
+        ),
+      ],
+      console: _console(auth),
+      footer: _footer(auth),
+    );
+  }
+
+  Widget _console(AuthState auth) {
+    return AutofillGroup(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AuthMethodSwitch(
+            selectedIndex: _method.index,
+            enabled: !auth.isBusy,
+            onChanged: _changeMethod,
+            options: const [
+              AuthMethodOption(label: 'Phone code', icon: Icons.sms_outlined),
+              AuthMethodOption(
                 label: 'Email',
                 icon: Icons.mail_outline_rounded,
-                selected: _method == _LoginMethod.email,
-                onPressed: auth.isBusy
-                    ? null
-                    : () => _changeMethod({_LoginMethod.email}),
               ),
-            ] else
-              SegmentedButton<_LoginMethod>(
-                expandedInsets: EdgeInsets.zero,
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: _LoginMethod.phone,
-                    label: Text('Phone code'),
-                    icon: Icon(Icons.sms_outlined),
-                  ),
-                  ButtonSegment(
-                    value: _LoginMethod.email,
-                    label: Text('Email'),
-                    icon: Icon(Icons.mail_outline_rounded),
-                  ),
-                ],
-                selected: {_method},
-                onSelectionChanged: auth.isBusy ? null : _changeMethod,
-              ),
-            Gap.h24,
-            AnimatedSwitcher(
-              duration: AppMotion.standard,
-              switchInCurve: AppMotion.enter,
-              switchOutCurve: AppMotion.exit,
-              layoutBuilder: (currentChild, previousChildren) => Stack(
-                alignment: Alignment.topCenter,
-                children: [...previousChildren, ?currentChild],
-              ),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SizeTransition(
-                  sizeFactor: animation,
-                  axisAlignment: -1,
+            ],
+          ),
+          Gap.h24,
+          AnimatedSwitcher(
+            duration: AppMotion.standard,
+            switchInCurve: AppMotion.enter,
+            switchOutCurve: AppMotion.exit,
+            // The two forms are different heights, so they have to overlap
+            // while one replaces the other rather than reflow the column.
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              alignment: Alignment.topCenter,
+              children: [...previousChildren, ?currentChild],
+            ),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SizeTransition(
+                sizeFactor: animation,
+                axisAlignment: -1,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.05, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
                   child: child,
                 ),
               ),
-              child: _method == _LoginMethod.phone
-                  ? _phoneForm(auth)
-                  : _passwordForm(auth),
             ),
-            Gap.h24,
-            Row(
-              children: [
-                Expanded(child: Divider(color: scheme.outlineVariant)),
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpace.md,
-                    ),
-                    child: Text(
-                      'NEW TO TENANT PORTAL?',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(child: Divider(color: scheme.outlineVariant)),
-              ],
-            ),
-            Gap.h16,
-            OutlinedButton.icon(
-              onPressed: auth.isBusy
-                  ? null
-                  : () => context.pushNamed(Routes.register),
-              icon: const Icon(Icons.person_add_alt_1_outlined, size: 19),
-              label: const Text('Create an account'),
-            ),
-            Gap.h16,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.lock_outline_rounded,
-                  size: 15,
-                  color: scheme.onSurfaceVariant,
-                ),
-                Gap.w4,
-                Flexible(
-                  child: Text(
-                    'Your details are encrypted and kept private.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+            child: _method == _LoginMethod.phone
+                ? _phoneForm(auth)
+                : _passwordForm(auth),
+          ),
+        ],
       ),
     );
   }
@@ -199,18 +160,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       child: Column(
         key: const ValueKey(_LoginMethod.phone),
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          TextFormField(
+          AuthField(
             controller: _phoneController,
             enabled: !auth.isBusy,
+            label: 'Phone number',
+            hint: '+254 712 345 678',
+            icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
             textInputAction: TextInputAction.done,
             autofillHints: const [AutofillHints.telephoneNumber],
-            decoration: const InputDecoration(
-              labelText: 'Phone number',
-              hintText: '+254 712 345 678',
-              prefixIcon: Icon(Icons.phone_outlined),
-            ),
             validator: (value) {
               final text = value?.trim() ?? '';
               if (text.isEmpty) return 'Enter your phone number';
@@ -219,21 +179,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               }
               return null;
             },
-            onFieldSubmitted: (_) => _sendCode(),
+            onSubmitted: (_) => _sendCode(),
           ),
-          Gap.h8,
-          Text(
-            'We will text you a one-time code. Standard messaging rates may apply.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          Gap.h12,
+          const AuthNote(
+            'We will text you a one-time code. Standard messaging rates may '
+            'apply.',
           ),
           Gap.h24,
-          AsyncButton(
+          AuthPrimaryAction(
             label: 'Continue securely',
             loadingLabel: 'Sending your code',
             icon: Icons.arrow_forward_rounded,
-            expand: true,
             enabled: !auth.isBusy,
             onPressed: _sendCode,
           ),
@@ -248,46 +205,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       child: Column(
         key: const ValueKey(_LoginMethod.email),
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          TextFormField(
+          AuthField(
             controller: _emailController,
             enabled: !auth.isBusy,
+            label: 'Email address',
+            icon: Icons.mail_outline_rounded,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.username, AutofillHints.email],
             autocorrect: false,
-            decoration: const InputDecoration(
-              labelText: 'Email address',
-              prefixIcon: Icon(Icons.mail_outline_rounded),
-            ),
             validator: (value) => (value?.trim().contains('@') ?? false)
                 ? null
                 : 'Enter a valid email address',
           ),
           Gap.h12,
-          TextFormField(
+          AuthField(
             controller: _passwordController,
             enabled: !auth.isBusy,
+            label: 'Password',
+            icon: Icons.lock_outline_rounded,
             obscureText: _obscurePassword,
             textInputAction: TextInputAction.done,
             autofillHints: const [AutofillHints.password],
-            decoration: InputDecoration(
-              labelText: 'Password',
-              prefixIcon: const Icon(Icons.lock_outline_rounded),
-              suffixIcon: IconButton(
-                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
+            suffix: IconButton(
+              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+              icon: Icon(
+                _obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
               ),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
             validator: (value) =>
                 (value?.isEmpty ?? true) ? 'Enter your password' : null,
-            onFieldSubmitted: (_) => _signIn(),
+            onSubmitted: (_) => _signIn(),
           ),
           Align(
             alignment: Alignment.centerRight,
@@ -299,11 +253,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
           Gap.h8,
-          AsyncButton(
+          AuthPrimaryAction(
             label: 'Sign in',
             loadingLabel: 'Signing you in',
             icon: Icons.login_rounded,
-            expand: true,
             enabled: !auth.isBusy,
             onPressed: _signIn,
           ),
@@ -311,37 +264,68 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
-}
 
-class _AccessibleMethodButton extends StatelessWidget {
-  const _AccessibleMethodButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onPressed,
-  });
+  Widget _footer(AuthState auth) {
+    final textTheme = Theme.of(context).textTheme;
 
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Text(label, textAlign: TextAlign.center);
-    return Semantics(
-      selected: selected,
-      child: selected
-          ? FilledButton.tonalIcon(
-              onPressed: onPressed,
-              icon: Icon(icon),
-              label: child,
-            )
-          : OutlinedButton.icon(
-              onPressed: onPressed,
-              icon: Icon(icon),
-              label: child,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            // The rules take a single share each and the label takes five.
+            // Given equal flex they would squeeze twenty-one characters into a
+            // third of a phone's width, which is how a one-line caption
+            // becomes three lines.
+            const Expanded(child: Divider()),
+            Flexible(
+              flex: 5,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+                child: Text(
+                  'NEW TO TENANT PORTAL?',
+                  textAlign: TextAlign.center,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: kAuthOnDark.withValues(alpha: 0.55),
+                    letterSpacing: 0.9,
+                  ),
+                ),
+              ),
             ),
+            const Expanded(child: Divider()),
+          ],
+        ),
+        Gap.h16,
+        AuthGhostButton(
+          label: 'Create an account',
+          icon: Icons.person_add_alt_1_outlined,
+          onPressed: auth.isBusy
+              ? null
+              : () => context.pushNamed(Routes.register),
+        ),
+        Gap.h24,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline_rounded,
+              size: 15,
+              color: kAuthOnDark.withValues(alpha: 0.55),
+            ),
+            Gap.w8,
+            Flexible(
+              child: Text(
+                'Your details are encrypted and kept private.',
+                textAlign: TextAlign.center,
+                style: textTheme.bodySmall?.copyWith(
+                  color: kAuthOnDark.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

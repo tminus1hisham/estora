@@ -36,9 +36,8 @@ void main() {
   });
 
   /// The seeded outstanding rent invoice.
-  String outstandingInvoiceId() => server.invoices.values
-      .firstWhere((i) => i.status.isPayable)
-      .id;
+  String outstandingInvoiceId() =>
+      server.invoices.values.firstWhere((i) => i.status.isPayable).id;
 
   /// Waits out the simulated provider round trip.
   Future<void> settle() =>
@@ -116,25 +115,27 @@ void main() {
   });
 
   group('allocation and receipts (sections 37 and 40)', () {
-    test('a settled payment allocates to the invoice and marks it paid',
-        () async {
-      final invoiceId = outstandingInvoiceId();
-      final intent = await payments.initiatePayment(
-        invoiceId: invoiceId,
-        method: PaymentMethod.mpesa,
-        idempotencyKey: 'key-1',
-      );
-      await settle();
+    test(
+      'a settled payment allocates to the invoice and marks it paid',
+      () async {
+        final invoiceId = outstandingInvoiceId();
+        final intent = await payments.initiatePayment(
+          invoiceId: invoiceId,
+          method: PaymentMethod.mpesa,
+          idempotencyKey: 'key-1',
+        );
+        await settle();
 
-      final invoice = await invoices.getInvoice(invoiceId);
-      expect(invoice.value.status, InvoiceStatus.paid);
-      expect(invoice.value.amountDue.isZero, isTrue);
-      expect(invoice.value.amountPaid, invoice.value.total);
+        final invoice = await invoices.getInvoice(invoiceId);
+        expect(invoice.value.status, InvoiceStatus.paid);
+        expect(invoice.value.amountDue.isZero, isTrue);
+        expect(invoice.value.amountPaid, invoice.value.total);
 
-      final payment = await payments.getPayment(intent.value.paymentId);
-      expect(payment.value.allocations, hasLength(1));
-      expect(payment.value.allocations.first.invoiceId, invoiceId);
-    });
+        final payment = await payments.getPayment(intent.value.paymentId);
+        expect(payment.value.allocations, hasLength(1));
+        expect(payment.value.allocations.first.invoiceId, invoiceId);
+      },
+    );
 
     test('every successful payment produces a receipt', () async {
       final intent = await payments.initiatePayment(
@@ -157,39 +158,46 @@ void main() {
       );
     });
 
-    test('the platform fee is recorded as its own entry, not netted off',
-        () async {
-      final invoiceId = outstandingInvoiceId();
-      final invoice = server.invoices[invoiceId]!;
+    test(
+      'the platform fee is recorded as its own entry, not netted off',
+      () async {
+        final invoiceId = outstandingInvoiceId();
+        final invoice = server.invoices[invoiceId]!;
 
-      await payments.initiatePayment(
-        invoiceId: invoiceId,
-        method: PaymentMethod.mpesa,
-        idempotencyKey: 'key-1',
-      );
-      await settle();
+        await payments.initiatePayment(
+          invoiceId: invoiceId,
+          method: PaymentMethod.mpesa,
+          idempotencyKey: 'key-1',
+        );
+        await settle();
 
-      // Section 41: both sides of the split exist.
-      final incoming = server.ledger
-          .where((t) => t.direction == 'IN' && t.referenceType == 'PAYMENT');
-      final fees = server.ledger.where((t) => t.transactionType == 'SERVICE_FEE');
+        // Section 41: both sides of the split exist.
+        final incoming = server.ledger.where(
+          (t) => t.direction == 'IN' && t.referenceType == 'PAYMENT',
+        );
+        final fees = server.ledger.where(
+          (t) => t.transactionType == 'SERVICE_FEE',
+        );
 
-      expect(incoming, isNotEmpty);
-      expect(fees, isNotEmpty);
-      // Sarit Mall's configured 2%.
-      expect(fees.last.amount, invoice.total.percentage(2));
-      // And the gross was recorded in full, not reduced by the fee.
-      expect(incoming.last.amount, invoice.total);
-    });
+        expect(incoming, isNotEmpty);
+        expect(fees, isNotEmpty);
+        // Sarit Mall's configured 2%.
+        expect(fees.last.amount, invoice.total.percentage(2));
+        // And the gross was recorded in full, not reduced by the fee.
+        expect(incoming.last.amount, invoice.total);
+      },
+    );
   });
 
   group('invoice rules', () {
-    test('an invoice carries its lines, not just a total (section 33)',
-        () async {
-      final invoice = await invoices.getInvoice(outstandingInvoiceId());
-      expect(invoice.value.lines, isNotEmpty);
-      expect(invoice.value.lines.first.lineType, InvoiceLineType.rent);
-    });
+    test(
+      'an invoice carries its lines, not just a total (section 33)',
+      () async {
+        final invoice = await invoices.getInvoice(outstandingInvoiceId());
+        expect(invoice.value.lines, isNotEmpty);
+        expect(invoice.value.lines.first.lineType, InvoiceLineType.rent);
+      },
+    );
 
     test('a rent invoice states its billing period (section 35)', () async {
       final invoice = await invoices.getInvoice(outstandingInvoiceId());
@@ -216,8 +224,9 @@ void main() {
     });
 
     test('an unpayable invoice cannot be paid', () async {
-      final paid = server.invoices.values
-          .firstWhere((i) => i.status == InvoiceStatus.paid);
+      final paid = server.invoices.values.firstWhere(
+        (i) => i.status == InvoiceStatus.paid,
+      );
 
       final result = await payments.initiatePayment(
         invoiceId: paid.id,
@@ -228,24 +237,26 @@ void main() {
       expect(result.failureOrNull, isA<ConflictFailure>());
     });
 
-    test('a paid invoice keeps the figures it was issued with (section 55)',
-        () async {
-      final invoiceId = outstandingInvoiceId();
-      final before = await invoices.getInvoice(invoiceId);
-      final originalTotal = before.value.total;
+    test(
+      'a paid invoice keeps the figures it was issued with (section 55)',
+      () async {
+        final invoiceId = outstandingInvoiceId();
+        final before = await invoices.getInvoice(invoiceId);
+        final originalTotal = before.value.total;
 
-      await payments.initiatePayment(
-        invoiceId: invoiceId,
-        method: PaymentMethod.mpesa,
-        idempotencyKey: 'key-1',
-      );
-      await settle();
+        await payments.initiatePayment(
+          invoiceId: invoiceId,
+          method: PaymentMethod.mpesa,
+          idempotencyKey: 'key-1',
+        );
+        await settle();
 
-      final after = await invoices.getInvoice(invoiceId);
-      expect(after.value.total, originalTotal);
-      expect(after.value.subtotal, before.value.subtotal);
-      expect(after.value.lines.first.amount, before.value.lines.first.amount);
-    });
+        final after = await invoices.getInvoice(invoiceId);
+        expect(after.value.total, originalTotal);
+        expect(after.value.subtotal, before.value.subtotal);
+        expect(after.value.lines.first.amount, before.value.lines.first.amount);
+      },
+    );
   });
 
   group('the deposit path (sections 22, 30 and 31)', () {

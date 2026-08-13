@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The full tile, not the bare symbol, so the native launch screen and the
+  Flutter splash that replaces it a moment later show the same artwork.
+  Flat stone rather than the master's three-stop gradient — at 132dp the two
+  are indistinguishable, and the launch screen has no time to spend on it.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="132dp"
     android:height="132dp"
@@ -6,14 +12,11 @@
     android:viewportHeight="512">
     <path
         android:fillColor="#FAF8F3"
-        android:pathData="M112,400V222C112,129 176,72 256,72s144,57 144,150v178h-74V224c0,-46 -29,-76 -70,-76s-70,30 -70,76v176h-74Z" />
+        android:pathData="M112,0 H400 A112,112 0 0 1 512,112 V400 A112,112 0 0 1 400,512 H112 A112,112 0 0 1 0,400 V112 A112,112 0 0 1 112,0 Z" />
     <path
-        android:fillColor="#D6B477"
-        android:pathData="M232,104h48l-11,49c-9,-4 -17,-4 -26,0l-11,-49Z" />
+        android:fillColor="#0A1A30"
+        android:pathData="M92,118 h328 v276 h-48 V220 a42,42 0 0 0 -84,0 v174 h-64 V220 a42,42 0 0 0 -84,0 v174 H92 Z" />
     <path
-        android:fillColor="#D6B477"
-        android:pathData="M216,246l47,9c21,4 33,19 33,39v76l-80,28V246Z" />
-    <path
-        android:fillColor="#2078CE"
-        android:pathData="M176,384h160a12,12 0,0 1,12 12 12,12 0,0 1,-12 12H176a12,12 0,0 1,-12 -12 12,12 0,0 1,12 -12Z" />
+        android:fillColor="#B9842E"
+        android:pathData="M224,118 h64 v276 h-64 Z" />
 </vector>

@@ -122,29 +122,31 @@ void main() {
       );
     });
 
-    test('signing does not activate the lease on its own (section 30)',
-        () async {
-      final leaseId = await leaseAwaitingSignature();
-      final agreement = await leases.getAgreement(leaseId);
+    test(
+      'signing does not activate the lease on its own (section 30)',
+      () async {
+        final leaseId = await leaseAwaitingSignature();
+        final agreement = await leases.getAgreement(leaseId);
 
-      final signed = await leases.signLease(
-        leaseId: leaseId,
-        signatureType: SignatureType.drawnSignature,
-        signatureData: const [1, 2, 3],
-        documentHash: agreement.value.documentHash,
-        idempotencyKey: 'sign-key',
-      );
+        final signed = await leases.signLease(
+          leaseId: leaseId,
+          signatureType: SignatureType.drawnSignature,
+          signatureData: const [1, 2, 3],
+          documentHash: agreement.value.documentHash,
+          idempotencyKey: 'sign-key',
+        );
 
-      // The property manager's approval is still outstanding, so the lease is
-      // signed but not active.
-      expect(signed.value.status, isNot(LeaseStatus.active));
-      expect(signed.value.activatedAt, isNull);
+        // The property manager's approval is still outstanding, so the lease is
+        // signed but not active.
+        expect(signed.value.status, isNot(LeaseStatus.active));
+        expect(signed.value.activatedAt, isNull);
 
-      final approval = signed.value.activationConditions.firstWhere(
-        (c) => c.id == 'cond_approval',
-      );
-      expect(approval.isMet, isFalse);
-    });
+        final approval = signed.value.activationConditions.firstWhere(
+          (c) => c.id == 'cond_approval',
+        );
+        expect(approval.isMet, isFalse);
+      },
+    );
 
     test('a stale document hash is rejected', () async {
       final leaseId = await leaseAwaitingSignature();

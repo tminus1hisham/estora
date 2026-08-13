@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="tenant_portal_icon_background">#0A1A30</color>
+    <!-- The adaptive icon background. Warm stone, not navy: the arcade is the
+         dark shape in the mark now, so the tile it stands on is the light one. -->
+    <color name="tenant_portal_icon_background">#FAF8F3</color>
 </resources>
