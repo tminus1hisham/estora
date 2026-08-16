@@ -15,7 +15,7 @@ import 'mock_server.dart';
 /// (section 29), which is what binds a signature to the exact wording the
 /// tenant read.
 String renderAgreement(MockServer server, LeaseRow lease) {
-  final property = server.properties[lease.propertyId];
+  final property = server.properties[lease.propertyId]?.toDomain();
   final unit = server.units[lease.unitId];
   final tenant = server.currentTenant;
   final profile = tenant?.profile;

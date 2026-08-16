@@ -3,6 +3,7 @@ import 'package:local_auth/local_auth.dart';
 
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
+import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/tenant.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
@@ -122,6 +123,13 @@ class AuthState {
 
   AppUser? get user => session?.user;
   Tenant? get tenant => session?.tenant;
+
+  /// Set only on an owner account.
+  PropertyOwner? get owner => session?.owner;
+
+  /// Which shell this account belongs in. Read by the router's redirect, which
+  /// is the only place the distinction is enforced.
+  bool get isOwner => user?.role.isOwner ?? false;
 
   AuthState copyWith({
     AuthStage? stage,

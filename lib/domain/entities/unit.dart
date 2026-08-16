@@ -25,6 +25,8 @@ class Unit {
     this.floorName,
     this.depositMonths,
     this.bookingFee,
+    this.ratePerSqm,
+    this.rentOverridden = false,
     this.requirements = const <UnitRequirement>[],
     this.imageUrls = const <String>[],
   });
@@ -64,6 +66,19 @@ class Unit {
   /// on the booking quote.
   final Money? bookingFee;
 
+  /// The rate [baseRent] was derived from, denormalised so a rent can explain
+  /// itself in a list without a lookup back to the property.
+  ///
+  /// Null when the property is priced unit by unit rather than by area.
+  final Money? ratePerSqm;
+
+  /// Whether [baseRent] was set by hand rather than derived from [ratePerSqm].
+  ///
+  /// An overridden rent survives a repricing of the property — the corner shop
+  /// an owner deliberately priced above the rate does not quietly fall back to
+  /// it the next time the rate moves.
+  final bool rentOverridden;
+
   final List<UnitRequirement> requirements;
 
   /// Denormalised for list rendering, so a unit card does not need three extra
@@ -83,6 +98,12 @@ class Unit {
   }
 
   String? get areaLabel => area == null ? null : '${_trim(area!)} $areaUnit';
+
+  /// `KES 30 / m²`, or null if this rent was not derived from a rate.
+  String? get rateLabel {
+    final rate = ratePerSqm;
+    return rate == null ? null : '${rate.format()} / $areaUnit';
+  }
 
   String get locationLabel => [
     propertyName,
@@ -114,6 +135,7 @@ class UnitType {
     this.area,
     this.defaultDepositMonths,
     this.defaultBookingFee,
+    this.ratePerSqm,
   });
 
   final String id;
@@ -127,6 +149,12 @@ class UnitType {
   final Money baseRent;
   final int? defaultDepositMonths;
   final Money? defaultBookingFee;
+
+  /// Overrides the property's rate for units built from this type — a kiosk
+  /// commands more per square metre than a warehouse bay in the same building.
+  ///
+  /// Null means the units inherit `Property.rentRatePerSqm`.
+  final Money? ratePerSqm;
 }
 
 /// Section 19. Effective-dated pricing, so a rent increase never rewrites

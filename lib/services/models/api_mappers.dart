@@ -22,6 +22,7 @@ import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
 import '../../domain/entities/lease.dart';
+import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/entities/tenant.dart';
 import '../../domain/entities/unit.dart';
@@ -94,25 +95,32 @@ Page<T> pageFromJson<T>(Json json, T Function(Json) item) {
 
 // -- Property ----------------------------------------------------------------
 
-Property propertyFromJson(Json json) => Property(
-  id: _str(json['id']),
-  name: _str(json['name']),
-  code: _str(json['code']),
-  propertyType: PropertyType.fromApi(_strOrNull(json['propertyType'])),
-  status: PropertyStatus.fromApi(_strOrNull(json['status'])),
-  description: _strOrNull(json['description']),
-  address: _strOrNull(json['address']),
-  city: _str(json['city']),
-  county: _strOrNull(json['county'] ?? json['state']),
-  country: _str(json['country']),
-  latitude: _doubleOrNull(json['latitude']),
-  longitude: _doubleOrNull(json['longitude']),
-  totalArea: _doubleOrNull(json['totalArea']),
-  totalUnits: _intOrNull(json['totalUnits']),
-  availableUnits: _intOrNull(json['availableUnits']),
-  logoUrl: _strOrNull(json['logo'] ?? json['logoUrl']),
-  imageUrl: _strOrNull(json['imageUrl']),
-);
+Property propertyFromJson(Json json) {
+  final currency = _str(json['currency'], 'KES');
+  return Property(
+    id: _str(json['id']),
+    name: _str(json['name']),
+    code: _str(json['code']),
+    propertyType: PropertyType.fromApi(_strOrNull(json['propertyType'])),
+    status: PropertyStatus.fromApi(_strOrNull(json['status'])),
+    description: _strOrNull(json['description']),
+    address: _strOrNull(json['address']),
+    city: _str(json['city']),
+    county: _strOrNull(json['county'] ?? json['state']),
+    country: _str(json['country']),
+    latitude: _doubleOrNull(json['latitude']),
+    longitude: _doubleOrNull(json['longitude']),
+    totalArea: _doubleOrNull(json['totalArea']),
+    totalUnits: _intOrNull(json['totalUnits']),
+    availableUnits: _intOrNull(json['availableUnits']),
+    ownerId: _strOrNull(json['ownerId']),
+    rentRatePerSqm: json['rentRatePerSqm'] == null
+        ? null
+        : _money(json, 'rentRatePerSqm', currency),
+    logoUrl: _strOrNull(json['logo'] ?? json['logoUrl']),
+    imageUrl: _strOrNull(json['imageUrl']),
+  );
+}
 
 Building buildingFromJson(Json json) => Building(
   id: _str(json['id']),
@@ -157,6 +165,10 @@ Unit unitFromJson(Json json) {
     bookingFee: json['bookingFee'] == null
         ? null
         : _money(json, 'bookingFee', currency),
+    ratePerSqm: json['ratePerSqm'] == null
+        ? null
+        : _money(json, 'ratePerSqm', currency),
+    rentOverridden: _bool(json['rentOverridden']),
     requirements: _list(
       json['requirements'],
     ).map(unitRequirementFromJson).toList(growable: false),
@@ -200,6 +212,9 @@ UnitType unitTypeFromJson(Json json) {
     defaultBookingFee: json['defaultBookingFee'] == null
         ? null
         : _money(json, 'defaultBookingFee', currency),
+    ratePerSqm: json['ratePerSqm'] == null
+        ? null
+        : _money(json, 'ratePerSqm', currency),
   );
 }
 
@@ -499,9 +514,22 @@ AppUser userFromJson(Json json) => AppUser(
   email: _strOrNull(json['email']),
   phone: _strOrNull(json['phone']),
   status: _str(json['status'], 'ACTIVE'),
+  role: AccountRole.fromApi(_strOrNull(json['role'])),
   emailVerified: _bool(json['emailVerified']),
   phoneVerified: _bool(json['phoneVerified']),
   lastLoginAt: _dateOrNull(json['lastLoginAt']),
+);
+
+PropertyOwner ownerFromJson(Json json) => PropertyOwner(
+  id: _str(json['id']),
+  userId: _str(json['userId']),
+  ownerType: OwnerType.fromApi(_strOrNull(json['ownerType'])),
+  displayName: _str(json['displayName']),
+  status: _str(json['status'], 'ACTIVE'),
+  legalName: _strOrNull(json['legalName']),
+  registrationNumber: _strOrNull(json['registrationNumber']),
+  taxNumber: _strOrNull(json['taxNumber']),
+  payoutAccountNumber: _strOrNull(json['payoutAccountNumber']),
 );
 
 Tenant tenantFromJson(Json json) => Tenant(

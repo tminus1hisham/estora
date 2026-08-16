@@ -22,6 +22,9 @@ import '../modules/leases/presentation/lease_detail_screen.dart';
 import '../modules/leases/presentation/leases_screen.dart';
 import '../modules/leases/presentation/sign_agreement_screen.dart';
 import '../modules/notifications/presentation/notifications_screen.dart';
+import '../modules/owner/application/owner_view_controller.dart';
+import '../modules/owner/presentation/owner_account_screen.dart';
+import '../modules/owner/presentation/owner_placeholder_screen.dart';
 import '../modules/payments/presentation/payment_history_screen.dart';
 import '../modules/payments/presentation/payment_screen.dart';
 import '../modules/payments/presentation/payment_status_screen.dart';
@@ -34,6 +37,7 @@ import '../modules/properties/presentation/property_detail_screen.dart';
 import '../modules/units/presentation/available_units_screen.dart';
 import '../modules/units/presentation/unit_detail_screen.dart';
 import 'app_shell.dart';
+import 'owner_shell.dart';
 import 'page_transitions.dart';
 import 'routes.dart';
 
@@ -43,10 +47,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // A ValueNotifier bridges Riverpod's auth state to go_router's
   // refreshListenable, so a sign-in or sign-out re-evaluates the redirect
   // immediately rather than on the next navigation.
-  final authState = ValueNotifier<AuthStage>(AuthStage.unknown);
-  ref.listen(authControllerProvider, (previous, next) {
-    authState.value = next.stage;
-  }, fireImmediately: true);
+  // The notifier carries the owner flag as well as the stage. Both change which
+  // shell an account belongs in, so both have to re-run the redirect — a
+  // notifier that only watched the stage would leave the demo switch dead until
+  // the next navigation happened to fire one.
+  final authState = ValueNotifier<(AuthStage, bool)>(
+    (AuthStage.unknown, false),
+  );
+  void syncAuthState() {
+    authState.value = (
+      ref.read(authControllerProvider).stage,
+      ref.read(authControllerProvider).isOwner || ref.read(viewAsOwnerProvider),
+    );
+  }
+
+  ref.listen(authControllerProvider, (_, _) => syncAuthState());
+  ref.listen(viewAsOwnerProvider, (_, _) => syncAuthState());
+  syncAuthState();
   ref.onDispose(authState.dispose);
 
   return GoRouter(
@@ -76,8 +93,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             : Routes.loginPath;
       }
 
-      // Signed in: keep them out of the auth screens.
-      return isAuthRoute ? Routes.homePath : null;
+      // Signed in. Section 88 gives an account one side of the platform, and
+      // this is the only place that is enforced — there is no per-route guard
+      // anywhere, so every rule about who may see what has to live here.
+      final isOwner =
+          ref.read(authControllerProvider).isOwner ||
+          ref.read(viewAsOwnerProvider);
+      final inOwnerSpace = location.startsWith(Routes.ownerRootPath);
+
+      // Keep them out of the auth screens, landing each side on its own root.
+      if (isAuthRoute) {
+        return isOwner ? Routes.ownerPortfolioPath : Routes.homePath;
+      }
+      // `/owner` on its own is not a screen; it is the space the tabs live in.
+      if (location == Routes.ownerRootPath) return Routes.ownerPortfolioPath;
+      if (isOwner && !inOwnerSpace) return Routes.ownerPortfolioPath;
+      if (!isOwner && inOwnerSpace) return Routes.homePath;
+      return null;
     },
     routes: [
       // -- Auth (section 77) -------------------------------------------------
@@ -371,6 +403,95 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // -- Owner shell (section 88) -----------------------------------------
+      //
+      // A second shell rather than a second app. The two never overlap: the
+      // redirect above puts an account in one or the other and keeps it there,
+      // so there is no state where both bottom bars could be reachable.
+      StatefulShellRoute.indexedStack(
+        builder: (_, _, navigationShell) =>
+            OwnerShell(navigationShell: navigationShell),
+        branches: [
+          // Portfolio
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.ownerPortfolioPath,
+                name: Routes.ownerPortfolio,
+                builder: (_, _) => const OwnerPlaceholderScreen(
+                  title: 'Portfolio',
+                  icon: Icons.donut_small_outlined,
+                  message:
+                      'Occupancy, collection and arrears across everything you '
+                      'own will appear here.',
+                ),
+              ),
+            ],
+          ),
+
+          // Properties
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.ownerPropertiesPath,
+                name: Routes.ownerProperties,
+                builder: (_, _) => const OwnerPlaceholderScreen(
+                  title: 'Properties',
+                  icon: Icons.apartment_outlined,
+                  message:
+                      'Your properties, how each is performing, and the rate '
+                      'per square metre each one asks.',
+                ),
+              ),
+            ],
+          ),
+
+          // Tenancies
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.ownerTenanciesPath,
+                name: Routes.ownerTenancies,
+                builder: (_, _) => const OwnerPlaceholderScreen(
+                  title: 'Tenancies',
+                  icon: Icons.handshake_outlined,
+                  message:
+                      'Who is in, what is expiring, and who is behind on rent.',
+                ),
+              ),
+            ],
+          ),
+
+          // Money
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.ownerMoneyPath,
+                name: Routes.ownerMoney,
+                builder: (_, _) => const OwnerPlaceholderScreen(
+                  title: 'Money',
+                  icon: Icons.account_balance_outlined,
+                  message:
+                      'What was billed, what came in, and what is due out to '
+                      'you after the platform fee.',
+                ),
+              ),
+            ],
+          ),
+
+          // Account
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.ownerAccountPath,
+                name: Routes.ownerAccount,
+                builder: (_, _) => const OwnerAccountScreen(),
               ),
             ],
           ),

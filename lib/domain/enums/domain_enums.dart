@@ -626,6 +626,108 @@ enum TenantType {
 }
 
 // ---------------------------------------------------------------------------
+// Section 9 - Account role
+// ---------------------------------------------------------------------------
+
+/// Which side of the platform an account is on.
+///
+/// The app serves two audiences off one sign-in. A tenant leases space; an
+/// owner lets it. The distinction gates navigation only — it is read once, in
+/// the router's redirect, and decides which shell an account lands in.
+///
+/// Section 88 lists property owners as Phase 3. This is the first of that work.
+enum AccountRole {
+  tenant,
+  owner,
+  unknown;
+
+  String get api => switch (this) {
+    AccountRole.tenant => 'TENANT',
+    AccountRole.owner => 'OWNER',
+    AccountRole.unknown => 'UNKNOWN',
+  };
+
+  String get label => switch (this) {
+    AccountRole.tenant => 'Tenant',
+    AccountRole.owner => 'Owner',
+    AccountRole.unknown => 'Unknown',
+  };
+
+  /// An unrecognised role is treated as a tenant rather than locked out. A
+  /// server that grows a third role should not strand an account on a version
+  /// of the app that predates it.
+  bool get isOwner => this == AccountRole.owner;
+
+  static AccountRole fromApi(String? raw) =>
+      _parse(raw, values, (v) => v.api, AccountRole.unknown);
+}
+
+// ---------------------------------------------------------------------------
+// Section 88 - Property owner
+// ---------------------------------------------------------------------------
+
+enum OwnerType {
+  individual,
+  company,
+  unknown;
+
+  String get api => switch (this) {
+    OwnerType.individual => 'INDIVIDUAL',
+    OwnerType.company => 'COMPANY',
+    OwnerType.unknown => 'UNKNOWN',
+  };
+
+  String get label => switch (this) {
+    OwnerType.individual => 'Individual',
+    OwnerType.company => 'Company',
+    OwnerType.unknown => 'Unknown',
+  };
+
+  /// Whether the profile form should collect company fields, mirroring
+  /// [TenantType.isOrganisation].
+  bool get isOrganisation => this == OwnerType.company;
+
+  static OwnerType fromApi(String? raw) =>
+      _parse(raw, values, (v) => v.api, OwnerType.unknown);
+}
+
+/// What is asking for an owner's attention, and how loudly.
+enum OwnerAlertType {
+  arrears,
+  leaseExpiring,
+  vacancy,
+  awaitingSignature,
+  unknown;
+
+  String get api => switch (this) {
+    OwnerAlertType.arrears => 'ARREARS',
+    OwnerAlertType.leaseExpiring => 'LEASE_EXPIRING',
+    OwnerAlertType.vacancy => 'VACANCY',
+    OwnerAlertType.awaitingSignature => 'AWAITING_SIGNATURE',
+    OwnerAlertType.unknown => 'UNKNOWN',
+  };
+
+  String get label => switch (this) {
+    OwnerAlertType.arrears => 'In arrears',
+    OwnerAlertType.leaseExpiring => 'Expiring',
+    OwnerAlertType.vacancy => 'Vacant',
+    OwnerAlertType.awaitingSignature => 'Awaiting signature',
+    OwnerAlertType.unknown => 'Attention',
+  };
+
+  StatusTone get tone => switch (this) {
+    OwnerAlertType.arrears => StatusTone.danger,
+    OwnerAlertType.leaseExpiring => StatusTone.warning,
+    OwnerAlertType.vacancy => StatusTone.neutral,
+    OwnerAlertType.awaitingSignature => StatusTone.progress,
+    OwnerAlertType.unknown => StatusTone.neutral,
+  };
+
+  static OwnerAlertType fromApi(String? raw) =>
+      _parse(raw, values, (v) => v.api, OwnerAlertType.unknown);
+}
+
+// ---------------------------------------------------------------------------
 // Section 29 - Lease signatures
 // ---------------------------------------------------------------------------
 

@@ -21,6 +21,23 @@ abstract final class AppTheme {
 
   static ThemeData get dark => _build(_darkScheme, StatusColors.dark);
 
+  /// The owner tier's ground.
+  ///
+  /// An owner is not a tenant with more buttons — they are looking at a
+  /// portfolio, and the app should say so before a single figure is read. So
+  /// the owner shell runs on navy in *both* modes and takes brass, the accent
+  /// the palette already reserves for premium, as its primary. Tenant dark is
+  /// navy with an azure primary; that one substitution is what keeps the two
+  /// tiers apart for an owner who already prefers a dark app.
+  ///
+  /// Applied by wrapping the owner shell in a `Theme`, which is the whole point
+  /// of doing it this way: `RecordGroup`, `AppSurfaceCard`, `StatusChip`,
+  /// `SectionCard`, the skeletons and the state views all read their colours
+  /// from the scheme, so they arrive on the stage correct without a single
+  /// `onDark` flag being threaded through them.
+  static ThemeData get ownerStage =>
+      _build(_ownerStageScheme, StatusColors.dark);
+
   static const ColorScheme _lightScheme = ColorScheme.light(
     primary: AppPalette.azure700,
     onPrimary: AppPalette.stone0,
@@ -117,6 +134,62 @@ abstract final class AppTheme {
     onInverseSurface: AppPalette.navy900,
     inversePrimary: AppPalette.azure700,
     surfaceTint: AppPalette.azure300,
+  );
+
+  /// Navy ground, brass primary. See [ownerStage].
+  ///
+  /// One relationship is deliberately inverted from [_darkScheme]: here
+  /// `surfaceContainerLowest` is *lighter* than `surface`, so a card lifts off
+  /// the stage rather than sinking into it. On the tenant's dark theme cards
+  /// recede, which is right for a statement being read; on a portfolio screen
+  /// the surfaces are panels being surveyed, and they should sit above.
+  static const ColorScheme _ownerStageScheme = ColorScheme.dark(
+    primary: AppPalette.brass300,
+    onPrimary: AppPalette.navy950,
+    primaryContainer: Color(0xFF503815),
+    onPrimaryContainer: AppPalette.brass100,
+    primaryFixed: AppPalette.brass100,
+    primaryFixedDim: AppPalette.brass200,
+    onPrimaryFixed: AppPalette.navy950,
+    onPrimaryFixedVariant: AppPalette.brass700,
+    secondary: AppPalette.azure300,
+    onSecondary: AppPalette.azure950,
+    secondaryContainer: AppPalette.azure900,
+    onSecondaryContainer: AppPalette.azure100,
+    secondaryFixed: AppPalette.azure100,
+    secondaryFixedDim: AppPalette.azure300,
+    onSecondaryFixed: AppPalette.azure950,
+    onSecondaryFixedVariant: AppPalette.azure800,
+    tertiary: AppPalette.stone200,
+    onTertiary: AppPalette.navy900,
+    tertiaryContainer: AppPalette.navy700,
+    onTertiaryContainer: AppPalette.stone100,
+    tertiaryFixed: AppPalette.stone100,
+    tertiaryFixedDim: AppPalette.stone300,
+    onTertiaryFixed: AppPalette.navy950,
+    onTertiaryFixedVariant: AppPalette.navy700,
+    error: AppPalette.red300,
+    onError: Color(0xFF571713),
+    errorContainer: Color(0xFF76241F),
+    onErrorContainer: AppPalette.red100,
+    surface: AppPalette.navy950,
+    onSurface: AppPalette.stone100,
+    surfaceDim: Color(0xFF030A14),
+    surfaceBright: AppPalette.navy700,
+    surfaceContainerLowest: AppPalette.navy900,
+    surfaceContainerLow: Color(0xFF0C2038),
+    surfaceContainer: AppPalette.navy800,
+    surfaceContainerHigh: AppPalette.navy700,
+    surfaceContainerHighest: AppPalette.navy600,
+    onSurfaceVariant: AppPalette.stone300,
+    outline: AppPalette.stone500,
+    outlineVariant: AppPalette.navy700,
+    shadow: Colors.black,
+    scrim: Colors.black,
+    inverseSurface: AppPalette.stone100,
+    onInverseSurface: AppPalette.navy900,
+    inversePrimary: AppPalette.brass700,
+    surfaceTint: AppPalette.brass300,
   );
 
   static ThemeData _build(ColorScheme scheme, StatusColors statusColors) {

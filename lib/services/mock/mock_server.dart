@@ -8,6 +8,7 @@ import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
 import '../../domain/entities/lease.dart';
+import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/entities/tenant.dart';
 import '../../domain/entities/unit.dart';
@@ -57,11 +58,14 @@ class MockServer {
 
   // -- Stored state ----------------------------------------------------------
 
-  final Map<String, Property> properties = {};
+  final Map<String, PropertyRow> properties = {};
   final List<Building> buildings = [];
   final List<Floor> floors = [];
   final List<UnitType> unitTypes = [];
   final Map<String, PropertyConfig> configs = {};
+
+  /// Section 88. Owners, and the accounts behind them.
+  final Map<String, PropertyOwner> owners = {};
 
   final Map<String, UnitRow> units = {};
   final Map<String, BookingRow> bookings = {};
@@ -88,6 +92,22 @@ class MockServer {
   AppUser? currentUser;
   Tenant? currentTenant;
 
+  /// Set only while an owner account is signed in.
+  PropertyOwner? currentOwner;
+
+  /// Section 88. The demo accounts a sign-in can resolve to, keyed by the
+  /// phone and the email that reach them.
+  ///
+  /// The mock used to hold one account, because there was one audience. Now a
+  /// sign-in has to decide *which* account it is. An unrecognised phone or
+  /// email still resolves to [defaultSession] — the tenant — so a test or a
+  /// demo that signs in with an arbitrary number keeps behaving as it did.
+  final Map<String, AuthSession> accountsByPhone = {};
+  final Map<String, AuthSession> accountsByEmail = {};
+
+  /// The first account registered, which the seed makes the tenant.
+  AuthSession? defaultSession;
+
   /// Pending OTP challenges: challenge id -> phone.
   final Map<String, String> otpChallenges = {};
 
@@ -108,9 +128,55 @@ class MockServer {
 
   void _seed() => seedMockServer(this);
 
+  // -- Pricing (section 88) --------------------------------------------------
+
+  /// Derives a unit's asking rent from an area and a rate per square metre.
+  ///
+  /// The only place that multiplication happens. Section 65 keeps the client
+  /// out of computing payable amounts and section 84 rule 7 puts totalling on
+  /// the server; a rate is the input an owner controls, and the rent is the
+  /// server's answer. A screen that wants to show a rent asks for one rather
+  /// than working it out, exactly as it does for an invoice total.
+  Money rentFor({required double area, required Money ratePerSqm}) =>
+      ratePerSqm.scaledBy(area);
+
+  /// The rate a unit in [propertyId] is priced at, given its unit type.
+  ///
+  /// A unit type may override the property's rate — a kiosk earns more per
+  /// square metre than a warehouse bay in the same building. Null when the
+  /// property is priced unit by unit rather than by area.
+  Money? rateFor({required String propertyId, String? unitTypeId}) {
+    if (unitTypeId != null) {
+      for (final type in unitTypes) {
+        if (type.id == unitTypeId && type.ratePerSqm != null) {
+          return type.ratePerSqm;
+        }
+      }
+    }
+    return properties[propertyId]?.rentRatePerSqm;
+  }
+
   // ==========================================================================
   // Auth
   // ==========================================================================
+
+  /// Makes an account reachable by signing in with [phone] or [email].
+  ///
+  /// The first account registered becomes [defaultSession].
+  void registerAccount(AuthSession session, {String? phone, String? email}) {
+    if (phone != null) accountsByPhone[normalisePhone(phone)] = session;
+    if (email != null) accountsByEmail[email.trim().toLowerCase()] = session;
+    defaultSession ??= session;
+  }
+
+  /// Strips punctuation and country-code formatting so `+254 712 345678` and
+  /// `0712345678` reach the same account.
+  static String normalisePhone(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    // A leading national zero and a leading 254 are the same subscriber.
+    if (digits.startsWith('0')) return '254${digits.substring(1)}';
+    return digits;
+  }
 
   String requestOtp(String phone) {
     final challengeId = _id('chg');
@@ -120,17 +186,32 @@ class MockServer {
 
   /// Returns null when the challenge is unknown or the code is wrong.
   AuthSession? verifyOtp(String challengeId, String code) {
-    if (!otpChallenges.containsKey(challengeId)) return null;
+    final phone = otpChallenges[challengeId];
+    if (phone == null) return null;
     if (code.trim() != demoOtp) return null;
     otpChallenges.remove(challengeId);
-    return AuthSession(user: currentUser!, tenant: currentTenant);
+    return _signIn(accountsByPhone[normalisePhone(phone)] ?? defaultSession);
   }
 
   AuthSession? loginWithPassword(String email, String password) {
-    // The seeded demo account. Any non-empty password is accepted; this is a
-    // mock, and the real check belongs on the server.
+    // Any non-empty password is accepted; this is a mock, and the real check
+    // belongs on the server.
     if (email.trim().isEmpty || password.isEmpty) return null;
-    return AuthSession(user: currentUser!, tenant: currentTenant);
+    return _signIn(
+      accountsByEmail[email.trim().toLowerCase()] ?? defaultSession,
+    );
+  }
+
+  /// Makes [session] the signed-in account.
+  ///
+  /// Everything the mock serves afterwards is scoped to whoever this is, which
+  /// is what lets one process demonstrate both sides of the platform.
+  AuthSession? _signIn(AuthSession? session) {
+    if (session == null) return null;
+    currentUser = session.user;
+    currentTenant = session.tenant;
+    currentOwner = session.owner;
+    return session;
   }
 
   String register({
@@ -162,6 +243,14 @@ class MockServer {
         phone: phone,
         legalName: '$firstName $lastName'.trim(),
       ),
+    );
+    // Registration is a tenant path: an owner account is created by the
+    // platform, not self-served.
+    currentOwner = null;
+    registerAccount(
+      AuthSession(user: currentUser!, tenant: currentTenant),
+      phone: phone,
+      email: email,
     );
     return requestOtp(phone);
   }

@@ -167,45 +167,31 @@ class MockPropertyRepository with _MockLatency implements PropertyRepository {
     }
 
     // Availability counts are derived, so they stay honest as bookings change.
-    items = items
-        .map(
-          (p) => Property(
-            id: p.id,
-            name: p.name,
-            code: p.code,
-            propertyType: p.propertyType,
-            status: p.status,
-            description: p.description,
-            address: p.address,
-            city: p.city,
-            county: p.county,
-            country: p.country,
-            latitude: p.latitude,
-            longitude: p.longitude,
-            totalArea: p.totalArea,
-            totalUnits: _server.units.values
-                .where((u) => u.propertyId == p.id)
-                .length,
-            availableUnits: _server.units.values
-                .where(
-                  (u) => u.propertyId == p.id && _server.isUnitAvailable(u.id),
-                )
-                .length,
-            logoUrl: p.logoUrl,
-            imageUrl: p.imageUrl,
-          ),
-        )
-        .toList();
-
-    return _paginate(items, page);
+    return _paginate(
+      items.map(_withDerivedCounts).toList(growable: false),
+      page,
+    );
   });
 
   @override
   Future<Result<Property>> getProperty(String propertyId) => guard(() {
     final property = _server.properties[propertyId];
     if (property == null) throw const MockNotFound('Property not found');
-    return property;
+    return _withDerivedCounts(property);
   });
+
+  /// Section 15 prefers deriving occupancy over storing it, so the counts are
+  /// worked out at read time from the units that exist right now.
+  Property _withDerivedCounts(PropertyRow row) {
+    var total = 0;
+    var available = 0;
+    for (final unit in _server.units.values) {
+      if (unit.propertyId != row.id) continue;
+      total++;
+      if (_server.isUnitAvailable(unit.id)) available++;
+    }
+    return row.toDomain(totalUnits: total, availableUnits: available);
+  }
 
   @override
   Future<Result<List<Building>>> listBuildings(String propertyId) => guard(

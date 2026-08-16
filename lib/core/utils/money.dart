@@ -69,6 +69,18 @@ class Money implements Comparable<Money> {
   /// rate from section 57. Rounds to the nearest minor unit.
   Money percentage(num rate) => Money((minorUnits * rate / 100).round(), currency);
 
+  /// Scales by a fractional factor, e.g. a rate per square metre times an area.
+  ///
+  /// [operator *] only takes an `int` because the cases it was written for —
+  /// rent times deposit months — are whole. An area is not: a 1,250.5 m² unit
+  /// at a rate per square metre needs the fraction carried through the
+  /// multiplication and rounded once, at the end, onto a whole minor unit.
+  ///
+  /// Server arithmetic only. Section 65 keeps the client out of computing
+  /// payable amounts, so the only caller in this app is the mock server's
+  /// pricing helper; a screen that wants a rent asks for one.
+  Money scaledBy(num factor) => Money((minorUnits * factor).round(), currency);
+
   bool operator >(Money other) {
     _assertSameCurrency(other);
     return minorUnits > other.minorUnits;

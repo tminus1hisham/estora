@@ -6,6 +6,7 @@ import 'package:mall/app.dart';
 import 'package:mall/modules/auth/presentation/login_screen.dart';
 import 'package:mall/modules/auth/presentation/splash_screen.dart';
 import 'package:mall/modules/home/presentation/home_screen.dart';
+import 'package:mall/navigation/owner_shell.dart';
 import 'package:mall/navigation/routes.dart';
 import 'package:mall/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,9 +62,11 @@ void main() {
     await tester.pumpAndSettle();
 
     final router = GoRouter.of(tester.element(find.byType(LoginScreen)));
+    // Section 88 added a second shell for the owner side, so the tenant one has
+    // to be identified rather than assumed to be the only one.
     final shell = router.configuration.routes
         .whereType<StatefulShellRoute>()
-        .single;
+        .firstWhere((route) => _hasRouteNamed(route.routes, Routes.home));
 
     for (final name in const [
       Routes.booking,
@@ -129,6 +132,88 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.byType(LoginScreen), findsNothing);
   });
+
+  // -- The role gate (section 88) --------------------------------------------
+  //
+  // The redirect in `app_router.dart` is the only place a role decides
+  // anything. There is no per-route guard anywhere in the app, so if these
+  // three pass, an account cannot reach the wrong side.
+
+  testWidgets('an owner signs in to the owner shell, not the tenant one', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    await _signInWithEmail(tester, 'owner@karunaholdings.co.ke');
+
+    expect(find.byType(OwnerShell), findsOneWidget);
+    expect(find.byType(HomeScreen), findsNothing);
+  });
+
+  testWidgets('a tenant sent to an owner route is returned home', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    await _signInWithEmail(tester, 'amina@example.co.ke');
+    expect(find.byType(HomeScreen), findsOneWidget);
+
+    GoRouter.of(
+      tester.element(find.byType(HomeScreen)),
+    ).go(Routes.ownerPortfolioPath);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(OwnerShell), findsNothing);
+  });
+
+  testWidgets('an owner sent to a tenant route is returned to the portfolio', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    await _signInWithEmail(tester, 'owner@karunaholdings.co.ke');
+
+    GoRouter.of(
+      tester.element(find.byType(OwnerShell)),
+    ).go(Routes.invoicesPath);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OwnerShell), findsOneWidget);
+    expect(find.byType(HomeScreen), findsNothing);
+  });
+}
+
+/// Signs in through the mock's email and password path.
+///
+/// Which account you land on is decided by the address: the mock resolves it
+/// against the accounts the seed registered.
+Future<void> _signInWithEmail(WidgetTester tester, String email) async {
+  await tester.tap(find.text('Email'));
+  await tester.pumpAndSettle();
+
+  await tester.enterText(
+    find.widgetWithText(TextFormField, 'Email address'),
+    email,
+  );
+  await tester.enterText(
+    find.widgetWithText(TextFormField, 'Password'),
+    'a-password',
+  );
+  await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+  await tester.pumpAndSettle();
+}
+
+bool _hasRouteNamed(Iterable<RouteBase> routes, String name) {
+  try {
+    _routeNamed(routes, name);
+    return true;
+  } on StateError {
+    return false;
+  }
 }
 
 GoRoute _routeNamed(Iterable<RouteBase> routes, String name) {

@@ -79,6 +79,30 @@ void main() {
       );
     });
 
+    test('scaledBy derives a rent from a rate per square metre', () {
+      // The seeded case: Sarit asks KES 30/m² and a retail unit is 5,000 m²,
+      // which must land exactly on the KES 150,000 the fixtures already use.
+      final rate = Money.fromMajor(30, 'KES');
+      expect(rate.scaledBy(5000), Money.fromMajor(150000, 'KES'));
+    });
+
+    test('scaledBy carries a fractional area and rounds once', () {
+      // 1,250.5 m² at KES 22.50 is 28,136.25 — the quarter cent has to round
+      // onto a whole minor unit rather than sitting on a float boundary.
+      final rate = Money.fromMajor(22.50, 'KES');
+      expect(rate.scaledBy(1250.5).minorUnits, 2813625);
+      expect(rate.scaledBy(1250.5).format(), 'KES 28,136.25');
+    });
+
+    test('scaledBy rounds away from zero on a half minor unit', () {
+      expect(Money.fromMajor(0.01, 'KES').scaledBy(0.5).minorUnits, 1);
+    });
+
+    test('scaledBy by a whole number agrees with operator *', () {
+      final rent = Money.fromMajor(150000, 'KES');
+      expect(rent.scaledBy(5), rent * 5);
+    });
+
     test('subtraction and comparison behave', () {
       final total = Money.fromMajor(150000, 'KES');
       final paid = Money.fromMajor(50000, 'KES');

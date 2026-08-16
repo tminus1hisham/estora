@@ -1,3 +1,4 @@
+import '../../core/utils/money.dart';
 import '../enums/domain_enums.dart';
 
 /// Section 11. A mall or other commercial property.
@@ -22,6 +23,8 @@ class Property {
     this.totalArea,
     this.totalUnits,
     this.availableUnits,
+    this.ownerId,
+    this.rentRatePerSqm,
     this.logoUrl,
     this.imageUrl,
   });
@@ -48,6 +51,24 @@ class Property {
   /// it), so the app just displays what it is given.
   final int? availableUnits;
 
+  /// Section 88. Who owns the property, if the platform is tracking ownership.
+  ///
+  /// Null for a property that predates owner accounts. Kept as an edge here
+  /// rather than a list on [PropertyOwner] so a property can change hands
+  /// without rewriting the owner.
+  final String? ownerId;
+
+  /// What the property asks per square metre, per billing period.
+  ///
+  /// This is the figure an owner sets, and every unit's [Unit.baseRent] is
+  /// derived from it server-side as `area × rate`. It is a *listing* rate: a
+  /// change reprices unlet units only, and never reaches a lease that has
+  /// already been signed.
+  ///
+  /// Null for a property priced unit by unit, which is every property that
+  /// existed before owners could set a rate.
+  final Money? rentRatePerSqm;
+
   final String? logoUrl;
   final String? imageUrl;
 
@@ -58,6 +79,12 @@ class Property {
   ].whereType<String>().join(', ');
 
   bool get hasAvailability => (availableUnits ?? 0) > 0;
+
+  /// `KES 30 / m²`, or null if the property is not priced by area.
+  String? get rateLabel {
+    final rate = rentRatePerSqm;
+    return rate == null ? null : '${rate.format()} / m²';
+  }
 }
 
 /// Section 13. A wing or block within a property.

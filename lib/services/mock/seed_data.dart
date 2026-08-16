@@ -1,5 +1,6 @@
 import '../../core/utils/money.dart';
 import '../../domain/entities/lease.dart';
+import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/entities/tenant.dart';
 import '../../domain/entities/unit.dart';
@@ -24,7 +25,7 @@ void seedMockServer(MockServer server) {
   // -- Organisation's first property ----------------------------------------
 
   const saritId = 'prp_sarit';
-  server.properties[saritId] = Property(
+  server.properties[saritId] = PropertyRow(
     id: saritId,
     name: 'Sarit Mall',
     code: 'SARIT',
@@ -40,8 +41,10 @@ void seedMockServer(MockServer server) {
     latitude: -1.2626,
     longitude: 36.8034,
     totalArea: 32000,
-    totalUnits: 8,
-    availableUnits: 4,
+    // Section 88. Chosen so the derivation reproduces the section 80 figures
+    // exactly: a 5,000 m² retail unit at KES 30/m² asks KES 150,000, which is
+    // the rent the spec writes and the fixtures below already use.
+    rentRatePerSqm: Money.fromMajor(30, kes),
     imageUrl: 'assets/images/property_sarit_mall.jpg',
   );
 
@@ -63,7 +66,7 @@ void seedMockServer(MockServer server) {
   );
 
   const abcId = 'prp_abc';
-  server.properties[abcId] = Property(
+  server.properties[abcId] = PropertyRow(
     id: abcId,
     name: 'ABC Business Centre',
     code: 'ABC-BC',
@@ -77,8 +80,7 @@ void seedMockServer(MockServer server) {
     county: 'Nairobi',
     country: 'Kenya',
     totalArea: 9000,
-    totalUnits: 3,
-    availableUnits: 3,
+    rentRatePerSqm: Money.fromMajor(22, kes),
     imageUrl: 'assets/images/property_abc_business_centre.jpg',
   );
 
@@ -422,9 +424,69 @@ void seedMockServer(MockServer server) {
     ),
   );
 
+  // The tenant is registered first, which makes it the account an
+  // unrecognised phone or email falls back to.
+  server.registerAccount(
+    AuthSession(user: server.currentUser!, tenant: server.currentTenant),
+    phone: '+254712345678',
+    email: 'amina@example.co.ke',
+  );
+
   // -- An established tenancy, so the app has content on first launch -------
 
   seedEstablishedTenancy(server, tenantId: tenantId, propertyId: saritId);
+
+  // -- The owner behind both properties (section 88) ------------------------
+
+  seedOwnerAccount(server, propertyIds: const [saritId, abcId]);
+}
+
+/// Section 88. Gives both seeded properties an owner, and that owner an account.
+///
+/// Sign in with `+254733000111` (or `owner@karunaholdings.co.ke`) and the same
+/// demo OTP to land on the owner side of the app.
+void seedOwnerAccount(
+  MockServer server, {
+  required List<String> propertyIds,
+}) {
+  const ownerId = 'own_demo';
+  const ownerUserId = 'usr_owner';
+
+  const owner = PropertyOwner(
+    id: ownerId,
+    userId: ownerUserId,
+    ownerType: OwnerType.company,
+    displayName: 'Karuna Holdings',
+    status: 'ACTIVE',
+    legalName: 'Karuna Holdings Limited',
+    registrationNumber: 'PVT-2K7M4XQ',
+    taxNumber: 'P051987654Z',
+    payoutAccountNumber: '01102847361900',
+  );
+
+  const user = AppUser(
+    id: ownerUserId,
+    firstName: 'Joseph',
+    lastName: 'Karuna',
+    email: 'owner@karunaholdings.co.ke',
+    phone: '+254733000111',
+    status: 'ACTIVE',
+    role: AccountRole.owner,
+    emailVerified: true,
+    phoneVerified: true,
+  );
+
+  server.owners[ownerId] = owner;
+
+  for (final propertyId in propertyIds) {
+    server.properties[propertyId]?.ownerId = ownerId;
+  }
+
+  server.registerAccount(
+    const AuthSession(user: user, tenant: null, owner: owner),
+    phone: '+254733000111',
+    email: 'owner@karunaholdings.co.ke',
+  );
 }
 
 /// Gives the demo tenant an active lease on SHOP-101 with a settled deposit, a

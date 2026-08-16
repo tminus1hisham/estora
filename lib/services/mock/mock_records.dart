@@ -13,9 +13,93 @@ import '../../core/utils/money.dart';
 import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/lease.dart';
+import '../../domain/entities/property.dart';
 import '../../domain/entities/tenant.dart';
 import '../../domain/entities/unit.dart';
 import '../../domain/enums/domain_enums.dart';
+
+// ---------------------------------------------------------------------------
+// Property (section 11)
+// ---------------------------------------------------------------------------
+
+/// Section 11. The mutable row behind a [Property].
+///
+/// Properties used to be stored as immutable domain values because nothing
+/// changed them. Owners changed that: a property is created, it changes hands,
+/// and its rate per square metre moves. Those are writes, so it becomes a row
+/// like every other mutable thing the mock holds.
+class PropertyRow {
+  PropertyRow({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.propertyType,
+    required this.status,
+    required this.city,
+    required this.country,
+    this.description,
+    this.address,
+    this.county,
+    this.latitude,
+    this.longitude,
+    this.totalArea,
+    this.ownerId,
+    this.rentRatePerSqm,
+    this.logoUrl,
+    this.imageUrl,
+  });
+
+  final String id;
+  String name;
+  String code;
+  PropertyType propertyType;
+  PropertyStatus status;
+
+  String? description;
+  String? address;
+  String city;
+  String? county;
+  String country;
+  double? latitude;
+  double? longitude;
+  double? totalArea;
+
+  /// Section 88. Null for a property that predates owner accounts.
+  String? ownerId;
+
+  /// What the property asks per square metre. Mutable — an owner reprices.
+  Money? rentRatePerSqm;
+
+  String? logoUrl;
+  String? imageUrl;
+
+  /// Unit counts are deliberately not stored.
+  ///
+  /// Section 15 prefers deriving occupancy over storing it, and a stored count
+  /// is a second source of truth that goes stale the moment a booking expires.
+  /// The repository passes the counts it derived.
+  Property toDomain({int? totalUnits, int? availableUnits}) => Property(
+    id: id,
+    name: name,
+    code: code,
+    propertyType: propertyType,
+    status: status,
+    description: description,
+    address: address,
+    city: city,
+    county: county,
+    country: country,
+    latitude: latitude,
+    longitude: longitude,
+    totalArea: totalArea,
+    totalUnits: totalUnits,
+    availableUnits: availableUnits,
+    ownerId: ownerId,
+    rentRatePerSqm: rentRatePerSqm,
+    logoUrl: logoUrl,
+    imageUrl: imageUrl,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Property configuration (section 12)

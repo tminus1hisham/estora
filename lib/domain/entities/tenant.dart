@@ -1,4 +1,5 @@
 import '../enums/domain_enums.dart';
+import 'owner.dart';
 
 /// Section 20. The individual or company leasing a unit.
 class Tenant {
@@ -75,6 +76,7 @@ class AppUser {
     this.email,
     this.phone,
     this.organizationId,
+    this.role = AccountRole.tenant,
     this.emailVerified = false,
     this.phoneVerified = false,
     this.lastLoginAt,
@@ -87,6 +89,14 @@ class AppUser {
   final String? email;
   final String? phone;
   final String status;
+
+  /// Which side of the platform this account is on.
+  ///
+  /// Defaults to [AccountRole.tenant] so every existing construction site —
+  /// the seed, the tests, a server response that predates the field — keeps
+  /// meaning what it did before owners existed.
+  final AccountRole role;
+
   final bool emailVerified;
   final bool phoneVerified;
   final DateTime? lastLoginAt;
@@ -103,13 +113,18 @@ class AppUser {
 
 /// What the app holds after a successful sign-in.
 class AuthSession {
-  const AuthSession({required this.user, required this.tenant});
+  const AuthSession({required this.user, required this.tenant, this.owner});
 
   final AppUser user;
 
   /// Null if the account exists but no tenant record has been created yet —
   /// possible right after registration, before the first booking.
   final Tenant? tenant;
+
+  /// Set only on an owner account. The two are mutually exclusive in practice:
+  /// [AppUser.role] decides which shell the account lands in, and the other
+  /// record is null.
+  final PropertyOwner? owner;
 }
 
 /// Section 51. A stored file.

@@ -37,6 +37,49 @@ class Routes {
   static const profile = 'profile';
   static const profilePath = '/profile';
 
+  // -- Owner shell (section 88) ---------------------------------------------
+  //
+  // Every branch root gets its own segment rather than one of them sitting at
+  // a bare `/owner`. Sibling branches under a shared parent path match by
+  // accident — `/owner/properties` would be tried against the `/owner` branch
+  // first — and the resulting bug looks like a rendering fault, not a routing
+  // one. `/owner` itself redirects to the portfolio.
+  static const ownerRootPath = '/owner';
+
+  static const ownerPortfolio = 'owner-portfolio';
+  static const ownerPortfolioPath = '/owner/portfolio';
+
+  static const ownerProperties = 'owner-properties';
+  static const ownerPropertiesPath = '/owner/properties';
+
+  static const ownerTenancies = 'owner-tenancies';
+  static const ownerTenanciesPath = '/owner/tenancies';
+
+  static const ownerMoney = 'owner-money';
+  static const ownerMoneyPath = '/owner/money';
+
+  static const ownerAccount = 'owner-account';
+  static const ownerAccountPath = '/owner/account';
+
+  // -- Owner sub-routes -----------------------------------------------------
+  static const ownerProperty = 'owner-property';
+  static const ownerPropertyPath = ':propertyId';
+
+  static const ownerAddProperty = 'owner-add-property';
+  static const ownerAddPropertyPath = 'new';
+
+  static const ownerPropertyRate = 'owner-property-rate';
+  static const ownerPropertyRatePath = ':propertyId/rate';
+
+  static const ownerRentRoll = 'owner-rent-roll';
+  static const ownerRentRollPath = ':propertyId/rent-roll';
+
+  static const ownerTenancy = 'owner-tenancy';
+  static const ownerTenancyPath = ':leaseId';
+
+  static const ownerPayouts = 'owner-payouts';
+  static const ownerPayoutsPath = 'payouts';
+
   // -- Browse sub-routes ----------------------------------------------------
   static const propertyDetail = 'property-detail';
   static const propertyDetailPath = 'property/:propertyId';
