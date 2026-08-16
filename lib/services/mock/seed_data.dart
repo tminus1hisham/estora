@@ -80,7 +80,10 @@ void seedMockServer(MockServer server) {
     county: 'Nairobi',
     country: 'Kenya',
     totalArea: 9000,
-    rentRatePerSqm: Money.fromMajor(22, kes),
+    // Serviced office space is let by the suite, so its rate per square metre
+    // is an order of magnitude above a mall's shop floor. Both properties
+    // being priced the same way is the point — the model does not care which.
+    rentRatePerSqm: Money.fromMajor(900, kes),
     imageUrl: 'assets/images/property_abc_business_centre.jpg',
   );
 
@@ -143,6 +146,18 @@ void seedMockServer(MockServer server) {
       buildingId: 'bld_sarit_east',
       name: 'Ground Floor',
       floorNumber: 0,
+    ),
+    Floor(
+      id: 'flr_abc_first',
+      buildingId: 'bld_abc_tower',
+      name: 'First Floor',
+      floorNumber: 1,
+    ),
+    Floor(
+      id: 'flr_abc_second',
+      buildingId: 'bld_abc_tower',
+      name: 'Second Floor',
+      floorNumber: 2,
     ),
     Floor(
       id: 'flr_abc_third',
@@ -251,6 +266,12 @@ void seedMockServer(MockServer server) {
     Money? rent,
   }) {
     final id = 'unt_${number.toLowerCase().replaceAll('-', '_')}';
+    // Section 88. The rent is derived from the property's rate rather than
+    // stated, so the seed demonstrates the pricing model instead of standing
+    // beside it. Passing [rent] makes the unit an override — SHOP-103 below is
+    // the worked example of one.
+    const area = 5000.0;
+    final rate = server.properties[saritId]!.rentRatePerSqm!;
     server.units[id] = UnitRow(
       id: id,
       propertyId: saritId,
@@ -265,8 +286,10 @@ void seedMockServer(MockServer server) {
           'and access to the service corridor.',
       length: 50,
       width: 100,
-      area: 5000,
-      baseRent: rent ?? Money.fromMajor(150000, kes),
+      area: area,
+      baseRent: rent ?? server.rentFor(area: area, ratePerSqm: rate),
+      ratePerSqm: rate,
+      rentOverridden: rent != null,
       depositMonths: 5,
       bookingFee: Money.fromMajor(20000, kes),
       status: status,
@@ -304,6 +327,8 @@ void seedMockServer(MockServer server) {
     buildingId: 'bld_sarit_main',
     buildingName: 'Main Building',
     status: UnitStatus.available,
+    // Priced below the rate: a first-floor unit off the main concourse. Being
+    // an override, it survives a repricing of the property.
     rent: Money.fromMajor(135000, kes),
   );
   addRetailUnit(
@@ -337,7 +362,10 @@ void seedMockServer(MockServer server) {
     length: 20,
     width: 50,
     area: 1000,
+    // A kiosk earns more per square metre than a shop floor, which is what a
+    // unit-type rate is for: 1,000 m² × KES 45 rather than the property's 30.
     baseRent: Money.fromMajor(45000, kes),
+    ratePerSqm: Money.fromMajor(45, kes),
     depositMonths: 3,
     bookingFee: Money.fromMajor(8000, kes),
     status: UnitStatus.available,
@@ -360,7 +388,11 @@ void seedMockServer(MockServer server) {
     length: 12,
     width: 8,
     area: 96,
+    // Held at a round KES 85,000 rather than the KES 86,400 the rate derives,
+    // so the suite advertises a clean figure.
     baseRent: Money.fromMajor(85000, kes),
+    ratePerSqm: Money.fromMajor(900, kes),
+    rentOverridden: true,
     depositMonths: 3,
     status: UnitStatus.available,
     requirements: [
@@ -487,7 +519,293 @@ void seedOwnerAccount(
     phone: '+254733000111',
     email: 'owner@karunaholdings.co.ke',
   );
+
+  seedPortfolioTenancies(server);
 }
+
+/// The other tenants in the owner's buildings, and their payment history.
+///
+/// A portfolio screen showing one lease and one invoice says nothing — an
+/// occupancy of 1-in-6 and a flat collection history are not a demonstration of
+/// anything. This puts real weight behind the figures.
+///
+/// Every unit here is **new and let**. The existing units are load-bearing for
+/// the tenant tests — SHOP-102 and SHOP-103 must stay bookable for the section
+/// 94 acceptance walk, SHOP-105 must stay under maintenance — so nothing that
+/// was available becomes unavailable.
+void seedPortfolioTenancies(MockServer server) {
+  const kes = 'KES';
+  final now = server.now;
+
+  var sequence = 1;
+
+  /// One let unit, its occupant, and the months of rent they have paid.
+  void addTenancy({
+    required String propertyId,
+    required String propertyName,
+    required String unitNumber,
+    required String buildingId,
+    required String buildingName,
+    required String floorId,
+    required String floorName,
+    required String tenantName,
+    required String legalName,
+    required double area,
+    required int monthsRunning,
+    Money? rentOverride,
+    int depositMonths = 5,
+    bool inArrears = false,
+    int? endsInDays,
+  }) {
+    sequence++;
+    final suffix = unitNumber.toLowerCase().replaceAll('-', '_');
+    final unitId = 'unt_$suffix';
+    final tenantId = 'tnt_$suffix';
+    final leaseId = 'lse_$suffix';
+
+    final rate = server.properties[propertyId]!.rentRatePerSqm!;
+    final rent =
+        rentOverride ?? server.rentFor(area: area, ratePerSqm: rate);
+    final config = server.configs[propertyId]!;
+
+    server.units[unitId] = UnitRow(
+      id: unitId,
+      propertyId: propertyId,
+      buildingId: buildingId,
+      floorId: floorId,
+      unitNumber: unitNumber,
+      unitCode: '${propertyName.split(' ').first.toUpperCase()}-$unitNumber',
+      name: 'Unit $unitNumber',
+      area: area,
+      baseRent: rent,
+      ratePerSqm: rate,
+      rentOverridden: rentOverride != null,
+      depositMonths: depositMonths,
+      status: UnitStatus.leased,
+      propertyName: propertyName,
+      buildingName: buildingName,
+      floorName: floorName,
+    );
+
+    server.tenants[tenantId] = Tenant(
+      id: tenantId,
+      userId: 'usr_$suffix',
+      tenantType: TenantType.business,
+      displayName: tenantName,
+      status: 'ACTIVE',
+      profile: TenantProfile(tenantId: tenantId, legalName: legalName),
+    );
+
+    final start = DateTime(now.year, now.month - monthsRunning, 1);
+    final lease = LeaseRow(
+      id: leaseId,
+      leaseNumber: 'LSE-${(sequence + 100).toString().padLeft(5, '0')}',
+      propertyId: propertyId,
+      unitId: unitId,
+      tenantId: tenantId,
+      propertyName: propertyName,
+      unitNumber: unitNumber,
+      startDate: start,
+      endDate: endsInDays != null
+          ? now.add(Duration(days: endsInDays))
+          : DateTime(start.year + 1, start.month, start.day)
+                .subtract(const Duration(days: 1)),
+      monthlyRent: rent,
+      depositAmount: rent * depositMonths,
+      billingFrequency: BillingFrequency.monthly,
+      paymentDueDay: config.invoiceDueDay,
+      status: LeaseStatus.active,
+      createdAt: start,
+      signedAt: start,
+      activatedAt: start,
+      agreementVersion: 1,
+    );
+    server.leases[leaseId] = lease;
+
+    // Rent for each month that has already closed, settled on time. The most
+    // recent month is left open so there is always something outstanding.
+    final closedMonths = monthsRunning.clamp(0, 6);
+    for (var back = closedMonths; back >= 1; back--) {
+      final periodStart = DateTime(now.year, now.month - back, 1);
+      final periodEnd = DateTime(
+        now.year,
+        now.month - back + 1,
+        1,
+      ).subtract(const Duration(days: 1));
+
+      server.seedSettledInvoice(
+        tenantId: tenantId,
+        lease: lease,
+        description: 'Rent for ${_monthName(periodStart)}',
+        amount: rent,
+        lineType: InvoiceLineType.rent,
+        issuedAt: DateTime(
+          periodStart.year,
+          periodStart.month,
+          config.invoiceGenerationDay,
+        ),
+        dueAt: DateTime(
+          periodStart.year,
+          periodStart.month,
+          config.invoiceDueDay,
+        ),
+        periodStart: periodStart,
+        periodEnd: periodEnd,
+      );
+    }
+
+    // The current month. Rent fell due on the 5th and most tenants have paid,
+    // which is what makes the collection figure worth looking at — a month
+    // where nothing had been collected yet would show an owner a flat zero and
+    // a collection rate of nothing.
+    final thisMonth = DateTime(now.year, now.month, 1);
+    final periodEnd = DateTime(
+      now.year,
+      now.month + 1,
+      1,
+    ).subtract(const Duration(days: 1));
+    final description = 'Rent for ${_monthName(thisMonth)}';
+    final issuedAt = DateTime(
+      now.year,
+      now.month,
+      config.invoiceGenerationDay,
+    );
+
+    if (inArrears) {
+      server.seedOpenInvoice(
+        tenantId: tenantId,
+        lease: lease,
+        description: description,
+        amount: rent,
+        lineType: InvoiceLineType.rent,
+        issuedAt: issuedAt,
+        // Well past the grace period, so it reads as overdue rather than due.
+        dueAt: now.subtract(const Duration(days: 24)),
+        periodStart: thisMonth,
+        periodEnd: periodEnd,
+      );
+    } else {
+      server.seedSettledInvoice(
+        tenantId: tenantId,
+        lease: lease,
+        description: description,
+        amount: rent,
+        lineType: InvoiceLineType.rent,
+        issuedAt: issuedAt,
+        dueAt: DateTime(now.year, now.month, config.invoiceDueDay),
+        periodStart: thisMonth,
+        periodEnd: periodEnd,
+      );
+    }
+  }
+
+  // -- Sarit Mall ------------------------------------------------------------
+
+  addTenancy(
+    propertyId: 'prp_sarit',
+    propertyName: 'Sarit Mall',
+    unitNumber: 'SHOP-201',
+    buildingId: 'bld_sarit_main',
+    buildingName: 'Main Building',
+    floorId: 'flr_main_first',
+    floorName: 'First Floor',
+    tenantName: 'Bahari Coffee',
+    legalName: 'Bahari Coffee Roasters Limited',
+    area: 5000,
+    monthsRunning: 9,
+  );
+  addTenancy(
+    propertyId: 'prp_sarit',
+    propertyName: 'Sarit Mall',
+    unitNumber: 'SHOP-202',
+    buildingId: 'bld_sarit_main',
+    buildingName: 'Main Building',
+    floorId: 'flr_main_first',
+    floorName: 'First Floor',
+    tenantName: 'Tembo Electronics',
+    legalName: 'Tembo Electronics (K) Limited',
+    area: 5000,
+    monthsRunning: 14,
+    // The arrears case the alert rail is built to surface.
+    inArrears: true,
+  );
+  addTenancy(
+    propertyId: 'prp_sarit',
+    propertyName: 'Sarit Mall',
+    unitNumber: 'SHOP-203',
+    buildingId: 'bld_sarit_east',
+    buildingName: 'East Wing',
+    floorId: 'flr_east_ground',
+    floorName: 'Ground Floor',
+    tenantName: 'Rafiki Pharmacy',
+    legalName: 'Rafiki Pharmacy Limited',
+    area: 5000,
+    monthsRunning: 11,
+    // Priced above the rate: the corner unit facing the car park.
+    rentOverride: Money.fromMajor(165000, kes),
+  );
+  addTenancy(
+    propertyId: 'prp_sarit',
+    propertyName: 'Sarit Mall',
+    unitNumber: 'SHOP-204',
+    buildingId: 'bld_sarit_east',
+    buildingName: 'East Wing',
+    floorId: 'flr_east_ground',
+    floorName: 'Ground Floor',
+    tenantName: 'Nuru Fashions',
+    legalName: 'Nuru Fashions Limited',
+    area: 5000,
+    monthsRunning: 10,
+    // The renewal conversation the owner should be having now.
+    endsInDays: 44,
+  );
+
+  // -- ABC Business Centre ---------------------------------------------------
+
+  addTenancy(
+    propertyId: 'prp_abc',
+    propertyName: 'ABC Business Centre',
+    unitNumber: 'OFFICE-1A',
+    buildingId: 'bld_abc_tower',
+    buildingName: 'Tower',
+    floorId: 'flr_abc_first',
+    floorName: 'First Floor',
+    tenantName: 'Sifa Legal',
+    legalName: 'Sifa Advocates LLP',
+    area: 96,
+    monthsRunning: 7,
+    depositMonths: 3,
+  );
+  addTenancy(
+    propertyId: 'prp_abc',
+    propertyName: 'ABC Business Centre',
+    unitNumber: 'OFFICE-2B',
+    buildingId: 'bld_abc_tower',
+    buildingName: 'Tower',
+    floorId: 'flr_abc_second',
+    floorName: 'Second Floor',
+    tenantName: 'Anga Analytics',
+    legalName: 'Anga Analytics Limited',
+    area: 120,
+    monthsRunning: 5,
+    depositMonths: 3,
+  );
+}
+
+String _monthName(DateTime date) => const [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+][date.month - 1];
 
 /// Gives the demo tenant an active lease on SHOP-101 with a settled deposit, a
 /// paid rent invoice with a receipt, and a current rent invoice still due.

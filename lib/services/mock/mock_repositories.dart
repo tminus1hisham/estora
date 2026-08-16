@@ -7,6 +7,7 @@ import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
 import '../../domain/entities/lease.dart';
+import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/entities/tenant.dart';
 import '../../domain/entities/unit.dart';
@@ -709,6 +710,43 @@ class MockTenantRepository with _MockLatency implements TenantRepository {
 }
 
 // ---------------------------------------------------------------------------
+
+class MockOwnerRepository with _MockLatency implements OwnerRepository {
+  MockOwnerRepository(this._server);
+
+  final MockServer _server;
+
+  @override
+  Future<Result<PropertyOwner>> getOwner() => guard(() {
+    final owner = _server.currentOwner;
+    if (owner == null) throw const MockNotFound('Not signed in as an owner');
+    return owner;
+  });
+
+  @override
+  Future<Result<OwnerPortfolio>> getPortfolio() => guard(() {
+    final owner = _server.currentOwner;
+    if (owner == null) throw const MockNotFound('Not signed in as an owner');
+    return _server.ownerPortfolio(owner.id);
+  });
+
+  @override
+  Future<Result<PropertyPerformance>> getPropertyPerformance(
+    String propertyId,
+  ) => guard(() {
+    final owner = _server.currentOwner;
+    if (owner == null) throw const MockNotFound('Not signed in as an owner');
+
+    // An owner may only read their own buildings. The mock enforces it because
+    // the real server will have to, and a client written against a server that
+    // does not check is a client that will break when it starts.
+    final property = _server.properties[propertyId];
+    if (property == null || property.ownerId != owner.id) {
+      throw const MockNotFound('Property not found');
+    }
+    return _server.propertyPerformance(propertyId);
+  });
+}
 
 class MockDashboardRepository with _MockLatency implements DashboardRepository {
   MockDashboardRepository(this._server);

@@ -195,6 +195,8 @@ class UnitRow {
     this.areaUnit = 'm²',
     this.depositMonths,
     this.bookingFee,
+    this.ratePerSqm,
+    this.rentOverridden = false,
     this.requirements = const <UnitRequirement>[],
     this.propertyName,
     this.buildingName,
@@ -219,7 +221,18 @@ class UnitRow {
   final double? area;
   final String areaUnit;
 
-  final Money baseRent;
+  /// Mutable: an owner reprices, either by moving the property's rate or by
+  /// overriding this unit directly.
+  Money baseRent;
+
+  /// The rate [baseRent] was derived from, kept so the figure can explain
+  /// itself without a lookup back to the property.
+  Money? ratePerSqm;
+
+  /// Set when [baseRent] was entered by hand. An overridden rent survives a
+  /// repricing of the property.
+  bool rentOverridden;
+
   final BillingFrequency billingFrequency;
   final int? depositMonths;
   final Money? bookingFee;
@@ -252,6 +265,8 @@ class UnitRow {
     status: status,
     depositMonths: depositMonths,
     bookingFee: bookingFee,
+    ratePerSqm: ratePerSqm,
+    rentOverridden: rentOverridden,
     requirements: requirements,
     propertyName: propertyName,
     buildingName: buildingName,

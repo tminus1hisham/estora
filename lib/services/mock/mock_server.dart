@@ -67,6 +67,13 @@ class MockServer {
   /// Section 88. Owners, and the accounts behind them.
   final Map<String, PropertyOwner> owners = {};
 
+  /// Every tenant the platform knows about, not just the signed-in one.
+  ///
+  /// The tenant app only ever needed [currentTenant]. An owner looking at a
+  /// rent roll needs to know who is in each unit, so occupants are addressable
+  /// by id.
+  final Map<String, Tenant> tenants = {};
+
   final Map<String, UnitRow> units = {};
   final Map<String, BookingRow> bookings = {};
   final Map<String, LeaseRow> leases = {};
@@ -1389,6 +1396,348 @@ class MockServer {
       unreadNotifications: notifications.where((n) => !n.isRead).length,
     );
   }
+
+  // ==========================================================================
+  // Owner reporting (section 88)
+  //
+  // Every figure an owner screen shows is finished here. Section 84 rule 7 puts
+  // totalling on the server and section 65 keeps the client out of computing
+  // payable amounts; a dashboard is not an exception to either. An occupancy
+  // rate or a collection rate the app worked out for itself would be a second
+  // source of truth, free to disagree with the one the accounts are kept in.
+  // ==========================================================================
+
+  List<PropertyRow> propertiesOwnedBy(String ownerId) => properties.values
+      .where((property) => property.ownerId == ownerId)
+      .toList(growable: false);
+
+  /// The owner's whole position.
+  OwnerPortfolio ownerPortfolio(String ownerId) {
+    expireDueBookings();
+    markOverdueInvoices();
+
+    final owned = propertiesOwnedBy(ownerId);
+    final currency = owned.isEmpty
+        ? 'KES'
+        : configs[owned.first.id]?.defaultCurrency ?? 'KES';
+
+    final performances = owned
+        .map((property) => propertyPerformance(property.id))
+        .toList(growable: false);
+
+    var mix = const UnitMix();
+    var area = 0.0;
+    var contracted = Money.zero(currency);
+    var billed = Money.zero(currency);
+    var collected = Money.zero(currency);
+    var outstanding = Money.zero(currency);
+    var overdue = Money.zero(currency);
+    // Section 41. Each property carries its own platform rate, so the fee has
+    // to be taken per property and then added up — a portfolio-level
+    // percentage would silently average two different contracts.
+    var platformFee = Money.zero(currency);
+
+    for (final performance in performances) {
+      mix = UnitMix(
+        leased: mix.leased + performance.mix.leased,
+        booked: mix.booked + performance.mix.booked,
+        available: mix.available + performance.mix.available,
+        unavailable: mix.unavailable + performance.mix.unavailable,
+      );
+      area += performance.totalArea ?? 0;
+      contracted += performance.monthlyContractedRent;
+      billed += performance.billedThisMonth;
+      collected += performance.collectedThisMonth;
+      outstanding += performance.outstanding;
+      overdue += performance.overdue;
+
+      final rate = configs[performance.propertyId]?.platformFeePercent ?? 0;
+      platformFee += performance.collectedThisMonth.percentage(rate);
+    }
+
+    return OwnerPortfolio(
+      ownerId: ownerId,
+      currency: currency,
+      mix: mix,
+      occupancyRate: _rateOf(mix.leased, mix.total),
+      totalArea: area == 0 ? null : area,
+      monthlyContractedRent: contracted,
+      billedThisMonth: billed,
+      collectedThisMonth: collected,
+      outstanding: outstanding,
+      overdue: overdue,
+      collectionRate: _moneyRate(collected, billed),
+      platformFee: platformFee,
+      netPayout: collected - platformFee,
+      properties: performances,
+      history: _collectionHistory(
+        propertyIds: owned.map((property) => property.id).toSet(),
+        currency: currency,
+      ),
+      alerts: _alertsFor(owned),
+    );
+  }
+
+  /// How one property is doing.
+  PropertyPerformance propertyPerformance(String propertyId) {
+    markOverdueInvoices();
+
+    final property = properties[propertyId];
+    if (property == null) throw const MockNotFound('Property not found');
+
+    final currency = configs[propertyId]?.defaultCurrency ?? 'KES';
+    final unitsHere = units.values
+        .where((unit) => unit.propertyId == propertyId)
+        .toList(growable: false);
+    final mix = _mixFor(unitsHere);
+
+    final activeLeases = leases.values
+        .where((lease) => lease.propertyId == propertyId && lease.status.isCurrent)
+        .toList(growable: false);
+
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 1);
+
+    final invoicesHere = invoices.values.where(
+      (invoice) => invoice.propertyId == propertyId,
+    );
+
+    final letArea = unitsHere
+        .where((unit) => unit.status == UnitStatus.leased)
+        .fold<double>(0, (sum, unit) => sum + (unit.area ?? 0));
+
+    final billed = _sum(
+      invoicesHere
+          .where((invoice) => _within(invoice.invoiceDate, monthStart, monthEnd))
+          .map((invoice) => invoice.total),
+      currency,
+    );
+    final collected = _sum(
+      payments.values
+          .where(
+            (payment) =>
+                payment.propertyId == propertyId &&
+                payment.status == PaymentStatus.success &&
+                payment.paidAt != null &&
+                _within(payment.paidAt!, monthStart, monthEnd),
+          )
+          .map((payment) => payment.amount),
+      currency,
+    );
+
+    final arrears = invoicesHere
+        .where((invoice) => invoice.status == InvoiceStatus.overdue)
+        .toList(growable: false);
+
+    return PropertyPerformance(
+      propertyId: propertyId,
+      propertyName: property.name,
+      imageUrl: property.imageUrl,
+      currency: currency,
+      mix: mix,
+      occupancyRate: _rateOf(mix.leased, mix.total),
+      totalArea: property.totalArea,
+      letArea: letArea == 0 ? null : letArea,
+      rentRatePerSqm: property.rentRatePerSqm,
+      monthlyContractedRent: _sum(
+        activeLeases.map((lease) => lease.monthlyRent),
+        currency,
+      ),
+      billedThisMonth: billed,
+      collectedThisMonth: collected,
+      outstanding: _sum(
+        invoicesHere
+            .where((invoice) => invoice.status.isOutstanding)
+            .map((invoice) => invoice.amountDue),
+        currency,
+      ),
+      overdue: _sum(arrears.map((invoice) => invoice.amountDue), currency),
+      collectionRate: _moneyRate(collected, billed),
+      expiringLeases: activeLeases
+          .where((lease) => lease.endDate.difference(now).inDays <= 60)
+          .length,
+      tenantsInArrears: arrears
+          .map((invoice) => invoice.tenantId)
+          .toSet()
+          .length,
+      history: _collectionHistory(
+        propertyIds: {propertyId},
+        currency: currency,
+      ),
+    );
+  }
+
+  UnitMix _mixFor(Iterable<UnitRow> rows) {
+    var leased = 0;
+    var booked = 0;
+    var available = 0;
+    var unavailable = 0;
+
+    for (final row in rows) {
+      switch (row.status) {
+        case UnitStatus.leased:
+          leased++;
+        case UnitStatus.reserved || UnitStatus.booked:
+          booked++;
+        case UnitStatus.available:
+          available++;
+        case _:
+          unavailable++;
+      }
+    }
+
+    return UnitMix(
+      leased: leased,
+      booked: booked,
+      available: available,
+      unavailable: unavailable,
+    );
+  }
+
+  /// Billed against collected, month by month, oldest first.
+  List<MonthlyCollection> _collectionHistory({
+    required Set<String> propertyIds,
+    required String currency,
+    int months = 6,
+  }) {
+    final result = <MonthlyCollection>[];
+
+    for (var back = months - 1; back >= 0; back--) {
+      final start = DateTime(now.year, now.month - back, 1);
+      final end = DateTime(start.year, start.month + 1, 1);
+
+      result.add(
+        MonthlyCollection(
+          month: start,
+          billed: _sum(
+            invoices.values
+                .where(
+                  (invoice) =>
+                      propertyIds.contains(invoice.propertyId) &&
+                      _within(invoice.invoiceDate, start, end),
+                )
+                .map((invoice) => invoice.total),
+            currency,
+          ),
+          collected: _sum(
+            payments.values
+                .where(
+                  (payment) =>
+                      propertyIds.contains(payment.propertyId) &&
+                      payment.status == PaymentStatus.success &&
+                      payment.paidAt != null &&
+                      _within(payment.paidAt!, start, end),
+                )
+                .map((payment) => payment.amount),
+            currency,
+          ),
+        ),
+      );
+    }
+
+    return result;
+  }
+
+  /// What the owner should be doing something about, most urgent first.
+  List<OwnerAlert> _alertsFor(List<PropertyRow> owned) {
+    final owned0 = owned.map((property) => property.id).toSet();
+    final alerts = <OwnerAlert>[];
+
+    // Arrears, one alert per tenant behind rather than one per invoice.
+    final behind = <String, List<InvoiceRow>>{};
+    for (final invoice in invoices.values) {
+      if (!owned0.contains(invoice.propertyId)) continue;
+      if (invoice.status != InvoiceStatus.overdue) continue;
+      behind.putIfAbsent(invoice.tenantId, () => []).add(invoice);
+    }
+
+    for (final entry in behind.entries) {
+      final name = tenants[entry.key]?.displayName ?? 'A tenant';
+      final currency = entry.value.first.currency;
+      final total = _sum(
+        entry.value.map((invoice) => invoice.amountDue),
+        currency,
+      );
+      alerts.add(
+        OwnerAlert(
+          type: OwnerAlertType.arrears,
+          title: name,
+          detail: '${total.format()} overdue across '
+              '${entry.value.length} invoice'
+              '${entry.value.length == 1 ? '' : 's'}',
+          target: NotificationTarget.invoice,
+          targetId: entry.value.first.id,
+        ),
+      );
+    }
+
+    // Leases running out inside the notice period.
+    for (final lease in leases.values) {
+      if (!owned0.contains(lease.propertyId)) continue;
+      if (!lease.status.isCurrent) continue;
+      final days = lease.endDate.difference(now).inDays;
+      if (days > 60 || days < 0) continue;
+      alerts.add(
+        OwnerAlert(
+          type: OwnerAlertType.leaseExpiring,
+          title: tenants[lease.tenantId]?.displayName ?? 'Lease expiring',
+          detail: '${lease.unitNumber ?? 'A unit'} ends in $days days',
+          target: NotificationTarget.lease,
+          targetId: lease.id,
+        ),
+      );
+    }
+
+    // Vacancy, summarised per property. One line per empty unit would bury
+    // everything else on a mall with a slow quarter.
+    for (final property in owned) {
+      final vacant = units.values
+          .where(
+            (unit) =>
+                unit.propertyId == property.id &&
+                unit.status == UnitStatus.available,
+          )
+          .length;
+      if (vacant == 0) continue;
+      alerts.add(
+        OwnerAlert(
+          type: OwnerAlertType.vacancy,
+          title: property.name,
+          detail: '$vacant unit${vacant == 1 ? '' : 's'} available to let',
+          // NotificationTarget is transcribed from the spec and has no
+          // property member; inventing one would break the rule that file
+          // opens with. A vacancy alert is routed by its type instead, with
+          // the property in targetId.
+          targetId: property.id,
+        ),
+      );
+    }
+
+    return alerts;
+  }
+
+  static bool _within(DateTime value, DateTime start, DateTime end) =>
+      !value.isBefore(start) && value.isBefore(end);
+
+  static Money _sum(Iterable<Money> amounts, String currency) {
+    var total = Money.zero(currency);
+    for (final amount in amounts) {
+      // A portfolio spanning two currencies needs an explicit conversion, and
+      // silently adding them would be worse than leaving one out.
+      if (amount.currency != currency) continue;
+      total += amount;
+    }
+    return total;
+  }
+
+  static double _rateOf(int part, int whole) =>
+      whole == 0 ? 0 : (part / whole).clamp(0, 1);
+
+  /// Collected over billed. A month that billed nothing has collected all of
+  /// it, which is 1 rather than a division by zero.
+  static double _moneyRate(Money part, Money whole) => whole.isZero
+      ? 1
+      : (part.minorUnits / whole.minorUnits).clamp(0, 1);
 
   // ==========================================================================
   // Seeding helpers

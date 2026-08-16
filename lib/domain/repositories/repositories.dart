@@ -18,6 +18,7 @@ import '../entities/billing.dart';
 import '../entities/booking.dart';
 import '../entities/dashboard_summary.dart';
 import '../entities/lease.dart';
+import '../entities/owner.dart';
 import '../entities/property.dart';
 import '../entities/tenant.dart';
 import '../entities/unit.dart';
@@ -363,4 +364,19 @@ abstract interface class TenantRepository {
 abstract interface class DashboardRepository {
   /// Section 44's home screen payload, computed server-side (section 71).
   Future<Result<DashboardSummary>> getSummary();
+}
+
+/// Section 88. The owner's side of the platform.
+///
+/// Read-only for now: an owner can see how the portfolio is doing. Creating a
+/// property and moving its rate arrive with the next milestone, and they take
+/// an `idempotencyKey` when they do.
+abstract interface class OwnerRepository {
+  Future<Result<PropertyOwner>> getOwner();
+
+  /// Everything the portfolio screen shows, in one payload — the owner's
+  /// counterpart to [DashboardRepository.getSummary].
+  Future<Result<OwnerPortfolio>> getPortfolio();
+
+  Future<Result<PropertyPerformance>> getPropertyPerformance(String propertyId);
 }

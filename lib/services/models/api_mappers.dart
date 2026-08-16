@@ -520,6 +520,91 @@ AppUser userFromJson(Json json) => AppUser(
   lastLoginAt: _dateOrNull(json['lastLoginAt']),
 );
 
+// -- Owner reporting (section 88) --------------------------------------------
+
+UnitMix _unitMixFromJson(Json? json) => json == null
+    ? const UnitMix()
+    : UnitMix(
+        leased: _int(json['leased']),
+        booked: _int(json['booked']),
+        available: _int(json['available']),
+        unavailable: _int(json['unavailable']),
+      );
+
+MonthlyCollection _monthlyCollectionFromJson(Json json, String currency) =>
+    MonthlyCollection(
+      month: _date(json['month']),
+      billed: _money(json, 'billed', currency),
+      collected: _money(json, 'collected', currency),
+    );
+
+OwnerAlert _ownerAlertFromJson(Json json) => OwnerAlert(
+  type: OwnerAlertType.fromApi(_strOrNull(json['type'])),
+  title: _str(json['title']),
+  detail: _str(json['detail']),
+  target: NotificationTarget.values.firstWhere(
+    (value) => value.name.toUpperCase() == _str(json['target'], 'NONE'),
+    orElse: () => NotificationTarget.none,
+  ),
+  targetId: _strOrNull(json['targetId']),
+);
+
+PropertyPerformance propertyPerformanceFromJson(Json json) {
+  final currency = _str(json['currency'], 'KES');
+  return PropertyPerformance(
+    propertyId: _str(json['propertyId']),
+    propertyName: _str(json['propertyName']),
+    imageUrl: _strOrNull(json['imageUrl']),
+    currency: currency,
+    mix: _unitMixFromJson(json['mix'] as Json?),
+    occupancyRate: _doubleOrNull(json['occupancyRate']) ?? 0,
+    totalArea: _doubleOrNull(json['totalArea']),
+    letArea: _doubleOrNull(json['letArea']),
+    rentRatePerSqm: json['rentRatePerSqm'] == null
+        ? null
+        : _money(json, 'rentRatePerSqm', currency),
+    monthlyContractedRent: _money(json, 'monthlyContractedRent', currency),
+    billedThisMonth: _money(json, 'billedThisMonth', currency),
+    collectedThisMonth: _money(json, 'collectedThisMonth', currency),
+    outstanding: _money(json, 'outstanding', currency),
+    overdue: _money(json, 'overdue', currency),
+    collectionRate: _doubleOrNull(json['collectionRate']) ?? 0,
+    expiringLeases: _int(json['expiringLeases']),
+    tenantsInArrears: _int(json['tenantsInArrears']),
+    history: _list(json['history'])
+        .map((month) => _monthlyCollectionFromJson(month, currency))
+        .toList(growable: false),
+  );
+}
+
+OwnerPortfolio ownerPortfolioFromJson(Json json) {
+  final currency = _str(json['currency'], 'KES');
+  return OwnerPortfolio(
+    ownerId: _str(json['ownerId']),
+    currency: currency,
+    mix: _unitMixFromJson(json['mix'] as Json?),
+    occupancyRate: _doubleOrNull(json['occupancyRate']) ?? 0,
+    totalArea: _doubleOrNull(json['totalArea']),
+    monthlyContractedRent: _money(json, 'monthlyContractedRent', currency),
+    billedThisMonth: _money(json, 'billedThisMonth', currency),
+    collectedThisMonth: _money(json, 'collectedThisMonth', currency),
+    outstanding: _money(json, 'outstanding', currency),
+    overdue: _money(json, 'overdue', currency),
+    collectionRate: _doubleOrNull(json['collectionRate']) ?? 0,
+    platformFee: _money(json, 'platformFee', currency),
+    netPayout: _money(json, 'netPayout', currency),
+    properties: _list(
+      json['properties'],
+    ).map(propertyPerformanceFromJson).toList(growable: false),
+    history: _list(json['history'])
+        .map((month) => _monthlyCollectionFromJson(month, currency))
+        .toList(growable: false),
+    alerts: _list(json['alerts']).map(_ownerAlertFromJson).toList(
+      growable: false,
+    ),
+  );
+}
+
 PropertyOwner ownerFromJson(Json json) => PropertyOwner(
   id: _str(json['id']),
   userId: _str(json['userId']),

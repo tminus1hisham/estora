@@ -75,4 +75,10 @@ class Endpoints {
 
   // Tenant home screen (section 44)
   static const String dashboard = '/reports/tenant-dashboard';
+
+  // /api/v1/owners (section 88)
+  static const String currentOwner = '/owners/me';
+  static const String ownerPortfolio = '/reports/owner-portfolio';
+  static String ownerPropertyPerformance(String propertyId) =>
+      '/reports/owner-property/$propertyId';
 }

@@ -158,3 +158,11 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>(
     () => RemoteDashboardRepository(ref.watch(apiClientProvider)),
   ),
 );
+
+final ownerRepositoryProvider = Provider<OwnerRepository>(
+  (ref) => _pick(
+    ref,
+    () => MockOwnerRepository(ref.watch(mockServerProvider)),
+    () => RemoteOwnerRepository(ref.watch(apiClientProvider)),
+  ),
+);

@@ -4,6 +4,7 @@ import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
 import '../../domain/entities/lease.dart';
+import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/entities/tenant.dart';
 import '../../domain/entities/unit.dart';
@@ -585,4 +586,30 @@ class RemoteDashboardRepository implements DashboardRepository {
   @override
   Future<Result<DashboardSummary>> getSummary() =>
       _api.get(Endpoints.dashboard, parse: dashboardFromJson);
+}
+
+// ---------------------------------------------------------------------------
+// Owner (section 88)
+// ---------------------------------------------------------------------------
+
+class RemoteOwnerRepository implements OwnerRepository {
+  RemoteOwnerRepository(this._api);
+
+  final ApiClient _api;
+
+  @override
+  Future<Result<PropertyOwner>> getOwner() =>
+      _api.get(Endpoints.currentOwner, parse: ownerFromJson);
+
+  @override
+  Future<Result<OwnerPortfolio>> getPortfolio() =>
+      _api.get(Endpoints.ownerPortfolio, parse: ownerPortfolioFromJson);
+
+  @override
+  Future<Result<PropertyPerformance>> getPropertyPerformance(
+    String propertyId,
+  ) => _api.get(
+    Endpoints.ownerPropertyPerformance(propertyId),
+    parse: propertyPerformanceFromJson,
+  );
 }

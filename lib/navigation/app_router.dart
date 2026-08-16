@@ -25,6 +25,9 @@ import '../modules/notifications/presentation/notifications_screen.dart';
 import '../modules/owner/application/owner_view_controller.dart';
 import '../modules/owner/presentation/owner_account_screen.dart';
 import '../modules/owner/presentation/owner_placeholder_screen.dart';
+import '../modules/owner/presentation/owner_portfolio_screen.dart';
+import '../modules/owner/presentation/owner_properties_screen.dart';
+import '../modules/owner/presentation/owner_property_screen.dart';
 import '../modules/payments/presentation/payment_history_screen.dart';
 import '../modules/payments/presentation/payment_screen.dart';
 import '../modules/payments/presentation/payment_status_screen.dart';
@@ -424,13 +427,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.ownerPortfolioPath,
                 name: Routes.ownerPortfolio,
-                builder: (_, _) => const OwnerPlaceholderScreen(
-                  title: 'Portfolio',
-                  icon: Icons.donut_small_outlined,
-                  message:
-                      'Occupancy, collection and arrears across everything you '
-                      'own will appear here.',
-                ),
+                builder: (_, _) => const OwnerPortfolioScreen(),
               ),
             ],
           ),
@@ -441,13 +438,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.ownerPropertiesPath,
                 name: Routes.ownerProperties,
-                builder: (_, _) => const OwnerPlaceholderScreen(
-                  title: 'Properties',
-                  icon: Icons.apartment_outlined,
-                  message:
-                      'Your properties, how each is performing, and the rate '
-                      'per square metre each one asks.',
-                ),
+                builder: (_, _) => const OwnerPropertiesScreen(),
+                routes: [
+                  // Declared before the bare `:propertyId` pattern, which
+                  // would otherwise swallow it — the same ordering the
+                  // invoices branch needs.
+                  GoRoute(
+                    path: Routes.ownerPreviewPath,
+                    name: Routes.ownerPreview,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: PropertyDetailScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.ownerPropertyPath,
+                    name: Routes.ownerProperty,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: OwnerPropertyScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

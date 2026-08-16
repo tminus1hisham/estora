@@ -68,6 +68,16 @@ class Routes {
   static const ownerAddProperty = 'owner-add-property';
   static const ownerAddPropertyPath = 'new';
 
+  /// The tenant's own property screen, shown to the owner as a preview.
+  ///
+  /// Lives under `/owner` rather than pointing at `/browse/property/:id`
+  /// because the redirect keeps an owner out of tenant space — sending them
+  /// there would bounce them straight back to the portfolio. Presented on the
+  /// root navigator, so it arrives without the owner tab bar and in the
+  /// tenant's own theme, which is the point of a preview.
+  static const ownerPreview = 'owner-preview';
+  static const ownerPreviewPath = 'preview/:propertyId';
+
   static const ownerPropertyRate = 'owner-property-rate';
   static const ownerPropertyRatePath = ':propertyId/rate';
 
