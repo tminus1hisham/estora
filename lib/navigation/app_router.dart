@@ -24,7 +24,9 @@ import '../modules/leases/presentation/sign_agreement_screen.dart';
 import '../modules/notifications/presentation/notifications_screen.dart';
 import '../modules/owner/application/owner_view_controller.dart';
 import '../modules/owner/presentation/owner_account_screen.dart';
+import '../modules/owner/presentation/owner_add_property_screen.dart';
 import '../modules/owner/presentation/owner_placeholder_screen.dart';
+import '../modules/owner/presentation/owner_property_rate_screen.dart';
 import '../modules/owner/presentation/owner_portfolio_screen.dart';
 import '../modules/owner/presentation/owner_properties_screen.dart';
 import '../modules/owner/presentation/owner_property_screen.dart';
@@ -450,6 +452,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (_, state) => lateralPage(
                       state: state,
                       child: PropertyDetailScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.ownerAddPropertyPath,
+                    name: Routes.ownerAddProperty,
+                    // A focused transaction with its own action bar, presented
+                    // above the shell so the tab bar cannot compete with it.
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const OwnerAddPropertyScreen(),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.ownerPropertyRatePath,
+                    name: Routes.ownerPropertyRate,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: OwnerPropertyRateScreen(
                         propertyId: state.pathParameters['propertyId']!,
                       ),
                     ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../core/config/app_config.dart';
 import '../../core/error/failure.dart';
 import '../../core/error/result.dart';
+import '../../core/utils/money.dart';
 import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
@@ -746,6 +747,92 @@ class MockOwnerRepository with _MockLatency implements OwnerRepository {
     }
     return _server.propertyPerformance(propertyId);
   });
+
+  @override
+  Future<Result<RepricingImpact>> getRepricingImpact(String propertyId) =>
+      guard(() {
+        _requireOwned(propertyId);
+        final impact = _server.repricingImpact(propertyId);
+        return RepricingImpact(
+          repriceable: impact.repriceable,
+          overridden: impact.overridden,
+          let: impact.let,
+        );
+      });
+
+  @override
+  Future<Result<Property>> createProperty({
+    required PropertyDraft draft,
+    required String idempotencyKey,
+  }) => guard(() {
+    final owner = _requireOwner();
+    return _server
+        .createProperty(
+          ownerId: owner.id,
+          draft: draft,
+          idempotencyKey: idempotencyKey,
+        )
+        .toDomain();
+  });
+
+  @override
+  Future<Result<int>> createUnits({
+    required String propertyId,
+    required UnitBatchDraft draft,
+    required String idempotencyKey,
+  }) => guard(() {
+    _requireOwned(propertyId);
+    return _server.createUnits(
+      propertyId: propertyId,
+      draft: draft,
+      idempotencyKey: idempotencyKey,
+    );
+  });
+
+  @override
+  Future<Result<Property>> setRatePerSqm({
+    required String propertyId,
+    required Money rate,
+    required bool repriceExistingUnits,
+  }) => guard(() {
+    _requireOwned(propertyId);
+    return _server
+        .setRatePerSqm(
+          propertyId: propertyId,
+          rate: rate,
+          repriceExistingUnits: repriceExistingUnits,
+        )
+        .property
+        .toDomain();
+  });
+
+  @override
+  Future<Result<Unit>> setUnitRent({
+    required String unitId,
+    Money? override,
+  }) => guard(() {
+    final unit = _server.units[unitId];
+    if (unit == null) throw const MockNotFound('Unit not found');
+    _requireOwned(unit.propertyId);
+    return _server.setUnitRent(unitId: unitId, override: override).toDomain();
+  });
+
+  PropertyOwner _requireOwner() {
+    final owner = _server.currentOwner;
+    if (owner == null) throw const MockNotFound('Not signed in as an owner');
+    return owner;
+  }
+
+  /// An owner may only touch their own buildings. Enforced here because the
+  /// real server will have to, and a client written against one that does not
+  /// check is a client that breaks when it starts.
+  void _requireOwned(String propertyId) {
+    final owner = _requireOwner();
+    final property = _server.properties[propertyId];
+    if (property == null || property.ownerId != owner.id) {
+      throw const MockNotFound('Property not found');
+    }
+  }
 }
 
 class MockDashboardRepository with _MockLatency implements DashboardRepository {

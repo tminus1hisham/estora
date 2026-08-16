@@ -1398,6 +1398,284 @@ class MockServer {
   }
 
   // ==========================================================================
+  // Owner writes (section 88)
+  //
+  // Creating a property, filling it with units, and moving what it asks. The
+  // rule that governs all of it: a rate is a *listing* price. Section 21 has a
+  // booking capture its terms at booking time and section 55 has a lease carry
+  // its own rent, and neither is ever re-derived — so repricing changes what
+  // the empty units ask and touches nothing that has already been agreed.
+  // ==========================================================================
+
+  /// Registers a property to [ownerId], or replays the one this
+  /// [idempotencyKey] already created.
+  PropertyRow createProperty({
+    required String ownerId,
+    required PropertyDraft draft,
+    required String idempotencyKey,
+  }) {
+    final replayed = _idempotency[idempotencyKey];
+    if (replayed != null) return properties[replayed]!;
+
+    final id = _id('prp');
+    final property = PropertyRow(
+      id: id,
+      name: draft.name.trim(),
+      code: _propertyCode(draft.name),
+      propertyType: draft.propertyType,
+      status: PropertyStatus.active,
+      description: draft.description,
+      address: draft.address,
+      city: draft.city.trim(),
+      county: draft.county,
+      country: draft.country.trim(),
+      totalArea: draft.totalArea,
+      ownerId: ownerId,
+      rentRatePerSqm: draft.rentRatePerSqm,
+    );
+
+    properties[id] = property;
+
+    // Section 12. A property without config cannot raise an invoice, so it
+    // gets the platform defaults rather than nothing.
+    configs[id] = PropertyConfig(
+      propertyId: id,
+      defaultCurrency: draft.rentRatePerSqm.currency,
+      bookingExpiryHours: 48,
+      invoiceGenerationDay: 3,
+      invoiceDueDay: 5,
+      defaultDepositMonths: 3,
+      defaultBookingFee: Money.fromMajor(
+        10000,
+        draft.rentRatePerSqm.currency,
+      ),
+      paymentGracePeriodDays: 5,
+      platformFeePercent: 2,
+    );
+
+    _idempotency[idempotencyKey] = id;
+    return property;
+  }
+
+  /// Generates [UnitBatchDraft.quantity] units, returning how many were made.
+  ///
+  /// Each one's rent is derived from the batch's rate if it has one, otherwise
+  /// the property's. Nothing here is a listing decision the client made — the
+  /// client sent an area and a count.
+  int createUnits({
+    required String propertyId,
+    required UnitBatchDraft draft,
+    required String idempotencyKey,
+  }) {
+    final replayed = _idempotency[idempotencyKey];
+    if (replayed != null) {
+      // The replay marker holds the unit type, and the units carry its id.
+      return units.values.where((u) => u.unitTypeId == replayed).length;
+    }
+
+    final property = properties[propertyId];
+    if (property == null) throw const MockNotFound('Property not found');
+
+    final rate = draft.ratePerSqm ?? property.rentRatePerSqm;
+    if (rate == null) {
+      throw const MockConflict(
+        'Set a rate per square metre before adding units.',
+      );
+    }
+
+    final rent = rentFor(area: draft.area, ratePerSqm: rate);
+    final prefix = draft.numberPrefix.trim().toUpperCase();
+
+    // Section 16. The type is a template; section 17 makes each unit
+    // independent of it afterwards.
+    final typeId = _id('utp');
+    unitTypes.add(
+      UnitType(
+        id: typeId,
+        propertyId: propertyId,
+        name: draft.typeName.trim(),
+        code: prefix,
+        description: draft.description,
+        length: draft.length,
+        width: draft.width,
+        area: draft.area,
+        baseRent: rent,
+        defaultDepositMonths: draft.depositMonths,
+        defaultBookingFee: draft.bookingFee,
+        ratePerSqm: draft.ratePerSqm,
+      ),
+    );
+
+    String? buildingId;
+    if (draft.buildingName != null && draft.buildingName!.trim().isNotEmpty) {
+      buildingId = _id('bld');
+      buildings.add(
+        Building(
+          id: buildingId,
+          propertyId: propertyId,
+          name: draft.buildingName!.trim(),
+          code: draft.buildingName!.trim().toUpperCase(),
+        ),
+      );
+    }
+
+    String? floorId;
+    if (buildingId != null &&
+        draft.floorName != null &&
+        draft.floorName!.trim().isNotEmpty) {
+      floorId = _id('flr');
+      floors.add(
+        Floor(
+          id: floorId,
+          buildingId: buildingId,
+          name: draft.floorName!.trim(),
+          floorNumber: 0,
+        ),
+      );
+    }
+
+    for (var i = 0; i < draft.quantity; i++) {
+      final number = '$prefix-${draft.startNumber + i}';
+      final id = _id('unt');
+      units[id] = UnitRow(
+        id: id,
+        propertyId: propertyId,
+        buildingId: buildingId,
+        floorId: floorId,
+        unitTypeId: typeId,
+        unitNumber: number,
+        unitCode: '${property.code}-$number',
+        name: '${draft.typeName.trim()} $number',
+        description: draft.description,
+        length: draft.length,
+        width: draft.width,
+        area: draft.area,
+        baseRent: rent,
+        ratePerSqm: rate,
+        depositMonths: draft.depositMonths,
+        bookingFee: draft.bookingFee,
+        status: UnitStatus.available,
+        propertyName: property.name,
+        buildingName: draft.buildingName?.trim(),
+        floorName: draft.floorName?.trim(),
+      );
+    }
+
+    _idempotency[idempotencyKey] = typeId;
+    return draft.quantity;
+  }
+
+  /// Moves what a property asks per square metre.
+  ///
+  /// With [repriceExistingUnits], every unit that is *free to be repriced* takes
+  /// the new rate. Two are not:
+  ///
+  /// * a unit whose rent was overridden by hand — the corner shop deliberately
+  ///   priced above the rate does not silently fall back to it;
+  /// * a unit under a live lease — section 55 has the lease carry its own rent
+  ///   and [Unit.baseRent]'s own contract calls itself a listing price. A let
+  ///   unit takes the new rate when it next comes free, not retroactively.
+  ///
+  /// Returns how many units were actually repriced, so the caller can say so
+  /// rather than implying it touched everything.
+  ({PropertyRow property, int repriced}) setRatePerSqm({
+    required String propertyId,
+    required Money rate,
+    required bool repriceExistingUnits,
+  }) {
+    final property = properties[propertyId];
+    if (property == null) throw const MockNotFound('Property not found');
+
+    property.rentRatePerSqm = rate;
+    if (!repriceExistingUnits) return (property: property, repriced: 0);
+
+    var repriced = 0;
+    for (final unit in units.values) {
+      if (unit.propertyId != propertyId) continue;
+      if (unit.rentOverridden) continue;
+      if (_hasLiveLease(unit.id)) continue;
+
+      final area = unit.area;
+      if (area == null) continue;
+
+      // A unit-type rate still wins over the property's.
+      final effective = rateFor(
+        propertyId: propertyId,
+        unitTypeId: unit.unitTypeId,
+      );
+      if (effective != null && effective != property.rentRatePerSqm) continue;
+
+      unit.baseRent = rentFor(area: area, ratePerSqm: rate);
+      unit.ratePerSqm = rate;
+      repriced++;
+    }
+
+    return (property: property, repriced: repriced);
+  }
+
+  /// How many units a repricing would move, without moving them.
+  ///
+  /// The confirmation needs to name a number before the owner commits, and
+  /// working it out on the client would be a second implementation of the rule
+  /// above, free to disagree with it.
+  ({int repriceable, int overridden, int let}) repricingImpact(
+    String propertyId,
+  ) {
+    var repriceable = 0;
+    var overridden = 0;
+    var let = 0;
+
+    for (final unit in units.values) {
+      if (unit.propertyId != propertyId) continue;
+      if (unit.area == null) continue;
+      if (unit.rentOverridden) {
+        overridden++;
+      } else if (_hasLiveLease(unit.id)) {
+        let++;
+      } else {
+        repriceable++;
+      }
+    }
+
+    return (repriceable: repriceable, overridden: overridden, let: let);
+  }
+
+  /// Prices one unit by hand, or clears the override and re-derives it.
+  UnitRow setUnitRent({required String unitId, Money? override}) {
+    final unit = units[unitId];
+    if (unit == null) throw const MockNotFound('Unit not found');
+
+    if (override != null) {
+      unit.baseRent = override;
+      unit.rentOverridden = true;
+      return unit;
+    }
+
+    // Clearing the override puts the unit back under the property's rate.
+    unit.rentOverridden = false;
+    final rate = rateFor(
+      propertyId: unit.propertyId,
+      unitTypeId: unit.unitTypeId,
+    );
+    final area = unit.area;
+    if (rate != null && area != null) {
+      unit.baseRent = rentFor(area: area, ratePerSqm: rate);
+      unit.ratePerSqm = rate;
+    }
+    return unit;
+  }
+
+  bool _hasLiveLease(String unitId) =>
+      leases.values.any((l) => l.unitId == unitId && l.status.isCurrent);
+
+  /// A short code from a property's name: `Sarit Mall` becomes `SARITMALL`.
+  String _propertyCode(String name) {
+    final letters = name.toUpperCase().replaceAll(RegExp('[^A-Z0-9]'), '');
+    if (letters.isEmpty) return 'PROP${properties.length + 1}';
+    return letters.length <= 10 ? letters : letters.substring(0, 10);
+  }
+
+  // ==========================================================================
   // Owner reporting (section 88)
   //
   // Every figure an owner screen shows is finished here. Section 84 rule 7 puts

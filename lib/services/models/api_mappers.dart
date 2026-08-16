@@ -549,6 +549,44 @@ OwnerAlert _ownerAlertFromJson(Json json) => OwnerAlert(
   targetId: _strOrNull(json['targetId']),
 );
 
+RepricingImpact repricingImpactFromJson(Json json) => RepricingImpact(
+  repriceable: _int(json['repriceable']),
+  overridden: _int(json['overridden']),
+  let: _int(json['let']),
+);
+
+/// The client describes what it wants; the server decides what it gets. No id,
+/// no status, no derived counts — and notably no rents, only the rate they are
+/// derived from.
+Json propertyDraftToJson(PropertyDraft draft) => {
+  'name': draft.name,
+  'propertyType': draft.propertyType.api,
+  'description': draft.description,
+  'address': draft.address,
+  'city': draft.city,
+  'county': draft.county,
+  'country': draft.country,
+  'totalArea': draft.totalArea,
+  'rentRatePerSqm': draft.rentRatePerSqm.toJson(),
+  'currency': draft.rentRatePerSqm.currency,
+};
+
+Json unitBatchDraftToJson(UnitBatchDraft draft) => {
+  'typeName': draft.typeName,
+  'description': draft.description,
+  'length': draft.length,
+  'width': draft.width,
+  'area': draft.area,
+  'quantity': draft.quantity,
+  'numberPrefix': draft.numberPrefix,
+  'startNumber': draft.startNumber,
+  'depositMonths': draft.depositMonths,
+  'bookingFee': draft.bookingFee?.toJson(),
+  'ratePerSqm': draft.ratePerSqm?.toJson(),
+  'buildingName': draft.buildingName,
+  'floorName': draft.floorName,
+};
+
 PropertyPerformance propertyPerformanceFromJson(Json json) {
   final currency = _str(json['currency'], 'KES');
   return PropertyPerformance(

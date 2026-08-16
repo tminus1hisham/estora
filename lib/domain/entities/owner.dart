@@ -61,6 +61,109 @@ class PropertyOwner {
   }
 }
 
+/// Section 88. What an owner fills in to register a property.
+///
+/// A draft, not a [Property]: it carries no id, no derived counts and no
+/// status, because those are the server's to decide. The client describes what
+/// it wants; what comes back is the record that was actually created.
+class PropertyDraft {
+  const PropertyDraft({
+    required this.name,
+    required this.propertyType,
+    required this.city,
+    required this.country,
+    required this.rentRatePerSqm,
+    this.description,
+    this.address,
+    this.county,
+    this.totalArea,
+  });
+
+  final String name;
+  final PropertyType propertyType;
+  final String? description;
+  final String? address;
+  final String city;
+  final String? county;
+  final String country;
+  final double? totalArea;
+
+  /// What the property will ask per square metre. Every unit created under it
+  /// takes its rent from this unless the batch or the unit overrides it.
+  final Money rentRatePerSqm;
+}
+
+/// Section 17. A batch of units to create from one template.
+///
+/// The batch is a creation mechanism only — section 17 is explicit that each
+/// generated unit is an independent entity afterwards, so nothing links them
+/// once they exist.
+class UnitBatchDraft {
+  const UnitBatchDraft({
+    required this.typeName,
+    required this.area,
+    required this.quantity,
+    required this.numberPrefix,
+    this.startNumber = 1,
+    this.length,
+    this.width,
+    this.depositMonths,
+    this.bookingFee,
+    this.ratePerSqm,
+    this.buildingName,
+    this.floorName,
+    this.description,
+  });
+
+  /// Names the unit type the batch creates, e.g. `50x100 Retail Unit`.
+  final String typeName;
+  final String? description;
+
+  final double? length;
+  final double? width;
+  final double area;
+
+  final int quantity;
+
+  /// `SHOP` plus [startNumber] gives SHOP-101, SHOP-102, and so on.
+  final String numberPrefix;
+  final int startNumber;
+
+  final int? depositMonths;
+  final Money? bookingFee;
+
+  /// Overrides the property's rate for the units in this batch — a kiosk earns
+  /// more per square metre than a shop floor in the same building.
+  final Money? ratePerSqm;
+
+  final String? buildingName;
+  final String? floorName;
+}
+
+/// What a repricing would actually move, worked out before it happens.
+///
+/// The confirmation has to name a number before the owner commits, and working
+/// it out on the client would be a second implementation of the rule — free to
+/// disagree with the one that runs.
+class RepricingImpact {
+  const RepricingImpact({
+    required this.repriceable,
+    required this.overridden,
+    required this.let,
+  });
+
+  /// Unlet, unoverridden units: the ones that will move.
+  final int repriceable;
+
+  /// Priced by hand, so left alone.
+  final int overridden;
+
+  /// Under a live lease. These take the new rate when they next come free.
+  final int let;
+
+  int get untouched => overridden + let;
+}
+
 /// How a property's units are distributed across the states that matter to an
 /// owner.
 ///

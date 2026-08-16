@@ -211,6 +211,19 @@ class _Actions extends StatelessWidget {
       rowInset: 56,
       children: [
         ListTile(
+          leading: const Icon(Icons.sell_outlined),
+          title: const Text('Change the asking rate'),
+          subtitle: Text(
+            performance.rateLabel == null
+                ? 'Price this property by the square metre.'
+                : 'Currently ${performance.rateLabel}.',
+          ),
+          onTap: () => context.pushNamed(
+            Routes.ownerPropertyRate,
+            pathParameters: {'propertyId': performance.propertyId},
+          ),
+        ),
+        ListTile(
           leading: const Icon(Icons.visibility_outlined),
           title: const Text('Preview as a tenant'),
           subtitle: const Text('See the listing the way it is browsed.'),

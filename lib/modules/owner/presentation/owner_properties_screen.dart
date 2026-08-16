@@ -25,6 +25,14 @@ class OwnerPropertiesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Properties'),
         backgroundColor: Colors.transparent,
+        actions: [
+          IconButton(
+            tooltip: 'Add a property',
+            onPressed: () => context.pushNamed(Routes.ownerAddProperty),
+            icon: const Icon(Icons.add_rounded),
+          ),
+          Gap.w8,
+        ],
       ),
       body: switch (portfolio) {
         AsyncLoading() when !portfolio.hasValue => const AppSkeletonMediaList(),

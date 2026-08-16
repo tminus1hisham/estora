@@ -14,6 +14,7 @@
 library;
 
 import '../../core/error/result.dart';
+import '../../core/utils/money.dart';
 import '../entities/billing.dart';
 import '../entities/booking.dart';
 import '../entities/dashboard_summary.dart';
@@ -367,10 +368,6 @@ abstract interface class DashboardRepository {
 }
 
 /// Section 88. The owner's side of the platform.
-///
-/// Read-only for now: an owner can see how the portfolio is doing. Creating a
-/// property and moving its rate arrive with the next milestone, and they take
-/// an `idempotencyKey` when they do.
 abstract interface class OwnerRepository {
   Future<Result<PropertyOwner>> getOwner();
 
@@ -379,4 +376,30 @@ abstract interface class OwnerRepository {
   Future<Result<OwnerPortfolio>> getPortfolio();
 
   Future<Result<PropertyPerformance>> getPropertyPerformance(String propertyId);
+
+  /// What a repricing would move, before committing to it.
+  Future<Result<RepricingImpact>> getRepricingImpact(String propertyId);
+
+  Future<Result<Property>> createProperty({
+    required PropertyDraft draft,
+    required String idempotencyKey,
+  });
+
+  /// Returns how many units were generated.
+  Future<Result<int>> createUnits({
+    required String propertyId,
+    required UnitBatchDraft draft,
+    required String idempotencyKey,
+  });
+
+  /// Moves the asking rate, optionally repricing the units free to move.
+  Future<Result<Property>> setRatePerSqm({
+    required String propertyId,
+    required Money rate,
+    required bool repriceExistingUnits,
+  });
+
+  /// Prices one unit by hand. A null [override] clears it and re-derives the
+  /// rent from the rate.
+  Future<Result<Unit>> setUnitRent({required String unitId, Money? override});
 }

@@ -1,5 +1,6 @@
 import '../../core/error/failure.dart';
 import '../../core/error/result.dart';
+import '../../core/utils/money.dart';
 import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
@@ -611,5 +612,64 @@ class RemoteOwnerRepository implements OwnerRepository {
   ) => _api.get(
     Endpoints.ownerPropertyPerformance(propertyId),
     parse: propertyPerformanceFromJson,
+  );
+
+  @override
+  Future<Result<RepricingImpact>> getRepricingImpact(String propertyId) =>
+      _api.get(
+        Endpoints.ownerRepricingImpact(propertyId),
+        parse: repricingImpactFromJson,
+      );
+
+  @override
+  Future<Result<Property>> createProperty({
+    required PropertyDraft draft,
+    required String idempotencyKey,
+  }) => _api.post(
+    Endpoints.properties,
+    body: propertyDraftToJson(draft),
+    idempotencyKey: idempotencyKey,
+    parse: propertyFromJson,
+  );
+
+  @override
+  Future<Result<int>> createUnits({
+    required String propertyId,
+    required UnitBatchDraft draft,
+    required String idempotencyKey,
+  }) => _api.post(
+    Endpoints.ownerPropertyUnits(propertyId),
+    body: unitBatchDraftToJson(draft),
+    idempotencyKey: idempotencyKey,
+    parse: (json) => (json['created'] as num?)?.toInt() ?? draft.quantity,
+  );
+
+  @override
+  Future<Result<Property>> setRatePerSqm({
+    required String propertyId,
+    required Money rate,
+    required bool repriceExistingUnits,
+  }) => _api.put(
+    Endpoints.ownerPropertyRate(propertyId),
+    body: {
+      'rentRatePerSqm': rate.toJson(),
+      'currency': rate.currency,
+      'repriceExistingUnits': repriceExistingUnits,
+    },
+    parse: propertyFromJson,
+  );
+
+  @override
+  Future<Result<Unit>> setUnitRent({
+    required String unitId,
+    Money? override,
+  }) => _api.put(
+    Endpoints.ownerUnitRent(unitId),
+    body: {
+      // Null clears the override; the server re-derives from the rate.
+      'baseRent': override?.toJson(),
+      if (override != null) 'currency': override.currency,
+    },
+    parse: unitFromJson,
   );
 }

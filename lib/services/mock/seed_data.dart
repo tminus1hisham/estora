@@ -193,6 +193,10 @@ void seedMockServer(MockServer server) {
       width: 50,
       area: 1000,
       baseRent: Money.fromMajor(45000, kes),
+      // The rate lives on the type, not just on the unit, so a repricing of
+      // the property leaves kiosks on their own rate rather than dragging them
+      // down to the shop-floor one.
+      ratePerSqm: Money.fromMajor(45, kes),
       defaultDepositMonths: 3,
       defaultBookingFee: Money.fromMajor(8000, kes),
     ),
@@ -205,6 +209,7 @@ void seedMockServer(MockServer server) {
       width: 8,
       area: 96,
       baseRent: Money.fromMajor(85000, kes),
+      ratePerSqm: Money.fromMajor(900, kes),
       defaultDepositMonths: 3,
     ),
   ]);

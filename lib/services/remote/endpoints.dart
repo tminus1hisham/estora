@@ -81,4 +81,11 @@ class Endpoints {
   static const String ownerPortfolio = '/reports/owner-portfolio';
   static String ownerPropertyPerformance(String propertyId) =>
       '/reports/owner-property/$propertyId';
+  static String ownerRepricingImpact(String propertyId) =>
+      '/properties/$propertyId/rate/impact';
+  static String ownerPropertyRate(String propertyId) =>
+      '/properties/$propertyId/rate';
+  static String ownerPropertyUnits(String propertyId) =>
+      '/properties/$propertyId/units';
+  static String ownerUnitRent(String unitId) => '/units/$unitId/rent';
 }
