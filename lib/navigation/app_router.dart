@@ -25,7 +25,8 @@ import '../modules/notifications/presentation/notifications_screen.dart';
 import '../modules/owner/application/owner_view_controller.dart';
 import '../modules/owner/presentation/owner_account_screen.dart';
 import '../modules/owner/presentation/owner_add_property_screen.dart';
-import '../modules/owner/presentation/owner_placeholder_screen.dart';
+import '../modules/owner/presentation/owner_money_screen.dart';
+import '../modules/owner/presentation/owner_payouts_screen.dart';
 import '../modules/owner/presentation/owner_property_rate_screen.dart';
 import '../modules/owner/presentation/owner_rent_roll_screen.dart';
 import '../modules/owner/presentation/owner_tenancies_screen.dart';
@@ -549,13 +550,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.ownerMoneyPath,
                 name: Routes.ownerMoney,
-                builder: (_, _) => const OwnerPlaceholderScreen(
-                  title: 'Money',
-                  icon: Icons.account_balance_outlined,
-                  message:
-                      'What was billed, what came in, and what is due out to '
-                      'you after the platform fee.',
-                ),
+                builder: (_, _) => const OwnerMoneyScreen(),
+                routes: [
+                  GoRoute(
+                    path: Routes.ownerPayoutsPath,
+                    name: Routes.ownerPayouts,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const OwnerPayoutsScreen(),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

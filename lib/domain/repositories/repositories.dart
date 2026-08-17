@@ -388,6 +388,9 @@ abstract interface class OwnerRepository {
 
   Future<Result<OwnerTenancy>> getTenancy(String leaseId);
 
+  /// What came in, what is owed, and what is due out (section 41).
+  Future<Result<OwnerLedger>> getLedger();
+
   Future<Result<Property>> createProperty({
     required PropertyDraft draft,
     required String idempotencyKey,

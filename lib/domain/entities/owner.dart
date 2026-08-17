@@ -416,6 +416,106 @@ class OwnerTenancy {
   }
 }
 
+/// Section 41. What is due out to the owner for one month.
+class OwnerPayout {
+  const OwnerPayout({
+    required this.month,
+    required this.grossCollected,
+    required this.platformFee,
+    required this.net,
+  });
+
+  /// The first of the month it covers.
+  final DateTime month;
+
+  /// Everything that came in.
+  final Money grossCollected;
+
+  /// The platform's cut, shown rather than netted off quietly — an owner
+  /// should be able to see what they were charged.
+  final Money platformFee;
+
+  /// Gross less the fee.
+  final Money net;
+
+  bool get isEmpty => grossCollected.isZero;
+}
+
+/// One band of the arrears ageing.
+class ArrearsBucket {
+  const ArrearsBucket({
+    required this.label,
+    required this.amount,
+    required this.invoiceCount,
+  });
+
+  /// `Current`, `1–30 days`, and so on.
+  final String label;
+  final Money amount;
+  final int invoiceCount;
+
+  bool get isEmpty => invoiceCount == 0;
+}
+
+/// Money that has actually arrived.
+class OwnerCollection {
+  const OwnerCollection({
+    required this.paymentId,
+    required this.paidAt,
+    required this.amount,
+    required this.tenantName,
+    required this.propertyName,
+    required this.method,
+    this.unitNumber,
+    this.receiptId,
+  });
+
+  final String paymentId;
+  final DateTime paidAt;
+  final Money amount;
+  final String tenantName;
+  final String propertyName;
+  final String? unitNumber;
+  final PaymentMethod method;
+  final String? receiptId;
+}
+
+/// Section 88. What came in, what is owed, and what goes out to the owner.
+class OwnerLedger {
+  const OwnerLedger({
+    required this.currency,
+    required this.collectedThisMonth,
+    required this.platformFeeThisMonth,
+    required this.netThisMonth,
+    required this.totalOutstanding,
+    this.payouts = const <OwnerPayout>[],
+    this.ageing = const <ArrearsBucket>[],
+    this.collections = const <OwnerCollection>[],
+    this.history = const <MonthlyCollection>[],
+  });
+
+  final String currency;
+
+  final Money collectedThisMonth;
+  final Money platformFeeThisMonth;
+  final Money netThisMonth;
+  final Money totalOutstanding;
+
+  /// Oldest first.
+  final List<OwnerPayout> payouts;
+
+  /// Outstanding money, banded by how long it has been owed.
+  final List<ArrearsBucket> ageing;
+
+  /// Recent arrivals, newest first.
+  final List<OwnerCollection> collections;
+
+  /// Oldest first.
+  final List<MonthlyCollection> history;
+
+  bool get hasArrears => ageing.any((bucket) => !bucket.isEmpty);
+}
+
 /// Section 88. The owner's whole position, in one payload.
 ///
 /// The counterpart to [DashboardSummary]: one request, everything the opening

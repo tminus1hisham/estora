@@ -641,6 +641,10 @@ class RemoteOwnerRepository implements OwnerRepository {
       _api.get(Endpoints.ownerTenancy(leaseId), parse: ownerTenancyFromJson);
 
   @override
+  Future<Result<OwnerLedger>> getLedger() =>
+      _api.get(Endpoints.ownerLedger, parse: ownerLedgerFromJson);
+
+  @override
   Future<Result<Property>> createProperty({
     required PropertyDraft draft,
     required String idempotencyKey,

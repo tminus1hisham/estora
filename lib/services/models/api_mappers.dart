@@ -587,6 +587,53 @@ Json unitBatchDraftToJson(UnitBatchDraft draft) => {
   'floorName': draft.floorName,
 };
 
+OwnerLedger ownerLedgerFromJson(Json json) {
+  final currency = _str(json['currency'], 'KES');
+  return OwnerLedger(
+    currency: currency,
+    collectedThisMonth: _money(json, 'collectedThisMonth', currency),
+    platformFeeThisMonth: _money(json, 'platformFeeThisMonth', currency),
+    netThisMonth: _money(json, 'netThisMonth', currency),
+    totalOutstanding: _money(json, 'totalOutstanding', currency),
+    payouts: _list(json['payouts'])
+        .map(
+          (payout) => OwnerPayout(
+            month: _date(payout['month']),
+            grossCollected: _money(payout, 'grossCollected', currency),
+            platformFee: _money(payout, 'platformFee', currency),
+            net: _money(payout, 'net', currency),
+          ),
+        )
+        .toList(growable: false),
+    ageing: _list(json['ageing'])
+        .map(
+          (bucket) => ArrearsBucket(
+            label: _str(bucket['label']),
+            amount: _money(bucket, 'amount', currency),
+            invoiceCount: _int(bucket['invoiceCount']),
+          ),
+        )
+        .toList(growable: false),
+    collections: _list(json['collections'])
+        .map(
+          (collection) => OwnerCollection(
+            paymentId: _str(collection['paymentId']),
+            paidAt: _date(collection['paidAt']),
+            amount: _money(collection, 'amount', currency),
+            tenantName: _str(collection['tenantName']),
+            propertyName: _str(collection['propertyName']),
+            unitNumber: _strOrNull(collection['unitNumber']),
+            method: PaymentMethod.fromApi(_strOrNull(collection['method'])),
+            receiptId: _strOrNull(collection['receiptId']),
+          ),
+        )
+        .toList(growable: false),
+    history: _list(json['history'])
+        .map((month) => _monthlyCollectionFromJson(month, currency))
+        .toList(growable: false),
+  );
+}
+
 RentRollEntry rentRollEntryFromJson(Json json) {
   final currency = _str(json['currency'], 'KES');
   return RentRollEntry(

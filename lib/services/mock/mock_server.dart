@@ -796,27 +796,15 @@ class MockServer {
           ? InvoiceStatus.partiallyPaid
           : InvoiceStatus.paid;
 
-      _ledger(
-        type: 'RENT',
-        referenceType: 'PAYMENT',
-        referenceId: payment.id,
-        amount: payment.amount,
-        direction: 'IN',
-      );
-
       // Section 41: the platform fee is recorded as its own transaction rather
-      // than silently netted off, so both figures are auditable.
-      final config = configs[invoice.propertyId];
-      if (config != null && config.platformFeePercent > 0) {
-        final fee = payment.amount.percentage(config.platformFeePercent);
-        _ledger(
-          type: 'SERVICE_FEE',
-          referenceType: 'PAYMENT',
-          referenceId: payment.id,
-          amount: fee,
-          direction: 'OUT',
-        );
-      }
+      // than silently netted off, so both figures are auditable. Shared with
+      // the seeding path so a settlement leaves one shape of record, whichever
+      // route produced it.
+      _recordSettlement(
+        payment: payment,
+        propertyId: invoice.propertyId,
+        at: now,
+      );
     }
 
     // Section 40: every successful payment produces a receipt.
@@ -1982,6 +1970,133 @@ class MockServer {
     currency,
   );
 
+  /// What came in, what is owed, and what is due out.
+  ///
+  /// The payouts are read off the ledger rather than recomputed from payments.
+  /// `_recordSettlement` writes the rent in and the platform's cut back out as
+  /// separate entries on every settlement, seeded or live, and that record is
+  /// the auditable one — deriving the fee a second time here would be a second
+  /// answer to a question that already has one.
+  OwnerLedger ownerLedger(String ownerId, {int months = 6}) {
+    markOverdueInvoices();
+
+    final owned = propertiesOwnedBy(ownerId).map((p) => p.id).toSet();
+    final currency = owned.isEmpty
+        ? 'KES'
+        : configs[owned.first]?.defaultCurrency ?? 'KES';
+
+    // Ledger entries carry a payment reference, not a property, so the payment
+    // is what places them in a portfolio.
+    bool ours(FinancialTransaction entry) {
+      if (entry.referenceType != 'PAYMENT') return false;
+      final payment = payments[entry.referenceId];
+      return payment != null && owned.contains(payment.propertyId);
+    }
+
+    final mine = ledger.where(ours).toList(growable: false);
+
+    final payouts = <OwnerPayout>[];
+    for (var back = months - 1; back >= 0; back--) {
+      final start = DateTime(now.year, now.month - back, 1);
+      final end = DateTime(start.year, start.month + 1, 1);
+      final inMonth = mine.where(
+        (entry) => _within(entry.createdAt, start, end),
+      );
+
+      final gross = _sum(
+        inMonth
+            .where((entry) => entry.direction == 'IN')
+            .map((entry) => entry.amount),
+        currency,
+      );
+      final fee = _sum(
+        inMonth
+            .where((entry) => entry.direction == 'OUT')
+            .map((entry) => entry.amount),
+        currency,
+      );
+
+      payouts.add(
+        OwnerPayout(
+          month: start,
+          grossCollected: gross,
+          platformFee: fee,
+          net: gross - fee,
+        ),
+      );
+    }
+
+    final thisMonth = payouts.isEmpty ? null : payouts.last;
+
+    // Outstanding money, banded by how long it has been owed.
+    final outstanding = invoices.values.where(
+      (invoice) =>
+          owned.contains(invoice.propertyId) && invoice.status.isOutstanding,
+    );
+
+    ArrearsBucket bucket(String label, bool Function(int days) test) {
+      final matching = outstanding
+          .where((invoice) => test(now.difference(invoice.dueDate).inDays))
+          .toList(growable: false);
+      return ArrearsBucket(
+        label: label,
+        amount: _sum(
+          matching.map((invoice) => invoice.amountDue),
+          currency,
+        ),
+        invoiceCount: matching.length,
+      );
+    }
+
+    final collections =
+        payments.values
+            .where(
+              (payment) =>
+                  owned.contains(payment.propertyId) &&
+                  payment.status == PaymentStatus.success &&
+                  payment.paidAt != null,
+            )
+            .toList()
+          ..sort((a, b) => b.paidAt!.compareTo(a.paidAt!));
+
+    return OwnerLedger(
+      currency: currency,
+      collectedThisMonth: thisMonth?.grossCollected ?? Money.zero(currency),
+      platformFeeThisMonth: thisMonth?.platformFee ?? Money.zero(currency),
+      netThisMonth: thisMonth?.net ?? Money.zero(currency),
+      totalOutstanding: _sum(
+        outstanding.map((invoice) => invoice.amountDue),
+        currency,
+      ),
+      payouts: payouts,
+      ageing: [
+        bucket('Not yet due', (days) => days <= 0),
+        bucket('1–30 days', (days) => days > 0 && days <= 30),
+        bucket('31–60 days', (days) => days > 30 && days <= 60),
+        bucket('Over 60 days', (days) => days > 60),
+      ],
+      collections: collections
+          .take(30)
+          .map(
+            (payment) => OwnerCollection(
+              paymentId: payment.id,
+              paidAt: payment.paidAt!,
+              amount: payment.amount,
+              tenantName: _tenantName(payment.tenantId),
+              propertyName:
+                  properties[payment.propertyId]?.name ?? 'Property',
+              unitNumber: payment.leaseId == null
+                  ? null
+                  : leases[payment.leaseId]?.unitNumber,
+              method: payment.paymentMethod,
+              receiptId: payment.receiptId,
+            ),
+          )
+          .toList(growable: false),
+      history: _collectionHistory(propertyIds: owned, currency: currency),
+    );
+  }
+
   UnitMix _mixFor(Iterable<UnitRow> rows) {
     var leased = 0;
     var booked = 0;
@@ -2255,6 +2370,15 @@ class MockServer {
     payments[payment.id] = payment;
     receipts[receipt.id] = receipt;
 
+    // A seeded settlement leaves the same trail a real one does, so the
+    // payout history is not empty for everything that happened before the app
+    // was opened.
+    _recordSettlement(
+      payment: payment,
+      propertyId: lease.propertyId,
+      at: paidAt,
+    );
+
     return invoice;
   }
 
@@ -2334,6 +2458,7 @@ class MockServer {
     required String referenceId,
     required Money amount,
     required String direction,
+    DateTime? at,
   }) {
     ledger.add(
       FinancialTransaction(
@@ -2343,8 +2468,40 @@ class MockServer {
         referenceId: referenceId,
         amount: amount,
         direction: direction,
-        createdAt: now,
+        // Seeded history needs the date the money actually moved, not the
+        // moment the seed ran, or six months of payouts would all land in
+        // this one.
+        createdAt: at ?? now,
       ),
+    );
+  }
+
+  /// Records a settlement in the ledger: the rent in, and the platform's cut
+  /// back out as its own line (section 41), never netted off quietly.
+  void _recordSettlement({
+    required PaymentRow payment,
+    required String? propertyId,
+    required DateTime at,
+  }) {
+    _ledger(
+      type: 'RENT',
+      referenceType: 'PAYMENT',
+      referenceId: payment.id,
+      amount: payment.amount,
+      direction: 'IN',
+      at: at,
+    );
+
+    final config = propertyId == null ? null : configs[propertyId];
+    if (config == null || config.platformFeePercent <= 0) return;
+
+    _ledger(
+      type: 'SERVICE_FEE',
+      referenceType: 'PAYMENT',
+      referenceId: payment.id,
+      amount: payment.amount.percentage(config.platformFeePercent),
+      direction: 'OUT',
+      at: at,
     );
   }
 

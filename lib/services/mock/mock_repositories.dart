@@ -782,6 +782,10 @@ class MockOwnerRepository with _MockLatency implements OwnerRepository {
   });
 
   @override
+  Future<Result<OwnerLedger>> getLedger() =>
+      guard(() => _server.ownerLedger(_requireOwner().id));
+
+  @override
   Future<Result<Property>> createProperty({
     required PropertyDraft draft,
     required String idempotencyKey,

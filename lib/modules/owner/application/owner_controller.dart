@@ -93,6 +93,15 @@ final ownerTenancyProvider = FutureProvider.family<OwnerTenancy, String>((
   };
 });
 
+/// What came in, what is owed, and what is due out.
+final ownerLedgerProvider = FutureProvider<OwnerLedger>((ref) async {
+  final result = await ref.read(ownerRepositoryProvider).getLedger();
+  return switch (result) {
+    Ok(:final value) => value,
+    Err(:final failure) => throw failure,
+  };
+});
+
 final ownerActionsProvider = Provider<OwnerActions>(OwnerActions.new);
 
 /// The owner's writes.
@@ -180,6 +189,7 @@ class OwnerActions {
   void _invalidate({String? propertyId}) {
     _ref.invalidate(ownerPortfolioProvider);
     _ref.invalidate(ownerTenanciesProvider);
+    _ref.invalidate(ownerLedgerProvider);
     if (propertyId != null) {
       _ref.invalidate(propertyPerformanceProvider(propertyId));
       _ref.invalidate(repricingImpactProvider(propertyId));

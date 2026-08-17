@@ -394,6 +394,120 @@ void main() {
     });
   });
 
+  group('ledger and payouts', () {
+    test('a payout is what came in less the platform fee', () {
+      final ledger = server.ownerLedger(ownerId);
+
+      for (final payout in ledger.payouts) {
+        expect(payout.net, payout.grossCollected - payout.platformFee);
+      }
+    });
+
+    test('the fee is read off the ledger, not recomputed', () {
+      // MockServer writes the platform's cut as its own OUT entry on every
+      // settlement. This checks the screen figure equals that record rather
+      // than a second calculation that could drift from it.
+      final ledger = server.ownerLedger(ownerId);
+      final owned = server
+          .propertiesOwnedBy(ownerId)
+          .map((property) => property.id)
+          .toSet();
+
+      final recorded = server.ledger
+          .where(
+            (entry) =>
+                entry.direction == 'OUT' &&
+                owned.contains(
+                  server.payments[entry.referenceId]?.propertyId,
+                ),
+          )
+          .fold(Money.zero(kes), (sum, entry) => sum + entry.amount);
+
+      final fromPayouts = ledger.payouts.fold(
+        Money.zero(kes),
+        (sum, payout) => sum + payout.platformFee,
+      );
+
+      // The payout window is six months; anything older is outside it.
+      expect(fromPayouts <= recorded, isTrue);
+      expect(fromPayouts.isPositive, isTrue);
+    });
+
+    test('a seeded settlement leaves the same trail as a live one', () {
+      // Without this the payout history would be empty for everything that
+      // happened before the app was opened.
+      expect(server.ledger, isNotEmpty);
+      expect(
+        server.ledger.any((entry) => entry.transactionType == 'RENT'),
+        isTrue,
+      );
+      expect(
+        server.ledger.any((entry) => entry.transactionType == 'SERVICE_FEE'),
+        isTrue,
+      );
+    });
+
+    test('ledger entries are dated when the money moved', () {
+      // Not when the seed ran, or six months of payouts would pile into this
+      // month.
+      final months = server.ledger
+          .map((entry) => DateTime(entry.createdAt.year, entry.createdAt.month))
+          .toSet();
+      expect(months.length, greaterThan(1));
+    });
+
+    test('the ageing bands account for everything outstanding', () {
+      final ledger = server.ownerLedger(ownerId);
+
+      final banded = ledger.ageing.fold(
+        Money.zero(kes),
+        (sum, bucket) => sum + bucket.amount,
+      );
+      expect(banded, ledger.totalOutstanding);
+    });
+
+    test('the arrears tenant lands in an overdue band, not "not yet due"', () {
+      final ledger = server.ownerLedger(ownerId);
+      final overdueBands = ledger.ageing.where(
+        (bucket) => bucket.label != 'Not yet due',
+      );
+
+      expect(overdueBands.any((bucket) => !bucket.isEmpty), isTrue);
+    });
+
+    test('collections are newest first and name their payer', () {
+      final ledger = server.ownerLedger(ownerId);
+
+      expect(ledger.collections, isNotEmpty);
+      for (var i = 1; i < ledger.collections.length; i++) {
+        expect(
+          ledger.collections[i].paidAt.isAfter(ledger.collections[i - 1].paidAt),
+          isFalse,
+        );
+      }
+      for (final collection in ledger.collections) {
+        expect(collection.tenantName, isNot('Tenant'));
+        expect(collection.amount.isPositive, isTrue);
+      }
+    });
+
+    test('this month agrees with the last payout row', () {
+      final ledger = server.ownerLedger(ownerId);
+      final latest = ledger.payouts.last;
+
+      expect(ledger.collectedThisMonth, latest.grossCollected);
+      expect(ledger.platformFeeThisMonth, latest.platformFee);
+      expect(ledger.netThisMonth, latest.net);
+    });
+
+    test('another owner sees none of it', () {
+      final theirs = server.ownerLedger('own_someone_else');
+
+      expect(theirs.collections, isEmpty);
+      expect(theirs.totalOutstanding.isZero, isTrue);
+    });
+  });
+
   group('per-property performance', () {
     test('a property reports its own rate and area', () {
       final sarit = server.propertyPerformance('prp_sarit');

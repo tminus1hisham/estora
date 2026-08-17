@@ -143,6 +143,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('money shows what came in and what is owed', (tester) async {
+    useViewport(tester, const Size(390, 844));
+
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+
+    await tester.tap(find.text('Money'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
+    expect(find.text('OWED TO YOU'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('payouts show the fee as its own line', (tester) async {
+    useViewport(tester, const Size(390, 844));
+
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+
+    GoRouter.of(
+      tester.element(find.byType(OwnerShell)),
+    ).pushNamed(Routes.ownerPayouts);
+    await tester.pumpAndSettle();
+
+    // Section 41: shown rather than quietly deducted.
+    expect(find.text('Collected'), findsWidgets);
+    expect(find.text('Platform fee'), findsWidgets);
+    expect(find.text('Due to you'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the owner stage is navy with a brass primary in both modes', (
     tester,
   ) async {

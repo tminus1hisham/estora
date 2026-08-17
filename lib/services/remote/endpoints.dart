@@ -92,4 +92,5 @@ class Endpoints {
       '/properties/$propertyId/rent-roll';
   static const String ownerTenancies = '/owners/me/tenancies';
   static String ownerTenancy(String leaseId) => '/owners/me/tenancies/$leaseId';
+  static const String ownerLedger = '/reports/owner-ledger';
 }
