@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mall/app.dart';
 import 'package:mall/components/collection_columns.dart';
 import 'package:mall/components/unit_status_strip.dart';
 import 'package:mall/core/theme/app_theme.dart';
 import 'package:mall/domain/entities/owner.dart';
 import 'package:mall/navigation/owner_shell.dart';
+import 'package:mall/navigation/routes.dart';
 import 'package:mall/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -86,6 +88,58 @@ void main() {
     expect(find.byType(OwnerShell), findsOneWidget);
     // The stage is drawing the real portfolio, not an empty state.
     expect(find.text('DUE TO YOU THIS MONTH'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('every owner tab opens on real data', (tester) async {
+    useViewport(tester, const Size(390, 844));
+
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+
+    // Properties: the portfolio's buildings.
+    await tester.tap(find.text('Properties'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sarit Mall'), findsWidgets);
+
+    // Tenancies: grouped by what needs doing, so the arrears tenant leads.
+    // RecordGroup sets its heading in small caps, hence the case here.
+    await tester.tap(find.text('Tenancies'));
+    await tester.pumpAndSettle();
+    expect(find.text('IN ARREARS'), findsOneWidget);
+    expect(find.text('Tembo Electronics'), findsOneWidget);
+
+    // And into one tenancy.
+    await tester.tap(find.text('Tembo Electronics'));
+    await tester.pumpAndSettle();
+    expect(find.text('Money'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the rent roll groups let units before empty ones', (
+    tester,
+  ) async {
+    useViewport(tester, const Size(390, 844));
+
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+
+    // Navigated by route rather than by scrolling to a tile and tapping it:
+    // the tile's position depends on how tall the sections above it happen to
+    // be, which is not what this test is about.
+    GoRouter.of(tester.element(find.byType(OwnerShell))).pushNamed(
+      Routes.ownerRentRoll,
+      pathParameters: {'propertyId': 'prp_sarit'},
+    );
+    await tester.pumpAndSettle();
+
+    // RecordGroup sets its headings in small caps.
+    expect(find.text('LET'), findsOneWidget);
+    expect(find.text('AVAILABLE'), findsOneWidget);
+    // SHOP-103 was priced by hand and the line says so.
+    expect(find.textContaining('overridden'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 

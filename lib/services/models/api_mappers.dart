@@ -587,6 +587,52 @@ Json unitBatchDraftToJson(UnitBatchDraft draft) => {
   'floorName': draft.floorName,
 };
 
+RentRollEntry rentRollEntryFromJson(Json json) {
+  final currency = _str(json['currency'], 'KES');
+  return RentRollEntry(
+    unitId: _str(json['unitId']),
+    unitNumber: _str(json['unitNumber']),
+    name: _strOrNull(json['name']),
+    status: UnitStatus.fromApi(_strOrNull(json['status'])),
+    area: _doubleOrNull(json['area']),
+    areaUnit: _str(json['areaUnit'], 'm²'),
+    baseRent: _money(json, 'baseRent', currency),
+    ratePerSqm: json['ratePerSqm'] == null
+        ? null
+        : _money(json, 'ratePerSqm', currency),
+    rentOverridden: _bool(json['rentOverridden']),
+    tenantId: _strOrNull(json['tenantId']),
+    tenantName: _strOrNull(json['tenantName']),
+    leaseId: _strOrNull(json['leaseId']),
+    leaseEndDate: _dateOrNull(json['leaseEndDate']),
+    outstanding: json['outstanding'] == null
+        ? null
+        : _money(json, 'outstanding', currency),
+  );
+}
+
+OwnerTenancy ownerTenancyFromJson(Json json) {
+  final currency = _str(json['currency'], 'KES');
+  return OwnerTenancy(
+    leaseId: _str(json['leaseId']),
+    leaseNumber: _str(json['leaseNumber']),
+    propertyId: _str(json['propertyId']),
+    propertyName: _str(json['propertyName']),
+    unitId: _strOrNull(json['unitId']),
+    unitNumber: _str(json['unitNumber']),
+    tenantId: _str(json['tenantId']),
+    tenantName: _str(json['tenantName']),
+    startDate: _date(json['startDate']),
+    endDate: _date(json['endDate']),
+    monthlyRent: _money(json, 'monthlyRent', currency),
+    depositAmount: _money(json, 'depositAmount', currency),
+    status: LeaseStatus.fromApi(_strOrNull(json['status'])),
+    outstanding: _money(json, 'outstanding', currency),
+    overdue: _money(json, 'overdue', currency),
+    lastPaymentAt: _dateOrNull(json['lastPaymentAt']),
+  );
+}
+
 PropertyPerformance propertyPerformanceFromJson(Json json) {
   final currency = _str(json['currency'], 'KES');
   return PropertyPerformance(

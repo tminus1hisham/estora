@@ -761,6 +761,27 @@ class MockOwnerRepository with _MockLatency implements OwnerRepository {
       });
 
   @override
+  Future<Result<List<RentRollEntry>>> getRentRoll(String propertyId) =>
+      guard(() {
+        _requireOwned(propertyId);
+        return _server.rentRoll(propertyId);
+      });
+
+  @override
+  Future<Result<List<OwnerTenancy>>> getTenancies({String? propertyId}) =>
+      guard(() {
+        final owner = _requireOwner();
+        if (propertyId != null) _requireOwned(propertyId);
+        return _server.tenanciesFor(owner.id, propertyId: propertyId);
+      });
+
+  @override
+  Future<Result<OwnerTenancy>> getTenancy(String leaseId) => guard(() {
+    final owner = _requireOwner();
+    return _server.tenancy(owner.id, leaseId);
+  });
+
+  @override
   Future<Result<Property>> createProperty({
     required PropertyDraft draft,
     required String idempotencyKey,

@@ -211,6 +211,19 @@ class _Actions extends StatelessWidget {
       rowInset: 56,
       children: [
         ListTile(
+          leading: const Icon(Icons.list_alt_outlined),
+          title: const Text('Rent roll'),
+          subtitle: Text(
+            '${performance.mix.total} unit'
+            '${performance.mix.total == 1 ? '' : 's'}, who is in them and '
+            'what they pay.',
+          ),
+          onTap: () => context.pushNamed(
+            Routes.ownerRentRoll,
+            pathParameters: {'propertyId': performance.propertyId},
+          ),
+        ),
+        ListTile(
           leading: const Icon(Icons.sell_outlined),
           title: const Text('Change the asking rate'),
           subtitle: Text(

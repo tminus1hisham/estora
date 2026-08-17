@@ -298,6 +298,124 @@ class PropertyPerformance {
   }
 }
 
+/// Section 88. One unit in a property's rent roll.
+///
+/// What the owner needs on a line: what it is, who is in it, what it asks, and
+/// whether that figure came from the rate or from someone's judgement.
+class RentRollEntry {
+  const RentRollEntry({
+    required this.unitId,
+    required this.unitNumber,
+    required this.status,
+    required this.baseRent,
+    required this.rentOverridden,
+    this.name,
+    this.area,
+    this.areaUnit = 'm²',
+    this.ratePerSqm,
+    this.tenantId,
+    this.tenantName,
+    this.leaseId,
+    this.leaseEndDate,
+    this.outstanding,
+  });
+
+  final String unitId;
+  final String unitNumber;
+  final String? name;
+  final UnitStatus status;
+
+  final double? area;
+  final String areaUnit;
+
+  final Money baseRent;
+  final Money? ratePerSqm;
+  final bool rentOverridden;
+
+  /// Null when the unit is not let.
+  final String? tenantId;
+  final String? tenantName;
+  final String? leaseId;
+  final DateTime? leaseEndDate;
+
+  /// What the occupant owes, if anything.
+  final Money? outstanding;
+
+  bool get isLet => leaseId != null;
+  bool get isInArrears => (outstanding?.isPositive ?? false);
+
+  /// `KES 30 / m²`, with a note when the rent was set by hand instead.
+  String? get rateLabel {
+    final rate = ratePerSqm;
+    if (rate == null) return rentOverridden ? 'Priced by hand' : null;
+    return rentOverridden
+        ? '${rate.format()} / $areaUnit · overridden'
+        : '${rate.format()} / $areaUnit';
+  }
+}
+
+/// Section 88. A tenancy as the owner sees it.
+///
+/// The same lease a tenant reads on their own screen, turned around: the
+/// occupant is the subject rather than the reader.
+class OwnerTenancy {
+  const OwnerTenancy({
+    required this.leaseId,
+    required this.leaseNumber,
+    required this.propertyId,
+    required this.propertyName,
+    required this.unitNumber,
+    required this.tenantId,
+    required this.tenantName,
+    required this.startDate,
+    required this.endDate,
+    required this.monthlyRent,
+    required this.depositAmount,
+    required this.status,
+    required this.outstanding,
+    required this.overdue,
+    this.unitId,
+    this.lastPaymentAt,
+  });
+
+  final String leaseId;
+  final String leaseNumber;
+  final String propertyId;
+  final String propertyName;
+  final String? unitId;
+  final String unitNumber;
+
+  final String tenantId;
+  final String tenantName;
+
+  final DateTime startDate;
+  final DateTime endDate;
+
+  /// Section 55: struck at signing and never re-derived from the unit's
+  /// current asking rent.
+  final Money monthlyRent;
+  final Money depositAmount;
+
+  final LeaseStatus status;
+
+  final Money outstanding;
+  final Money overdue;
+  final DateTime? lastPaymentAt;
+
+  bool get isInArrears => overdue.isPositive;
+  int get daysUntilExpiry => endDate.difference(DateTime.now()).inDays;
+  bool get isExpiringSoon =>
+      status.isCurrent && daysUntilExpiry <= 60 && daysUntilExpiry >= 0;
+
+  /// How far through the term the tenancy is, 0–1.
+  double get termProgress {
+    final total = endDate.difference(startDate).inDays;
+    if (total <= 0) return 1;
+    final run = DateTime.now().difference(startDate).inDays;
+    return (run / total).clamp(0, 1);
+  }
+}
+
 /// Section 88. The owner's whole position, in one payload.
 ///
 /// The counterpart to [DashboardSummary]: one request, everything the opening

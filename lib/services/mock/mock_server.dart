@@ -1845,6 +1845,143 @@ class MockServer {
     );
   }
 
+  /// Every unit in a property, with its occupant and what they owe.
+  List<RentRollEntry> rentRoll(String propertyId) {
+    markOverdueInvoices();
+
+    final property = properties[propertyId];
+    if (property == null) throw const MockNotFound('Property not found');
+    final currency = configs[propertyId]?.defaultCurrency ?? 'KES';
+
+    final rows =
+        units.values.where((unit) => unit.propertyId == propertyId).toList()
+          ..sort((a, b) => a.unitNumber.compareTo(b.unitNumber));
+
+    return rows.map((unit) {
+      final lease = leases.values
+          .cast<LeaseRow?>()
+          .firstWhere(
+            (l) => l!.unitId == unit.id && l.status.isCurrent,
+            orElse: () => null,
+          );
+
+      return RentRollEntry(
+        unitId: unit.id,
+        unitNumber: unit.unitNumber,
+        name: unit.name,
+        status: unit.status,
+        area: unit.area,
+        areaUnit: unit.areaUnit,
+        baseRent: unit.baseRent,
+        ratePerSqm: unit.ratePerSqm,
+        rentOverridden: unit.rentOverridden,
+        tenantId: lease?.tenantId,
+        tenantName: lease == null ? null : _tenantName(lease.tenantId),
+        leaseId: lease?.id,
+        leaseEndDate: lease?.endDate,
+        outstanding: lease == null
+            ? null
+            : _outstandingForTenant(lease.tenantId, propertyId, currency),
+      );
+    }).toList(growable: false);
+  }
+
+  /// Every tenancy across the owner's buildings.
+  List<OwnerTenancy> tenanciesFor(String ownerId, {String? propertyId}) {
+    markOverdueInvoices();
+
+    final owned = propertiesOwnedBy(ownerId).map((p) => p.id).toSet();
+    final scoped = propertyId == null ? owned : {propertyId}.intersection(owned);
+
+    final rows =
+        leases.values.where((lease) => scoped.contains(lease.propertyId)).toList()
+          ..sort((a, b) => b.startDate.compareTo(a.startDate));
+
+    return rows.map((lease) {
+      final currency = configs[lease.propertyId]?.defaultCurrency ?? 'KES';
+      final theirInvoices = invoices.values.where(
+        (invoice) =>
+            invoice.tenantId == lease.tenantId &&
+            invoice.propertyId == lease.propertyId,
+      );
+
+      final settled =
+          payments.values
+              .where(
+                (payment) =>
+                    payment.tenantId == lease.tenantId &&
+                    payment.propertyId == lease.propertyId &&
+                    payment.status == PaymentStatus.success &&
+                    payment.paidAt != null,
+              )
+              .toList()
+            ..sort((a, b) => b.paidAt!.compareTo(a.paidAt!));
+
+      return OwnerTenancy(
+        leaseId: lease.id,
+        leaseNumber: lease.leaseNumber,
+        propertyId: lease.propertyId,
+        propertyName: lease.propertyName ?? '',
+        unitId: lease.unitId,
+        unitNumber: lease.unitNumber ?? '',
+        tenantId: lease.tenantId,
+        tenantName: _tenantName(lease.tenantId),
+        startDate: lease.startDate,
+        endDate: lease.endDate,
+        monthlyRent: lease.monthlyRent,
+        depositAmount: lease.depositAmount,
+        status: lease.status,
+        outstanding: _sum(
+          theirInvoices
+              .where((invoice) => invoice.status.isOutstanding)
+              .map((invoice) => invoice.amountDue),
+          currency,
+        ),
+        overdue: _sum(
+          theirInvoices
+              .where((invoice) => invoice.status == InvoiceStatus.overdue)
+              .map((invoice) => invoice.amountDue),
+          currency,
+        ),
+        lastPaymentAt: settled.isEmpty ? null : settled.first.paidAt,
+      );
+    }).toList(growable: false);
+  }
+
+  OwnerTenancy tenancy(String ownerId, String leaseId) {
+    final match = tenanciesFor(
+      ownerId,
+    ).where((tenancy) => tenancy.leaseId == leaseId);
+    if (match.isEmpty) throw const MockNotFound('Tenancy not found');
+    return match.first;
+  }
+
+  /// The demo tenant is held on [currentTenant] rather than in [tenants], so
+  /// both have to be consulted.
+  String _tenantName(String tenantId) {
+    if (currentTenant?.id == tenantId) return currentTenant!.displayName;
+    for (final session in accountsByPhone.values) {
+      if (session.tenant?.id == tenantId) return session.tenant!.displayName;
+    }
+    return tenants[tenantId]?.displayName ?? 'Tenant';
+  }
+
+  Money _outstandingForTenant(
+    String tenantId,
+    String propertyId,
+    String currency,
+  ) => _sum(
+    invoices.values
+        .where(
+          (invoice) =>
+              invoice.tenantId == tenantId &&
+              invoice.propertyId == propertyId &&
+              invoice.status.isOutstanding,
+        )
+        .map((invoice) => invoice.amountDue),
+    currency,
+  );
+
   UnitMix _mixFor(Iterable<UnitRow> rows) {
     var leased = 0;
     var booked = 0;

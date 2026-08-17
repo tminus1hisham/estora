@@ -61,6 +61,38 @@ final repricingImpactProvider =
       };
     });
 
+/// Every unit in a property, with who is in it.
+final rentRollProvider =
+    FutureProvider.family<List<RentRollEntry>, String>((ref, propertyId) async {
+      final result = await ref
+          .read(ownerRepositoryProvider)
+          .getRentRoll(propertyId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
+
+/// Tenancies across the whole portfolio.
+final ownerTenanciesProvider = FutureProvider<List<OwnerTenancy>>((ref) async {
+  final result = await ref.read(ownerRepositoryProvider).getTenancies();
+  return switch (result) {
+    Ok(:final value) => value,
+    Err(:final failure) => throw failure,
+  };
+});
+
+final ownerTenancyProvider = FutureProvider.family<OwnerTenancy, String>((
+  ref,
+  leaseId,
+) async {
+  final result = await ref.read(ownerRepositoryProvider).getTenancy(leaseId);
+  return switch (result) {
+    Ok(:final value) => value,
+    Err(:final failure) => throw failure,
+  };
+});
+
 final ownerActionsProvider = Provider<OwnerActions>(OwnerActions.new);
 
 /// The owner's writes.
@@ -147,9 +179,11 @@ class OwnerActions {
   /// property both have to be re-read rather than patched in place.
   void _invalidate({String? propertyId}) {
     _ref.invalidate(ownerPortfolioProvider);
+    _ref.invalidate(ownerTenanciesProvider);
     if (propertyId != null) {
       _ref.invalidate(propertyPerformanceProvider(propertyId));
       _ref.invalidate(repricingImpactProvider(propertyId));
+      _ref.invalidate(rentRollProvider(propertyId));
     }
   }
 }

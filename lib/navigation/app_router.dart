@@ -27,6 +27,9 @@ import '../modules/owner/presentation/owner_account_screen.dart';
 import '../modules/owner/presentation/owner_add_property_screen.dart';
 import '../modules/owner/presentation/owner_placeholder_screen.dart';
 import '../modules/owner/presentation/owner_property_rate_screen.dart';
+import '../modules/owner/presentation/owner_rent_roll_screen.dart';
+import '../modules/owner/presentation/owner_tenancies_screen.dart';
+import '../modules/owner/presentation/owner_tenancy_screen.dart';
 import '../modules/owner/presentation/owner_portfolio_screen.dart';
 import '../modules/owner/presentation/owner_properties_screen.dart';
 import '../modules/owner/presentation/owner_property_screen.dart';
@@ -479,6 +482,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                   GoRoute(
+                    path: Routes.ownerRentRollPath,
+                    name: Routes.ownerRentRoll,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: OwnerRentRollScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
                     path: Routes.ownerPropertyPath,
                     name: Routes.ownerProperty,
                     pageBuilder: (_, state) => lateralPage(
@@ -499,12 +512,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.ownerTenanciesPath,
                 name: Routes.ownerTenancies,
-                builder: (_, _) => const OwnerPlaceholderScreen(
-                  title: 'Tenancies',
-                  icon: Icons.handshake_outlined,
-                  message:
-                      'Who is in, what is expiring, and who is behind on rent.',
-                ),
+                builder: (_, _) => const OwnerTenanciesScreen(),
+                routes: [
+                  // Two segments, so it cannot be swallowed by `:leaseId` —
+                  // declared first regardless, since the ordering rule here is
+                  // easy to break later.
+                  GoRoute(
+                    path: Routes.ownerAgreementPath,
+                    name: Routes.ownerAgreement,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: LeaseAgreementScreen(
+                        leaseId: state.pathParameters['leaseId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.ownerTenancyPath,
+                    name: Routes.ownerTenancy,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: OwnerTenancyScreen(
+                        leaseId: state.pathParameters['leaseId']!,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

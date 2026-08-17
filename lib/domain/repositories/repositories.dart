@@ -380,6 +380,14 @@ abstract interface class OwnerRepository {
   /// What a repricing would move, before committing to it.
   Future<Result<RepricingImpact>> getRepricingImpact(String propertyId);
 
+  /// Every unit in a property, with its occupant and what they owe.
+  Future<Result<List<RentRollEntry>>> getRentRoll(String propertyId);
+
+  /// Tenancies across the portfolio, or one property's.
+  Future<Result<List<OwnerTenancy>>> getTenancies({String? propertyId});
+
+  Future<Result<OwnerTenancy>> getTenancy(String leaseId);
+
   Future<Result<Property>> createProperty({
     required PropertyDraft draft,
     required String idempotencyKey,

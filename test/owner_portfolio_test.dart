@@ -21,6 +21,8 @@ void main() {
   const ownerId = 'own_demo';
   const kes = 'KES';
 
+  Money kesOf(num major) => Money.fromMajor(major, kes);
+
   group('rate-derived pricing (section 88)', () {
     test('a unit takes its rent from the property rate and its area', () {
       // Sarit asks KES 30/m² and a retail unit is 5,000 m².
@@ -257,6 +259,138 @@ void main() {
         alerts.map((alert) => alert.targetId).toSet(),
         containsAll(<String>['prp_sarit', 'prp_abc']),
       );
+    });
+  });
+
+  group('rent roll', () {
+    test('lists every unit in the property, in number order', () {
+      final roll = server.rentRoll('prp_sarit');
+
+      expect(roll, hasLength(10));
+      final numbers = roll.map((entry) => entry.unitNumber).toList();
+      expect(numbers, orderedEquals(List.of(numbers)..sort()));
+    });
+
+    test('a let unit names its occupant and its lease', () {
+      final entry = server
+          .rentRoll('prp_sarit')
+          .firstWhere((entry) => entry.unitNumber == 'SHOP-201');
+
+      expect(entry.isLet, isTrue);
+      expect(entry.tenantName, 'Bahari Coffee');
+      expect(entry.leaseId, 'lse_shop_201');
+      expect(entry.leaseEndDate, isNotNull);
+    });
+
+    test('an empty unit has no occupant and no outstanding', () {
+      final entry = server
+          .rentRoll('prp_sarit')
+          .firstWhere((entry) => entry.unitNumber == 'SHOP-102');
+
+      expect(entry.isLet, isFalse);
+      expect(entry.tenantName, isNull);
+      expect(entry.outstanding, isNull);
+    });
+
+    test('an overridden rent says so on the line', () {
+      final entry = server
+          .rentRoll('prp_sarit')
+          .firstWhere((entry) => entry.unitNumber == 'SHOP-103');
+
+      expect(entry.rentOverridden, isTrue);
+      expect(entry.rateLabel, contains('overridden'));
+    });
+
+    test('a rent taken from the rate just states the rate', () {
+      final entry = server
+          .rentRoll('prp_sarit')
+          .firstWhere((entry) => entry.unitNumber == 'SHOP-102');
+
+      expect(entry.rateLabel, 'KES 30 / m²');
+    });
+
+    test('the demo tenant is named even though they are not in tenants', () {
+      // The signed-in tenant lives on currentTenant, not in the tenants map;
+      // a rent roll that showed "Tenant" for the one account the app ships
+      // with would look broken.
+      server.loginWithPassword('amina@example.co.ke', 'x');
+      final entry = server
+          .rentRoll('prp_sarit')
+          .firstWhere((entry) => entry.unitNumber == 'SHOP-101');
+
+      expect(entry.tenantName, 'Wanjiru Retail Ltd');
+    });
+  });
+
+  group('tenancies', () {
+    test('covers every lease across the owner\'s properties', () {
+      final tenancies = server.tenanciesFor(ownerId);
+
+      expect(
+        tenancies.map((t) => t.tenantName),
+        containsAll(<String>[
+          'Bahari Coffee',
+          'Tembo Electronics',
+          'Nuru Fashions',
+          'Sifa Legal',
+        ]),
+      );
+    });
+
+    test('scopes to one property when asked', () {
+      final abc = server.tenanciesFor(ownerId, propertyId: 'prp_abc');
+
+      expect(abc, isNotEmpty);
+      for (final tenancy in abc) {
+        expect(tenancy.propertyId, 'prp_abc');
+      }
+    });
+
+    test('the tenant in arrears carries an overdue figure', () {
+      final tembo = server
+          .tenanciesFor(ownerId)
+          .firstWhere((t) => t.tenantName == 'Tembo Electronics');
+
+      expect(tembo.isInArrears, isTrue);
+      expect(tembo.overdue.isPositive, isTrue);
+      expect(tembo.outstanding >= tembo.overdue, isTrue);
+    });
+
+    test('the expiring lease is flagged as expiring', () {
+      final nuru = server
+          .tenanciesFor(ownerId)
+          .firstWhere((t) => t.tenantName == 'Nuru Fashions');
+
+      expect(nuru.isExpiringSoon, isTrue);
+      expect(nuru.daysUntilExpiry, lessThanOrEqualTo(60));
+    });
+
+    test('rent is the one on the lease, not the unit\'s asking price', () {
+      // Section 55. Move the rate hard and the tenancy must not follow.
+      server.setRatePerSqm(
+        propertyId: 'prp_sarit',
+        rate: kesOf(90),
+        repriceExistingUnits: true,
+      );
+
+      final bahari = server
+          .tenanciesFor(ownerId)
+          .firstWhere((t) => t.tenantName == 'Bahari Coffee');
+
+      expect(bahari.monthlyRent, kesOf(150000));
+    });
+
+    test('a lease belonging to somebody else is not found', () {
+      expect(
+        () => server.tenancy('own_someone_else', 'lse_shop_201'),
+        throwsA(isA<MockNotFound>()),
+      );
+    });
+
+    test('term progress runs between zero and one', () {
+      for (final tenancy in server.tenanciesFor(ownerId)) {
+        expect(tenancy.termProgress, inInclusiveRange(0, 1));
+      }
     });
   });
 

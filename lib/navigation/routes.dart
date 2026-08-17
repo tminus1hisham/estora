@@ -87,6 +87,13 @@ class Routes {
   static const ownerTenancy = 'owner-tenancy';
   static const ownerTenancyPath = ':leaseId';
 
+  /// The tenant's read-only agreement screen, reached from the owner's side.
+  ///
+  /// Under `/owner` for the same reason as [ownerPreview]: the redirect keeps
+  /// an owner out of `/leases`, so linking there would bounce them home.
+  static const ownerAgreement = 'owner-agreement';
+  static const ownerAgreementPath = 'agreement/:leaseId';
+
   static const ownerPayouts = 'owner-payouts';
   static const ownerPayoutsPath = 'payouts';
 
