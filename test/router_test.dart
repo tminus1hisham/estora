@@ -169,6 +169,30 @@ void main() {
     expect(find.byType(OwnerShell), findsNothing);
   });
 
+  testWidgets('the demo picker opens each account in its own shell', (
+    tester,
+  ) async {
+    // How a demo moves between the two sides: by changing account, since the
+    // role lives on the session and nothing overrides it.
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    await _tapDemoAccount(tester, 'Karuna Holdings');
+    expect(find.byType(OwnerShell), findsOneWidget);
+    expect(find.byType(HomeScreen), findsNothing);
+  });
+
+  testWidgets('the tenant demo account opens the tenant shell', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    await _tapDemoAccount(tester, 'Amina Wanjiru');
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(OwnerShell), findsNothing);
+  });
+
   testWidgets('an owner sent to a tenant route is returned to the portfolio', (
     tester,
   ) async {
@@ -185,6 +209,20 @@ void main() {
     expect(find.byType(OwnerShell), findsOneWidget);
     expect(find.byType(HomeScreen), findsNothing);
   });
+}
+
+/// Taps a tile in the login screen's demo account picker.
+///
+/// The picker sits below the form, so on a default test viewport it has to be
+/// scrolled to before it can be hit.
+Future<void> _tapDemoAccount(WidgetTester tester, String name) async {
+  final tile = find.text(name);
+  // ensureVisible rather than scrollUntilVisible: the auth page has more than
+  // one Scrollable, and scrollUntilVisible cannot tell which to drive.
+  await tester.ensureVisible(tile);
+  await tester.pumpAndSettle();
+  await tester.tap(tile);
+  await tester.pumpAndSettle();
 }
 
 /// Signs in through the mock's email and password path.

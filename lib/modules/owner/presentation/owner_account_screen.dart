@@ -8,7 +8,6 @@ import '../../../components/section_card.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/application/auth_controller.dart';
-import '../application/owner_view_controller.dart';
 
 /// Section 88. The owner's account, and the way back to the tenant side.
 class OwnerAccountScreen extends ConsumerWidget {
@@ -47,24 +46,6 @@ class OwnerAccountScreen extends ConsumerWidget {
             DetailRow(label: 'Phone', value: user!.phone!),
         ],
       ),
-      if (AppConfig.isMock)
-        RecordGroup(
-          heading: 'Demo',
-          rowInset: 56,
-          children: [
-            SwitchListTile(
-              secondary: const Icon(Icons.swap_horiz_rounded),
-              title: const Text('View as tenant'),
-              subtitle: const Text(
-                'Switches to the tenant side without signing out.',
-              ),
-              value: !ref.watch(viewAsOwnerProvider),
-              onChanged: (asTenant) => ref
-                  .read(viewAsOwnerProvider.notifier)
-                  .set(value: !asTenant),
-            ),
-          ],
-        ),
       RecordGroup(
         heading: 'Session',
         rowInset: 56,
@@ -72,6 +53,12 @@ class OwnerAccountScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.logout_rounded),
             title: const Text('Sign out'),
+            subtitle: AppConfig.isMock
+                // There is no view-as toggle by design: an owner account has
+                // no tenancy to show. The login screen offers both demo
+                // accounts, so switching sides is a sign-out away.
+                ? const Text('Pick the tenant demo account to see that side.')
+                : null,
             onTap: () => ref.read(authControllerProvider.notifier).logout(),
           ),
         ],

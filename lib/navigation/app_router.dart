@@ -22,7 +22,6 @@ import '../modules/leases/presentation/lease_detail_screen.dart';
 import '../modules/leases/presentation/leases_screen.dart';
 import '../modules/leases/presentation/sign_agreement_screen.dart';
 import '../modules/notifications/presentation/notifications_screen.dart';
-import '../modules/owner/application/owner_view_controller.dart';
 import '../modules/owner/presentation/owner_account_screen.dart';
 import '../modules/owner/presentation/owner_add_property_screen.dart';
 import '../modules/owner/presentation/owner_money_screen.dart';
@@ -56,22 +55,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // A ValueNotifier bridges Riverpod's auth state to go_router's
   // refreshListenable, so a sign-in or sign-out re-evaluates the redirect
   // immediately rather than on the next navigation.
-  // The notifier carries the owner flag as well as the stage. Both change which
-  // shell an account belongs in, so both have to re-run the redirect — a
-  // notifier that only watched the stage would leave the demo switch dead until
-  // the next navigation happened to fire one.
+  // The notifier carries the role as well as the stage. Both decide which shell
+  // an account belongs in, and both change on the same event — a sign-in — so
+  // one listener covers them.
   final authState = ValueNotifier<(AuthStage, bool)>(
     (AuthStage.unknown, false),
   );
   void syncAuthState() {
-    authState.value = (
-      ref.read(authControllerProvider).stage,
-      ref.read(authControllerProvider).isOwner || ref.read(viewAsOwnerProvider),
-    );
+    final auth = ref.read(authControllerProvider);
+    authState.value = (auth.stage, auth.isOwner);
   }
 
   ref.listen(authControllerProvider, (_, _) => syncAuthState());
-  ref.listen(viewAsOwnerProvider, (_, _) => syncAuthState());
   syncAuthState();
   ref.onDispose(authState.dispose);
 
@@ -105,9 +100,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Signed in. Section 88 gives an account one side of the platform, and
       // this is the only place that is enforced — there is no per-route guard
       // anywhere, so every rule about who may see what has to live here.
-      final isOwner =
-          ref.read(authControllerProvider).isOwner ||
-          ref.read(viewAsOwnerProvider);
+      //
+      // The role comes from the session and nowhere else. An earlier version
+      // let a debug flag override it, which could put a tenant in front of
+      // owner screens that have no owner record to read and an owner in front
+      // of a tenant app with no tenancy — both render nothing. Changing role
+      // means changing account.
+      final isOwner = ref.read(authControllerProvider).isOwner;
       final inOwnerSpace = location.startsWith(Routes.ownerRootPath);
 
       // Keep them out of the auth screens, landing each side on its own root.
