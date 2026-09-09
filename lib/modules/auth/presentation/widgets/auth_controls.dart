@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../components/app_pressable.dart';
+import '../../../../components/country_code_field.dart';
 import '../../../../components/async_button.dart';
 import '../../../../core/theme/app_theme.dart';
 import 'auth_stage.dart';
@@ -29,6 +30,7 @@ class AuthField extends StatefulWidget {
     this.textInputAction,
     this.autofillHints,
     this.helperText,
+    this.prefix,
     this.suffix,
     this.validator,
     this.onSubmitted,
@@ -49,6 +51,10 @@ class AuthField extends StatefulWidget {
   final bool autofocus;
   final TextCapitalization textCapitalization;
   final String? helperText;
+
+  /// Replaces [icon] with a control of the caller's own — the country code on
+  /// a phone field. Sized to its content rather than to an icon's square.
+  final Widget? prefix;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final Iterable<String>? autofillHints;
@@ -126,12 +132,17 @@ class _AuthFieldState extends State<AuthField> {
               labelText: widget.label,
               hintText: widget.hint,
               helperText: widget.helperText,
-              prefixIcon: widget.icon == null
+              prefixIcon:
+                  widget.prefix ??
+                  (widget.icon == null
+                      ? null
+                      : Icon(
+                          widget.icon,
+                          color: Color.lerp(idleIcon, scheme.primary, t),
+                        )),
+              prefixIconConstraints: widget.prefix == null
                   ? null
-                  : Icon(
-                      widget.icon,
-                      color: Color.lerp(idleIcon, scheme.primary, t),
-                    ),
+                  : CountryCodeField.constraints,
               suffixIcon: widget.suffix,
             ),
           ),

@@ -113,9 +113,7 @@ void main() {
     );
   });
 
-  testWidgets('a phone number and a password sign a tenant in', (
-    tester,
-  ) async {
+  testWidgets('a phone number and a password sign a tenant in', (tester) async {
     await tester.pumpWidget(await buildApp());
     await tester.pumpAndSettle();
 
@@ -134,6 +132,30 @@ void main() {
 
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.byType(LoginScreen), findsNothing);
+  });
+
+  testWidgets('a number typed the local way signs in on the country code', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    // How a tenant actually types it. The selector sits on Kenya, so this is
+    // the same account as `+254712345678` above — which is the point of
+    // joining the code on before the number is sent.
+    expect(find.text('+254'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Phone number'),
+      '0712345678',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Password'),
+      'a-password',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
   });
 
   testWidgets('a signed-in tenant lands on home and cannot go back to login', (

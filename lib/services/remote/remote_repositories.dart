@@ -238,9 +238,10 @@ class RemoteAuthRepository implements AuthRepository {
 
   @override
   Future<Result<void>> requestPasswordReset({required String identifier}) =>
-      _api.command(Endpoints.forgotPassword, body: {
-        'phoneNumber': PhoneNumber.normalize(identifier),
-      });
+      _api.command(
+        Endpoints.forgotPassword,
+        body: {'phoneNumber': PhoneNumber.normalize(identifier)},
+      );
 
   @override
   Future<Result<AuthSession?>> restoreSession() async {

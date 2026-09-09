@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/async_button.dart';
+import '../../../components/country_code_field.dart';
 import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../navigation/routes.dart';
 import '../../account/application/account_controller.dart';
 import 'widgets/auth_controls.dart';
@@ -31,8 +33,13 @@ class ResetPasswordScreen extends ConsumerStatefulWidget {
 
 class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
+  // The number arrives from the forgot-password screen already joined to its
+  // code, so it is taken apart again: the code seeds the selector, the rest
+  // fills the field.
+  late Country _country =
+      PhoneNumber.countryOf(widget.phoneNumber) ?? Countries.fallback;
   late final TextEditingController _phoneController = TextEditingController(
-    text: widget.phoneNumber ?? '',
+    text: PhoneNumber.nationalOf(widget.phoneNumber),
   );
   final _tokenController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -53,7 +60,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     final result = await ref
         .read(accountActionsProvider)
         .resetPassword(
-          phoneNumber: _phoneController.text.trim(),
+          phoneNumber: PhoneNumber.normalize(
+            _phoneController.text,
+            country: _country,
+          ),
           resetToken: _tokenController.text.trim(),
           newPassword: _passwordController.text,
         );
@@ -96,15 +106,19 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             AuthField(
               controller: _phoneController,
               label: 'Phone number',
-              icon: Icons.phone_outlined,
+              hint: _country.example,
+              prefix: CountryCodeField(
+                value: _country,
+                onChanged: (country) => setState(() => _country = country),
+              ),
               keyboardType: TextInputType.phone,
               autofillHints: const [AutofillHints.telephoneNumber],
               validator: (value) {
                 final text = value?.trim() ?? '';
                 if (text.isEmpty) return 'Enter your phone number';
-                return text.replaceAll(RegExp(r'\D'), '').length < 9
-                    ? 'Enter a valid phone number'
-                    : null;
+                return PhoneNumber.isValid(text, country: _country)
+                    ? null
+                    : 'Enter a valid ${_country.name} number';
               },
             ),
             Gap.h12,

@@ -487,6 +487,23 @@ class PhoneNumber {
     return Countries.detect(normalized);
   }
 
+  /// How a number is shown back to the person who gave it: `+254 712345678`.
+  ///
+  /// The code is split off and nothing else is regrouped, because where the
+  /// spaces fall inside a national number is a local habit and getting it
+  /// wrong for a country reads worse than not trying.
+  static String display(String? input, {Country? country}) {
+    if (input == null || input.trim().isEmpty) return '';
+    final normalized = normalize(input, country: country);
+    if (!_digitsOnly.hasMatch(normalized)) return input.trim();
+    final dialled = Countries.detect(normalized);
+    // A number that could not be placed never gained a dialling code, so it is
+    // shown as it was typed rather than dressed with a `+` it has not earned.
+    if (dialled == null) return input.trim();
+    return '+${dialled.dialCode} '
+        '${normalized.substring(dialled.dialCode.length)}';
+  }
+
   /// The part of [input] that follows the dialling code — what the selector's
   /// text field holds and the tenant edits.
   ///

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/country_code_field.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../navigation/routes.dart';
 import '../application/auth_controller.dart';
 import 'widgets/auth_controls.dart';
@@ -44,6 +46,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _phoneFormKey = GlobalKey<FormState>();
   final _emailFormKey = GlobalKey<FormState>();
   _LoginMethod _method = _LoginMethod.phone;
+
+  /// The code the phone field is dialling on. Kenya to begin with, which is
+  /// where all but a handful of tenants are.
+  Country _country = Countries.fallback;
   bool _obscurePassword = true;
 
   /// Which demo account is signing in, so its tile can say so.
@@ -67,10 +73,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final byPhone = _method == _LoginMethod.phone;
     final form = byPhone ? _phoneFormKey : _emailFormKey;
     if (!(form.currentState?.validate() ?? false)) return;
+    // The number is joined to the selected code and put into the form the
+    // contract keys accounts on; an email is its own identifier and goes as
+    // typed.
+    final identifier = byPhone
+        ? PhoneNumber.normalize(_phoneController.text, country: _country)
+        : _emailController.text.trim();
     await ref
         .read(authControllerProvider.notifier)
         .loginWithPassword(
-          (byPhone ? _phoneController : _emailController).text.trim(),
+          identifier,
           (byPhone ? _phonePasswordController : _emailPasswordController).text,
         );
   }
@@ -190,16 +202,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         controller: _phoneController,
         enabled: !auth.isBusy,
         label: 'Phone number',
-        hint: '+254 712 345 678',
-        icon: Icons.phone_outlined,
+        hint: _country.example,
+        prefix: CountryCodeField(
+          value: _country,
+          enabled: !auth.isBusy,
+          // The number keeps its digits when the code changes; only what they
+          // are dialled through moves.
+          onChanged: (country) => setState(() => _country = country),
+        ),
         keyboardType: TextInputType.phone,
         textInputAction: TextInputAction.next,
         autofillHints: const [AutofillHints.telephoneNumber],
         validator: (value) {
           final text = value?.trim() ?? '';
           if (text.isEmpty) return 'Enter your phone number';
-          if (text.replaceAll(RegExp(r'[^0-9]'), '').length < 9) {
-            return 'Enter a valid phone number';
+          if (!PhoneNumber.isValid(text, country: _country)) {
+            return 'Enter a valid ${_country.name} number';
           }
           return null;
         },

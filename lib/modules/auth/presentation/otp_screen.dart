@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../services/mock/mock_server.dart';
 import '../application/auth_controller.dart';
 import 'widgets/auth_controls.dart';
@@ -86,7 +87,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
-    final phone = auth.pendingPhone ?? 'your phone';
+    // Shown with its dialling code split off, so what is read back matches
+    // the number that was typed rather than the run of digits it was sent as.
+    final phone = auth.pendingPhone == null
+        ? 'your phone'
+        : PhoneNumber.display(auth.pendingPhone);
     final scheme = Theme.of(context).colorScheme;
 
     return AuthPage(

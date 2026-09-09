@@ -6,12 +6,14 @@ import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_stepper.dart';
 import '../../../components/async_button.dart';
+import '../../../components/country_code_field.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../domain/entities/booking.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
@@ -48,6 +50,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   late final TextEditingController _emailController;
   final _companyController = TextEditingController();
 
+  /// The code the applicant's number is dialling on, read off the account's
+  /// own number and Kenya when there is none.
+  late Country _country;
+
   bool _acceptedTerms = false;
   bool _forBusiness = false;
   String? _businessType;
@@ -57,7 +63,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     super.initState();
     final user = ref.read(authControllerProvider).user;
     _nameController = TextEditingController(text: user?.fullName ?? '');
-    _phoneController = TextEditingController(text: user?.phone ?? '');
+    _country = PhoneNumber.countryOf(user?.phone) ?? Countries.fallback;
+    _phoneController = TextEditingController(
+      text: PhoneNumber.nationalOf(user?.phone),
+    );
     _emailController = TextEditingController(text: user?.email ?? '');
   }
 
@@ -89,7 +98,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           widget.unitId,
           applicant: BookingApplicant(
             fullName: _nameController.text.trim(),
-            phoneNumber: _phoneController.text.trim(),
+            phoneNumber: PhoneNumber.normalize(
+              _phoneController.text,
+              country: _country,
+            ),
             email: _emailController.text.trim(),
             companyName: _forBusiness ? _companyController.text.trim() : null,
             businessType: _forBusiness ? _businessType : null,
@@ -142,6 +154,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             formKey: _applicantFormKey,
             nameController: _nameController,
             phoneController: _phoneController,
+            country: _country,
+            onCountryChanged: (country) => setState(() => _country = country),
             emailController: _emailController,
             companyController: _companyController,
             forBusiness: _forBusiness,
@@ -463,6 +477,8 @@ class _ApplicantSection extends StatelessWidget {
     required this.formKey,
     required this.nameController,
     required this.phoneController,
+    required this.country,
+    required this.onCountryChanged,
     required this.emailController,
     required this.companyController,
     required this.forBusiness,
@@ -474,6 +490,8 @@ class _ApplicantSection extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController nameController;
   final TextEditingController phoneController;
+  final Country country;
+  final ValueChanged<Country> onCountryChanged;
   final TextEditingController emailController;
   final TextEditingController companyController;
   final bool forBusiness;
@@ -512,19 +530,23 @@ class _ApplicantSection extends StatelessWidget {
           TextFormField(
             controller: phoneController,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Phone number',
-              prefixIcon: Icon(Icons.phone_outlined),
+              hintText: country.example,
+              prefixIcon: CountryCodeField(
+                value: country,
+                onChanged: onCountryChanged,
+              ),
+              prefixIconConstraints: CountryCodeField.constraints,
             ),
             validator: (value) {
               final text = value?.trim() ?? '';
               if (text.isEmpty) return 'Enter a phone number';
-              // Deliberately loose. Numbers arrive with and without a country
-              // code and with spaces in them, and a stricter rule here would
-              // reject valid numbers the server accepts.
-              return text.replaceAll(RegExp(r'\D'), '').length < 9
-                  ? 'Enter a valid phone number'
-                  : null;
+              // The selector says which country the digits belong to, so the
+              // count they are held to is that country's own.
+              return PhoneNumber.isValid(text, country: country)
+                  ? null
+                  : 'Enter a valid ${country.name} number';
             },
           ),
           Gap.h12,

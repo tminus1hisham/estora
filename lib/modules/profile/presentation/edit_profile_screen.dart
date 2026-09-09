@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/async_button.dart';
+import '../../../components/country_code_field.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../domain/entities/tenant.dart';
 import '../../../services/providers.dart';
 import '../../auth/application/auth_controller.dart';
@@ -36,6 +38,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late final TextEditingController _contactPerson;
   late final TextEditingController _contactPersonPhone;
 
+  /// A code per number, each read off the number already on file so an
+  /// existing entry comes back exactly as it was saved.
+  late Country _phoneCountry;
+  late Country _contactPersonPhoneCountry;
+
   bool _saving = false;
 
   @override
@@ -48,11 +55,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     );
     _taxNumber = TextEditingController(text: profile?.taxNumber ?? '');
     _email = TextEditingController(text: profile?.email ?? '');
-    _phone = TextEditingController(text: profile?.phone ?? '');
+    _phoneCountry = PhoneNumber.countryOf(profile?.phone) ?? Countries.fallback;
+    _phone = TextEditingController(
+      text: PhoneNumber.nationalOf(profile?.phone),
+    );
     _address = TextEditingController(text: profile?.address ?? '');
     _contactPerson = TextEditingController(text: profile?.contactPerson ?? '');
+    _contactPersonPhoneCountry =
+        PhoneNumber.countryOf(profile?.contactPersonPhone) ??
+        Countries.fallback;
     _contactPersonPhone = TextEditingController(
-      text: profile?.contactPersonPhone ?? '',
+      text: PhoneNumber.nationalOf(profile?.contactPersonPhone),
     );
   }
 
@@ -94,10 +107,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             nationalId: existing?.nationalId,
             passportNumber: existing?.passportNumber,
             email: _textOrNull(_email),
-            phone: _textOrNull(_phone),
+            phone: _phoneOrNull(_phone, _phoneCountry),
             address: _textOrNull(_address),
             contactPerson: _textOrNull(_contactPerson),
-            contactPersonPhone: _textOrNull(_contactPersonPhone),
+            contactPersonPhone: _phoneOrNull(
+              _contactPersonPhone,
+              _contactPersonPhoneCountry,
+            ),
           ),
         );
 
@@ -119,6 +135,24 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   String? _textOrNull(TextEditingController controller) {
     final text = controller.text.trim();
     return text.isEmpty ? null : text;
+  }
+
+  /// A number joined to the code it was typed under. Both phone fields are
+  /// optional, so an empty one stays absent rather than becoming a bare
+  /// dialling code.
+  String? _phoneOrNull(TextEditingController controller, Country country) {
+    final text = controller.text.trim();
+    return text.isEmpty ? null : PhoneNumber.normalize(text, country: country);
+  }
+
+  /// Optional, so blank passes; anything typed has to be a number the country
+  /// on the selector actually issues.
+  String? _validateOptionalPhone(String? value, Country country) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return null;
+    return PhoneNumber.isValid(text, country: country)
+        ? null
+        : 'Enter a valid ${country.name} number';
   }
 
   @override
@@ -170,7 +204,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             TextFormField(
               controller: _phone,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Phone number'),
+              decoration: InputDecoration(
+                labelText: 'Phone number',
+                hintText: _phoneCountry.example,
+                prefixIcon: CountryCodeField(
+                  value: _phoneCountry,
+                  onChanged: (country) =>
+                      setState(() => _phoneCountry = country),
+                ),
+                prefixIconConstraints: CountryCodeField.constraints,
+              ),
+              validator: (value) =>
+                  _validateOptionalPhone(value, _phoneCountry),
             ),
             Gap.h12,
             TextFormField(
@@ -190,9 +235,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               TextFormField(
                 controller: _contactPersonPhone,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Contact person phone',
+                  hintText: _contactPersonPhoneCountry.example,
+                  prefixIcon: CountryCodeField(
+                    value: _contactPersonPhoneCountry,
+                    onChanged: (country) =>
+                        setState(() => _contactPersonPhoneCountry = country),
+                  ),
+                  prefixIconConstraints: CountryCodeField.constraints,
                 ),
+                validator: (value) =>
+                    _validateOptionalPhone(value, _contactPersonPhoneCountry),
               ),
             ],
 

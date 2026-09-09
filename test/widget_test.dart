@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mall/core/config/app_config.dart';
 import 'package:mall/components/amount_text.dart';
 import 'package:mall/components/countdown_timer.dart';
+import 'package:mall/components/country_code_field.dart';
 import 'package:mall/components/status_chip.dart';
 import 'package:mall/core/theme/app_theme.dart';
 import 'package:mall/core/utils/money.dart';
+import 'package:mall/core/utils/phone_number.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/modules/leases/presentation/sign_agreement_screen.dart';
 import 'package:mall/modules/leases/application/lease_controller.dart';
@@ -238,6 +240,56 @@ void main() {
         find.byType(CheckboxListTile),
       );
       expect(checkbox.onChanged, isNull);
+    });
+  });
+
+  group('CountryCodeField', () {
+    /// The control, with somewhere to put what it picks.
+    Widget field() {
+      Country selected = Countries.fallback;
+      return wrap(
+        Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => TextField(
+              decoration: InputDecoration(
+                labelText: 'Phone number',
+                prefixIcon: CountryCodeField(
+                  value: selected,
+                  onChanged: (country) => setState(() => selected = country),
+                ),
+                prefixIconConstraints: CountryCodeField.constraints,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('opens on Kenya', (tester) async {
+      await tester.pumpWidget(field());
+      expect(find.text('+254'), findsOneWidget);
+    });
+
+    testWidgets('picks a country, and says so on the field', (tester) async {
+      await tester.pumpWidget(field());
+
+      await tester.tap(find.text('+254'));
+      await tester.pumpAndSettle();
+
+      // The whole list is offered, and the search narrows it.
+      expect(find.text('Uganda'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search country or code'),
+        'ugan',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Kenya'), findsNothing);
+
+      await tester.tap(find.text('Uganda'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('+256'), findsOneWidget);
+      expect(find.text('+254'), findsNothing);
     });
   });
 }

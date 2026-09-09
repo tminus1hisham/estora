@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/country_code_field.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../navigation/routes.dart';
 import '../application/auth_controller.dart';
 import 'widgets/auth_controls.dart';
@@ -21,7 +23,15 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
+
+  /// The code the number is dialling on, Kenya by default.
+  Country _country = Countries.fallback;
   bool _sent = false;
+
+  /// The number as the server keys accounts on it — what is asked for, shown
+  /// back, and carried to the reset screen, so all three agree.
+  String get _phoneNumber =>
+      PhoneNumber.normalize(_email.text, country: _country);
 
   @override
   void dispose() {
@@ -34,7 +44,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final ok = await ref
         .read(authControllerProvider.notifier)
-        .requestPasswordReset(_email.text.trim());
+        .requestPasswordReset(_phoneNumber);
     if (ok && mounted) setState(() => _sent = true);
   }
 
@@ -48,7 +58,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         eyebrow: 'Next step',
         title: 'Check your inbox',
         subtitle:
-            'If an account exists for ${_email.text.trim()}, a reset code is on its way.',
+            'If an account exists for ${PhoneNumber.display(_phoneNumber)}, '
+            'a reset code is on its way.',
         console: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -96,7 +107,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               // wrong the first time.
               onPressed: () async => context.pushNamed(
                 Routes.resetPassword,
-                queryParameters: {'phone': _email.text.trim()},
+                queryParameters: {'phone': _phoneNumber},
               ),
             ),
             Gap.h12,
@@ -129,7 +140,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 controller: _email,
                 enabled: !auth.isBusy,
                 label: 'Phone number',
-                icon: Icons.phone_outlined,
+                hint: _country.example,
+                prefix: CountryCodeField(
+                  value: _country,
+                  enabled: !auth.isBusy,
+                  onChanged: (country) => setState(() => _country = country),
+                ),
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.done,
                 autofillHints: const [AutofillHints.telephoneNumber],
@@ -138,9 +154,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 validator: (value) {
                   final text = value?.trim() ?? '';
                   if (text.isEmpty) return 'Enter your phone number';
-                  return text.replaceAll(RegExp(r'\D'), '').length < 9
-                      ? 'Enter a valid phone number'
-                      : null;
+                  return PhoneNumber.isValid(text, country: _country)
+                      ? null
+                      : 'Enter a valid ${_country.name} number';
                 },
                 onSubmitted: (_) => _submit(),
               ),

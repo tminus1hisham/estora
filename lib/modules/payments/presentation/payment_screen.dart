@@ -6,10 +6,12 @@ import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_stepper.dart';
 import '../../../components/async_button.dart';
+import '../../../components/country_code_field.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../domain/entities/billing.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
@@ -36,13 +38,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   PaymentMethod _method = PaymentMethod.mpesa;
   late final TextEditingController _phoneController;
 
+  /// The code the M-Pesa number is dialling on. Seeded from the number on the
+  /// account, so a tenant whose handset is registered abroad does not have to
+  /// set it again; Kenya when there is nothing to read.
+  late Country _country;
+
   @override
   void initState() {
     super.initState();
+    final onAccount = ref.read(authControllerProvider).user?.phone;
+    _country = PhoneNumber.countryOf(onAccount) ?? Countries.fallback;
     _phoneController = TextEditingController(
-      text: ref.read(authControllerProvider).user?.phone ?? '',
+      text: PhoneNumber.nationalOf(onAccount),
     );
   }
+
+  /// The handset the prompt goes to, as the gateway needs it written.
+  String get _phoneNumber =>
+      PhoneNumber.normalize(_phoneController.text, country: _country);
 
   @override
   void dispose() {
@@ -62,9 +75,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           invoiceId: widget.invoiceId,
           method: _method,
           amount: invoice.amountDue,
-          phoneNumber: _method == PaymentMethod.mpesa
-              ? _phoneController.text.trim()
-              : null,
+          phoneNumber: _method == PaymentMethod.mpesa ? _phoneNumber : null,
         );
 
     if (!mounted) return;
@@ -111,7 +122,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final scheme = Theme.of(context).colorScheme;
     final canPay =
         _method != PaymentMethod.mpesa ||
-        _phoneController.text.trim().length >= 9;
+        PhoneNumber.isValid(_phoneController.text, country: _country);
 
     return Column(
       children: [
@@ -199,10 +210,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'M-Pesa number',
-                        hintText: '+254 712 345 678',
-                        prefixIcon: Icon(Icons.phone_android_rounded),
+                        hintText: _country.example,
+                        prefixIcon: CountryCodeField(
+                          value: _country,
+                          onChanged: (country) =>
+                              setState(() => _country = country),
+                        ),
+                        prefixIconConstraints: CountryCodeField.constraints,
                         helperText: 'The prompt is sent to this number',
                       ),
                     ),

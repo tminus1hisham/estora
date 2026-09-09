@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/country_code_field.dart';
 import '../../../core/debug/debug_log.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
 import '../application/auth_controller.dart';
@@ -26,6 +28,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _firstName = TextEditingController();
   final _lastName = TextEditingController();
   final _phone = TextEditingController();
+
+  /// The code the phone field is dialling on, Kenya by default.
+  Country _country = Countries.fallback;
   final _email = TextEditingController();
   final _password = TextEditingController();
 
@@ -77,7 +82,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         .register(
           firstName: _firstName.text.trim(),
           lastName: _lastName.text.trim(),
-          phone: _phone.text.trim(),
+          phone: PhoneNumber.normalize(_phone.text, country: _country),
           email: _email.text.trim(),
           password: _password.text,
           tenantType: _tenantType,
@@ -180,16 +185,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 controller: _phone,
                 enabled: !auth.isBusy,
                 label: 'Phone number',
-                hint: '+254 712 345 678',
-                icon: Icons.phone_outlined,
+                hint: _country.example,
+                prefix: CountryCodeField(
+                  value: _country,
+                  enabled: !auth.isBusy,
+                  onChanged: (country) => setState(() => _country = country),
+                ),
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.telephoneNumber],
                 validator: (value) {
                   final text = value?.trim() ?? '';
                   if (text.isEmpty) return 'Enter your phone number';
-                  if (text.replaceAll(RegExp(r'[^0-9]'), '').length < 9) {
-                    return 'Enter a valid phone number';
+                  if (!PhoneNumber.isValid(text, country: _country)) {
+                    return 'Enter a valid ${_country.name} number';
                   }
                   return null;
                 },
