@@ -65,9 +65,9 @@ class _OwnerPropertyRateScreenState
 
     switch (result) {
       case Err(:final failure):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ownerFailureMessage(failure))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(ownerFailureMessage(failure))));
       case Ok():
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

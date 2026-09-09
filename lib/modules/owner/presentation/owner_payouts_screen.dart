@@ -88,7 +88,9 @@ class _Payouts extends StatelessWidget {
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),

@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/mock/mock_server.dart';
 import '../application/auth_controller.dart';
 import 'widgets/auth_controls.dart';
 import 'widgets/auth_page.dart';
 import 'widgets/auth_stage.dart';
+import '../../../services/providers.dart';
 
 /// Verifies the six-digit code sent to the pending phone number.
 class OtpScreen extends ConsumerStatefulWidget {
@@ -138,7 +138,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     label: const Text('Send a new code'),
                   ),
           ),
-          if (AppConfig.isMock) ...[
+          if (ref.watch(isMockDataProvider)) ...[
             Gap.h24,
             _DemoHint(code: MockServer.demoOtp),
           ],

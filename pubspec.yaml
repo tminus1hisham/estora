@@ -62,6 +62,13 @@ dependencies:
   # Biometric unlock (spec section 72).
   local_auth: ^3.0.2
 
+  # Google Play in-app updates. Android only, and only for builds the Play
+  # Store itself installed — the plugin declares no other platform, so the
+  # service around it is the thing that keeps every other build quiet. It
+  # carries its own com.google.android.play:app-update dependency, so nothing
+  # has to be added to android/app/build.gradle.kts.
+  in_app_update: ^4.2.5
+
   # Native document selection and secure signed-link handoff.
   file_picker: ^10.3.3
   url_launcher: ^6.3.2

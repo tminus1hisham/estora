@@ -50,12 +50,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     super.dispose();
   }
 
-  Future<void> _pay() async {
+  /// [invoice] supplies the amount, straight off the record the server sent.
+  ///
+  /// The contract's payment request carries the figure, so it has to come from
+  /// somewhere — and the only honest somewhere is the invoice as displayed.
+  /// Nothing on this screen adds a fee or a rounding to it.
+  Future<void> _pay(Invoice invoice) async {
     final result = await ref
         .read(paymentActionsProvider)
         .initiate(
           invoiceId: widget.invoiceId,
           method: _method,
+          amount: invoice.amountDue,
           phoneNumber: _method == PaymentMethod.mpesa
               ? _phoneController.text.trim()
               : null,
@@ -241,7 +247,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             icon: Icons.lock_outline_rounded,
             expand: true,
             enabled: canPay,
-            onPressed: _pay,
+            onPressed: () => _pay(invoice),
           ),
         ),
       ],

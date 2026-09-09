@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mall/core/config/app_config.dart';
 import 'package:mall/app.dart';
 import 'package:mall/modules/auth/presentation/login_screen.dart';
 import 'package:mall/modules/auth/presentation/splash_screen.dart';
@@ -24,7 +25,12 @@ void main() {
   Future<Widget> buildApp() async {
     final prefs = await SharedPreferences.getInstance();
     return ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        // Pinned so the suite never reaches the network, whatever
+        // AppConfig.dataSource is set to.
+        dataSourceProvider.overrideWithValue(DataSource.mock),
+      ],
       child: const MallApp(),
     );
   }
@@ -107,6 +113,29 @@ void main() {
     );
   });
 
+  testWidgets('a phone number and a password sign a tenant in', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+
+    // The method the screen opens on, and the pair the contract keys on: no
+    // code is sent and nothing routes through the OTP screen.
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Phone number'),
+      '+254712345678',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Password'),
+      'a-password',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(LoginScreen), findsNothing);
+  });
+
   testWidgets('a signed-in tenant lands on home and cannot go back to login', (
     tester,
   ) async {
@@ -182,9 +211,7 @@ void main() {
     expect(find.byType(HomeScreen), findsNothing);
   });
 
-  testWidgets('the tenant demo account opens the tenant shell', (
-    tester,
-  ) async {
+  testWidgets('the tenant demo account opens the tenant shell', (tester) async {
     await tester.pumpWidget(await buildApp());
     await tester.pumpAndSettle();
 

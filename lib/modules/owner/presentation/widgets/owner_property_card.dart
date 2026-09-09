@@ -16,11 +16,7 @@ import '../../../../domain/entities/owner.dart';
 /// them is part of the point. An owner picking between two malls is looking at
 /// the buildings as much as at the figures.
 class OwnerPropertyCard extends StatelessWidget {
-  const OwnerPropertyCard({
-    required this.performance,
-    this.onTap,
-    super.key,
-  });
+  const OwnerPropertyCard({required this.performance, this.onTap, super.key});
 
   final PropertyPerformance performance;
   final VoidCallback? onTap;
@@ -34,7 +30,8 @@ class OwnerPropertyCard extends StatelessWidget {
     return AppSurfaceCard(
       padding: EdgeInsets.zero,
       onTap: onTap,
-      semanticLabel: '${performance.propertyName}, '
+      semanticLabel:
+          '${performance.propertyName}, '
           '${(performance.occupancyRate * 100).round()} per cent let',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -96,26 +93,26 @@ class OwnerPropertyCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (performance.hasArrears || performance.expiringLeases > 0)
-                  ...[
-                    Gap.h12,
-                    Wrap(
-                      spacing: Gap.sm,
-                      runSpacing: Gap.sm,
-                      children: [
-                        if (performance.hasArrears)
-                          _Flag(
-                            label: '${performance.tenantsInArrears} in arrears',
-                            tone: StatusTone.danger,
-                          ),
-                        if (performance.expiringLeases > 0)
-                          _Flag(
-                            label: '${performance.expiringLeases} expiring',
-                            tone: StatusTone.warning,
-                          ),
-                      ],
-                    ),
-                  ],
+                if (performance.hasArrears ||
+                    performance.expiringLeases > 0) ...[
+                  Gap.h12,
+                  Wrap(
+                    spacing: Gap.sm,
+                    runSpacing: Gap.sm,
+                    children: [
+                      if (performance.hasArrears)
+                        _Flag(
+                          label: '${performance.tenantsInArrears} in arrears',
+                          tone: StatusTone.danger,
+                        ),
+                      if (performance.expiringLeases > 0)
+                        _Flag(
+                          label: '${performance.expiringLeases} expiring',
+                          tone: StatusTone.warning,
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

@@ -49,8 +49,7 @@ class UnitStatusStrip extends StatelessWidget {
         Semantics(
           label: segments
               .map(
-                (segment) =>
-                    '${segment.count} ${segment.label.toLowerCase()}',
+                (segment) => '${segment.count} ${segment.label.toLowerCase()}',
               )
               .join(', '),
           child: ClipRRect(

@@ -1,6 +1,54 @@
 import '../../core/utils/money.dart';
 import '../enums/domain_enums.dart';
 
+/// Who is asking for the unit, and on whose behalf.
+///
+/// The contract wants these details on the booking request itself rather than
+/// reading them off the session, and it is right to: the person tapping the
+/// button is not always the person whose name goes on the lease, and a company
+/// letting a shop is identified by its trading name, not by whoever holds the
+/// phone. The form is prefilled from the signed-in account so the common case
+/// stays one confirmation.
+class BookingApplicant {
+  const BookingApplicant({
+    required this.fullName,
+    required this.phoneNumber,
+    required this.email,
+    this.companyName,
+    this.businessType,
+  });
+
+  final String fullName;
+  final String phoneNumber;
+  final String email;
+
+  /// Set when the unit is being taken by a business rather than an individual.
+  final String? companyName;
+
+  /// What the business does — what will actually trade out of the unit. This
+  /// is a letting decision, not a formality: a landlord balancing a tenant mix
+  /// needs to know before agreeing, not after.
+  final String? businessType;
+
+  bool get isCompany => companyName != null && companyName!.trim().isNotEmpty;
+
+  /// Common categories, offered so a tenant mix stays comparable across
+  /// bookings instead of accumulating twelve spellings of "restaurant". Free
+  /// text is still accepted; the contract does not constrain the field.
+  static const List<String> businessTypes = [
+    'Retail',
+    'Fashion and apparel',
+    'Food and beverage',
+    'Groceries and supermarket',
+    'Health and beauty',
+    'Electronics',
+    'Financial services',
+    'Professional services',
+    'Entertainment',
+    'Other',
+  ];
+}
+
 /// Section 21. A temporary reservation of a unit, ahead of a lease.
 ///
 /// The critical property of this entity is that it **captures its commercial

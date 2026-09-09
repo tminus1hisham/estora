@@ -4,17 +4,26 @@ import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_theme.dart';
 import '../domain/entities/billing.dart';
+import '../modules/access/presentation/role_claims_screen.dart';
+import '../modules/access/presentation/roles_screen.dart';
+import '../modules/access/presentation/user_access_screen.dart';
+import '../modules/access/presentation/users_screen.dart';
+import '../modules/account/presentation/change_password_screen.dart';
+import '../modules/account/presentation/security_screen.dart';
+import '../modules/account/presentation/verify_contact_screen.dart';
 import '../modules/auth/application/auth_controller.dart';
 import '../modules/auth/presentation/forgot_password_screen.dart';
 import '../modules/auth/presentation/login_screen.dart';
 import '../modules/auth/presentation/otp_screen.dart';
 import '../modules/auth/presentation/register_screen.dart';
+import '../modules/auth/presentation/reset_password_screen.dart';
 import '../modules/auth/presentation/splash_screen.dart';
 import '../modules/bookings/presentation/booking_screen.dart';
 import '../modules/bookings/presentation/booking_status_screen.dart';
 import '../modules/bookings/presentation/bookings_screen.dart';
 import '../modules/documents/presentation/documents_screen.dart';
 import '../modules/home/presentation/home_screen.dart';
+import '../modules/invoices/presentation/defer_invoice_screen.dart';
 import '../modules/invoices/presentation/invoice_detail_screen.dart';
 import '../modules/invoices/presentation/invoices_screen.dart';
 import '../modules/leases/presentation/lease_agreement_screen.dart';
@@ -26,13 +35,15 @@ import '../modules/owner/presentation/owner_account_screen.dart';
 import '../modules/owner/presentation/owner_add_property_screen.dart';
 import '../modules/owner/presentation/owner_money_screen.dart';
 import '../modules/owner/presentation/owner_payouts_screen.dart';
+import '../modules/owner/presentation/owner_portfolio_screen.dart';
+import '../modules/owner/presentation/owner_properties_screen.dart';
 import '../modules/owner/presentation/owner_property_rate_screen.dart';
+import '../modules/owner/presentation/owner_property_screen.dart';
 import '../modules/owner/presentation/owner_rent_roll_screen.dart';
 import '../modules/owner/presentation/owner_tenancies_screen.dart';
 import '../modules/owner/presentation/owner_tenancy_screen.dart';
-import '../modules/owner/presentation/owner_portfolio_screen.dart';
-import '../modules/owner/presentation/owner_properties_screen.dart';
-import '../modules/owner/presentation/owner_property_screen.dart';
+import '../modules/owner/presentation/tenant_invoices_screen.dart';
+import '../modules/payments/presentation/bank_transfer_screen.dart';
 import '../modules/payments/presentation/payment_history_screen.dart';
 import '../modules/payments/presentation/payment_screen.dart';
 import '../modules/payments/presentation/payment_status_screen.dart';
@@ -42,6 +53,14 @@ import '../modules/profile/presentation/profile_screen.dart';
 import '../modules/profile/presentation/settings_screen.dart';
 import '../modules/properties/presentation/properties_screen.dart';
 import '../modules/properties/presentation/property_detail_screen.dart';
+import '../modules/structure/presentation/block_form_screen.dart';
+import '../modules/structure/presentation/block_screen.dart';
+import '../modules/structure/presentation/blocks_screen.dart';
+import '../modules/structure/presentation/property_edit_screen.dart';
+import '../modules/structure/presentation/unit_form_screen.dart';
+import '../modules/treasury/presentation/bank_payment_edit_screen.dart';
+import '../modules/treasury/presentation/bank_payments_screen.dart';
+import '../modules/treasury/presentation/mpesa_transactions_screen.dart';
 import '../modules/units/presentation/available_units_screen.dart';
 import '../modules/units/presentation/unit_detail_screen.dart';
 import 'app_shell.dart';
@@ -58,9 +77,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // The notifier carries the role as well as the stage. Both decide which shell
   // an account belongs in, and both change on the same event — a sign-in — so
   // one listener covers them.
-  final authState = ValueNotifier<(AuthStage, bool)>(
-    (AuthStage.unknown, false),
-  );
+  final authState = ValueNotifier<(AuthStage, bool)>((
+    AuthStage.unknown,
+    false,
+  ));
   void syncAuthState() {
     final auth = ref.read(authControllerProvider);
     authState.value = (auth.stage, auth.isOwner);
@@ -82,7 +102,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == Routes.loginPath ||
           location == Routes.registerPath ||
           location == Routes.otpPath ||
-          location == Routes.forgotPasswordPath;
+          location == Routes.forgotPasswordPath ||
+          location == Routes.resetPasswordPath;
 
       // While the stored session is still being read, hold on the splash
       // screen. Redirecting to login here would flash it at a signed-in tenant
@@ -150,6 +171,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: Routes.forgotPassword,
         pageBuilder: (_, state) =>
             fadePage(state: state, child: const ForgotPasswordScreen()),
+      ),
+      GoRoute(
+        path: Routes.resetPasswordPath,
+        name: Routes.resetPassword,
+        pageBuilder: (_, state) => fadePage(
+          state: state,
+          child: ResetPasswordScreen(
+            // Carried through from the forgot-password screen so the number
+            // does not have to be typed twice.
+            phoneNumber: state.uri.queryParameters['phone'],
+          ),
+        ),
       ),
 
       // -- Main shell (section 45) ------------------------------------------
@@ -337,6 +370,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                   GoRoute(
+                    path: Routes.bankTransferPath,
+                    name: Routes.bankTransfer,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: BankTransferScreen(
+                        invoiceId: state.pathParameters['invoiceId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.deferInvoicePath,
+                    name: Routes.deferInvoice,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: DeferInvoiceScreen(
+                        invoiceId: state.pathParameters['invoiceId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
                     path: Routes.invoiceDetailPath,
                     name: Routes.invoiceDetail,
                     pageBuilder: (_, state) => lateralPage(
@@ -408,6 +463,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (_, state) => lateralPage(
                       state: state,
                       child: const SettingsScreen(),
+                    ),
+                  ),
+                  // Declared before the bare `security` route for the same
+                  // reason the invoices branch orders its routes: a shorter
+                  // pattern earlier would swallow the longer ones.
+                  GoRoute(
+                    path: Routes.changePasswordPath,
+                    name: Routes.changePassword,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const ChangePasswordScreen(),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.verifyContactPath,
+                    name: Routes.verifyContact,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: VerifyContactScreen(
+                        channel: VerificationChannel.fromPath(
+                          state.pathParameters['channel'],
+                        ),
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.securityPath,
+                    name: Routes.security,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const SecurityScreen(),
                     ),
                   ),
                 ],
@@ -491,6 +577,92 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       ),
                     ),
                   ),
+                  // Every one of these is declared before the bare
+                  // `:propertyId` pattern, which would otherwise swallow the
+                  // ones that begin with a literal segment.
+                  GoRoute(
+                    path: Routes.blockDetailPath,
+                    name: Routes.blockDetail,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: BlockScreen(
+                        blockId: state.pathParameters['blockId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.blockEditPath,
+                    name: Routes.blockEdit,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: BlockFormScreen(
+                        // A block already knows its property; the form reads
+                        // it from the record it loads, so the query parameter
+                        // is only a hint for the create case.
+                        propertyId:
+                            state.uri.queryParameters['propertyId'] ?? '',
+                        blockId: state.pathParameters['blockId'],
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.unitEditPath,
+                    name: Routes.unitEdit,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: UnitFormScreen(
+                        propertyId:
+                            state.uri.queryParameters['propertyId'] ?? '',
+                        unitId: state.pathParameters['unitId'],
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.blockCreatePath,
+                    name: Routes.blockCreate,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: BlockFormScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.unitCreatePath,
+                    name: Routes.unitCreate,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: UnitFormScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                        blockId: state.uri.queryParameters['blockId'],
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.blocksPath,
+                    name: Routes.blocks,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: BlocksScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.propertyEditPath,
+                    name: Routes.propertyEdit,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: PropertyEditScreen(
+                        propertyId: state.pathParameters['propertyId']!,
+                      ),
+                    ),
+                  ),
                   GoRoute(
                     path: Routes.ownerPropertyPath,
                     name: Routes.ownerProperty,
@@ -529,6 +701,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                   GoRoute(
+                    path: Routes.tenantInvoicesPath,
+                    name: Routes.tenantInvoices,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: TenantInvoicesScreen(
+                        tenantId: state.pathParameters['tenantId']!,
+                        tenantName:
+                            state.uri.queryParameters['name'] ?? 'This tenant',
+                      ),
+                    ),
+                  ),
+                  GoRoute(
                     path: Routes.ownerTenancyPath,
                     name: Routes.ownerTenancy,
                     pageBuilder: (_, state) => lateralPage(
@@ -559,6 +743,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       child: const OwnerPayoutsScreen(),
                     ),
                   ),
+                  GoRoute(
+                    path: Routes.mpesaTransactionsPath,
+                    name: Routes.mpesaTransactions,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const MpesaTransactionsScreen(),
+                    ),
+                  ),
+                  // Before the plain `bank` route, which would otherwise
+                  // match first.
+                  GoRoute(
+                    path: Routes.bankPaymentEditPath,
+                    name: Routes.bankPaymentEdit,
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: BankPaymentEditScreen(
+                        paymentId: state.pathParameters['paymentId']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.bankPaymentsPath,
+                    name: Routes.bankPayments,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: const BankPaymentsScreen(),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -571,6 +784,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: Routes.ownerAccountPath,
                 name: Routes.ownerAccount,
                 builder: (_, _) => const OwnerAccountScreen(),
+                routes: [
+                  // The two-segment patterns come first, for the ordering
+                  // reason that runs through this file.
+                  GoRoute(
+                    path: Routes.accessUserPath,
+                    name: Routes.accessUser,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: UserAccessScreen(
+                        phoneNumber: state.pathParameters['phoneNumber']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.accessRolePath,
+                    name: Routes.accessRole,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: RoleClaimsScreen(
+                        roleName: state.pathParameters['roleName']!,
+                      ),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.accessUsersPath,
+                    name: Routes.accessUsers,
+                    pageBuilder: (_, state) =>
+                        lateralPage(state: state, child: const UsersScreen()),
+                  ),
+                  GoRoute(
+                    path: Routes.accessRolesPath,
+                    name: Routes.accessRoles,
+                    pageBuilder: (_, state) =>
+                        lateralPage(state: state, child: const RolesScreen()),
+                  ),
+                ],
               ),
             ],
           ),

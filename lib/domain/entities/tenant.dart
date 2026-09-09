@@ -164,8 +164,8 @@ class Document {
   final String? status;
   final DateTime createdAt;
 
-  bool get isPdf => mimeType == 'application/pdf' ||
-      fileName.toLowerCase().endsWith('.pdf');
+  bool get isPdf =>
+      mimeType == 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
 
   String get sizeLabel {
     final size = fileSize;

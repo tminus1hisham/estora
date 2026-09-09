@@ -111,7 +111,9 @@ class _Roll extends StatelessWidget {
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
@@ -233,9 +235,9 @@ class _RentSheetState extends ConsumerState<_RentSheet> {
 
     switch (result) {
       case Err(:final failure):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ownerFailureMessage(failure))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(ownerFailureMessage(failure))));
       case Ok():
         Navigator.of(context).pop();
     }

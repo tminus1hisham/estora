@@ -192,6 +192,11 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => context.pushNamed(Routes.bookings),
               ),
               _NavTile(
+                icon: Icons.lock_outline_rounded,
+                label: 'Sign-in and security',
+                onTap: () => context.pushNamed(Routes.security),
+              ),
+              _NavTile(
                 icon: Icons.settings_outlined,
                 label: 'Settings',
                 onTap: () => context.pushNamed(Routes.settings),

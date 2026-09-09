@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mall/core/error/failure.dart';
 import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/booking.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/services/mock/mock_repositories.dart';
 import 'package:mall/services/mock/mock_server.dart';
@@ -11,6 +12,26 @@ import 'package:mall/services/mock/mock_server.dart';
 /// Initiating a payment returns a non-terminal status; the outcome only appears
 /// once the simulated provider callback has run, which is exactly the shape
 /// section 39 requires of the real thing.
+/// The applicant every booking in this file is made by.
+///
+/// The published contract wants the person on the request rather than read off
+/// the session. None of these cases turn on who is asking, so one stand-in
+/// serves them all and keeps the assertions about what they are about.
+const _applicant = BookingApplicant(
+  fullName: 'Amina Wanjiru',
+  phoneNumber: '254712345678',
+  email: 'amina@example.co.ke',
+);
+
+/// The amount passed to `initiatePayment`.
+///
+/// Deliberately not the invoice total. The contract requires a figure on the
+/// request, and the mock server ignores it and charges what the invoice says —
+/// which is the behaviour these tests exist to hold. If a change ever made the
+/// client's figure decide the charge, the assertions below would break, and
+/// that is the point.
+final _statedAmount = Money.fromMajor(1, 'KES');
+
 void main() {
   late MockServer server;
   late MockPaymentRepository payments;
@@ -48,6 +69,7 @@ void main() {
       final intent = await payments.initiatePayment(
         invoiceId: outstandingInvoiceId(),
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'key-1',
       );
 
@@ -63,6 +85,7 @@ void main() {
       final intent = await payments.initiatePayment(
         invoiceId: invoiceId,
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'key-1',
       );
 
@@ -81,6 +104,7 @@ void main() {
       final intent = await payments.initiatePayment(
         invoiceId: outstandingInvoiceId(),
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'key-1',
         // The mock fails any number ending 0000, so the unhappy path is
         // reachable without breaking anything.
@@ -102,6 +126,7 @@ void main() {
       await payments.initiatePayment(
         invoiceId: invoiceId,
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'key-1',
         phoneNumber: '+254700000000',
       );
@@ -122,6 +147,7 @@ void main() {
         final intent = await payments.initiatePayment(
           invoiceId: invoiceId,
           method: PaymentMethod.mpesa,
+          amount: _statedAmount,
           idempotencyKey: 'key-1',
         );
         await settle();
@@ -141,6 +167,7 @@ void main() {
       final intent = await payments.initiatePayment(
         invoiceId: outstandingInvoiceId(),
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'key-1',
       );
       await settle();
@@ -167,6 +194,7 @@ void main() {
         await payments.initiatePayment(
           invoiceId: invoiceId,
           method: PaymentMethod.mpesa,
+          amount: _statedAmount,
           idempotencyKey: 'key-1',
         );
         await settle();
@@ -231,6 +259,7 @@ void main() {
       final result = await payments.initiatePayment(
         invoiceId: paid.id,
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'key-1',
       );
 
@@ -247,6 +276,7 @@ void main() {
         await payments.initiatePayment(
           invoiceId: invoiceId,
           method: PaymentMethod.mpesa,
+          amount: _statedAmount,
           idempotencyKey: 'key-1',
         );
         await settle();
@@ -263,6 +293,7 @@ void main() {
     test('paying the deposit generates a lease awaiting signature', () async {
       final booking = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'booking-key',
       );
 
@@ -270,6 +301,7 @@ void main() {
       await payments.initiatePayment(
         invoiceId: booking.value.bookingFeeInvoiceId!,
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'fee-key',
       );
       await settle();
@@ -293,6 +325,7 @@ void main() {
       await payments.initiatePayment(
         invoiceId: active.value.depositInvoiceId!,
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'deposit-key',
       );
       await settle();

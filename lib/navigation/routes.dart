@@ -21,6 +21,12 @@ class Routes {
   static const forgotPassword = 'forgot-password';
   static const forgotPasswordPath = '/forgot-password';
 
+  /// Finishes the reset begun on [forgotPassword], with the token that was
+  /// sent. Reachable without a session — whoever is here could not sign in,
+  /// which is the whole reason they are here.
+  static const resetPassword = 'reset-password';
+  static const resetPasswordPath = '/reset-password';
+
   // -- Shell tabs (section 45) ----------------------------------------------
   static const home = 'home';
   static const homePath = '/home';
@@ -87,6 +93,12 @@ class Routes {
   static const ownerTenancy = 'owner-tenancy';
   static const ownerTenancyPath = ':leaseId';
 
+  /// A tenant's invoices, read from the landlord's side. Keyed on the tenant
+  /// rather than the lease, because that is what the contract's invoice route
+  /// is keyed on.
+  static const tenantInvoices = 'tenant-invoices';
+  static const tenantInvoicesPath = 'tenant/:tenantId/invoices';
+
   /// The tenant's read-only agreement screen, reached from the owner's side.
   ///
   /// Under `/owner` for the same reason as [ownerPreview]: the redirect keeps
@@ -96,6 +108,56 @@ class Routes {
 
   static const ownerPayouts = 'owner-payouts';
   static const ownerPayoutsPath = 'payouts';
+
+  // -- Property structure ---------------------------------------------------
+  //
+  // Blocks and units, under the properties branch. A block's own routes are
+  // keyed on the block rather than nested under its property: a block already
+  // knows which property it belongs to, and repeating that in the path would
+  // mean every link needed both ids to hand.
+  static const propertyEdit = 'property-edit';
+  static const propertyEditPath = ':propertyId/edit';
+
+  static const blocks = 'blocks';
+  static const blocksPath = ':propertyId/blocks';
+
+  static const blockCreate = 'block-create';
+  static const blockCreatePath = ':propertyId/blocks/new';
+
+  static const blockDetail = 'block-detail';
+  static const blockDetailPath = 'block/:blockId';
+
+  static const blockEdit = 'block-edit';
+  static const blockEditPath = 'block/:blockId/edit';
+
+  static const unitCreate = 'unit-create';
+  static const unitCreatePath = ':propertyId/units/new';
+
+  static const unitEdit = 'unit-edit';
+  static const unitEditPath = 'unit/:unitId/edit';
+
+  // -- Treasury (under the money tab) ---------------------------------------
+  static const mpesaTransactions = 'mpesa-transactions';
+  static const mpesaTransactionsPath = 'mpesa';
+
+  static const bankPayments = 'bank-payments';
+  static const bankPaymentsPath = 'bank';
+
+  static const bankPaymentEdit = 'bank-payment-edit';
+  static const bankPaymentEditPath = 'bank/:paymentId';
+
+  // -- Access control (under the owner account tab) -------------------------
+  static const accessUsers = 'access-users';
+  static const accessUsersPath = 'users';
+
+  static const accessUser = 'access-user';
+  static const accessUserPath = 'users/:phoneNumber';
+
+  static const accessRoles = 'access-roles';
+  static const accessRolesPath = 'roles';
+
+  static const accessRole = 'access-role';
+  static const accessRolePath = 'roles/:roleName';
 
   // -- Browse sub-routes ----------------------------------------------------
   static const propertyDetail = 'property-detail';
@@ -148,6 +210,26 @@ class Routes {
 
   static const settings = 'settings';
   static const settingsPath = 'settings';
+
+  /// Everything to do with credentials, gathered in one place: the password,
+  /// two-factor authentication, and confirming the email and phone number on
+  /// the account.
+  static const security = 'security';
+  static const securityPath = 'security';
+
+  static const changePassword = 'change-password';
+  static const changePasswordPath = 'security/password';
+
+  /// `channel` is `email` or `phone`.
+  static const verifyContact = 'verify-contact';
+  static const verifyContactPath = 'security/verify/:channel';
+
+  // -- Paying an invoice another way ----------------------------------------
+  static const bankTransfer = 'bank-transfer';
+  static const bankTransferPath = ':invoiceId/bank-transfer';
+
+  static const deferInvoice = 'defer-invoice';
+  static const deferInvoicePath = ':invoiceId/defer';
 
   static const editProfile = 'edit-profile';
   static const editProfilePath = 'edit';

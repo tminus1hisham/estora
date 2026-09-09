@@ -29,8 +29,36 @@ class InvoiceDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final invoice = ref.watch(invoiceDetailProvider(invoiceId));
 
+    // The two ways of dealing with an invoice that are not "pay it now": tell
+    // us about a payment made at a bank, and ask for more time. Both are real
+    // and neither belongs on the primary action, so they sit in the overflow
+    // rather than competing with it.
+    final payable = invoice.value?.isPayable ?? false;
+
     return Scaffold(
-      appBar: AppBar(title: Text(invoice.value?.invoiceNumber ?? 'Invoice')),
+      appBar: AppBar(
+        title: Text(invoice.value?.invoiceNumber ?? 'Invoice'),
+        actions: [
+          if (payable)
+            PopupMenuButton<String>(
+              onSelected: (action) => context.pushNamed(
+                action == 'bank' ? Routes.bankTransfer : Routes.deferInvoice,
+                pathParameters: {'invoiceId': invoiceId},
+              ),
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'bank',
+                  child: Text('I paid by bank transfer'),
+                ),
+                if (invoice.requireValue.canRequestDeferral)
+                  const PopupMenuItem(
+                    value: 'defer',
+                    child: Text('Request more time'),
+                  ),
+              ],
+            ),
+        ],
+      ),
       body: switch (invoice) {
         AsyncLoading() when !invoice.hasValue => const AppSkeletonDetail(
           heroHeight: 260,

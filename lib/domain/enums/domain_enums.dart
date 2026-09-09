@@ -25,6 +25,28 @@ T _parse<T>(String? raw, List<T> values, String Function(T) wire, T fallback) {
   return fallback;
 }
 
+/// Resolves an enum the API sends as an ordinal.
+///
+/// The published contract (`api.md`) transmits every enumeration as an integer
+/// — `"status": 3` — while the app's own wire format is the SCREAMING_SNAKE
+/// string. Both are accepted here: a numeric value resolves through [codes], a
+/// textual one falls through to [byName], so a server that switches to names
+/// later needs no client change. Anything unrecognised degrades to [fallback]
+/// rather than throwing, for the same reason `unknown` exists at all.
+T _parseCode<T>(
+  Object? raw,
+  Map<int, T> codes,
+  T Function(String?) byName,
+  T fallback,
+) {
+  if (raw == null) return fallback;
+  if (raw is num) return codes[raw.toInt()] ?? fallback;
+  final text = raw.toString().trim();
+  final ordinal = int.tryParse(text);
+  if (ordinal != null) return codes[ordinal] ?? fallback;
+  return byName(text);
+}
+
 // ---------------------------------------------------------------------------
 // Section 11 - Property
 // ---------------------------------------------------------------------------
@@ -36,6 +58,7 @@ enum PropertyType {
   warehouse,
   businessCenter,
   mixedUse,
+  commercialBuilding,
   other,
   unknown;
 
@@ -46,29 +69,58 @@ enum PropertyType {
     PropertyType.warehouse => 'WAREHOUSE',
     PropertyType.businessCenter => 'BUSINESS_CENTER',
     PropertyType.mixedUse => 'MIXED_USE',
+    PropertyType.commercialBuilding => 'COMMERCIAL_BUILDING',
     PropertyType.other => 'OTHER',
     PropertyType.unknown => 'UNKNOWN',
   };
 
   String get label => switch (this) {
     PropertyType.mall => 'Mall',
-    PropertyType.retailCenter => 'Retail centre',
-    PropertyType.office => 'Office',
+    PropertyType.retailCenter => 'Shopping centre',
+    PropertyType.office => 'Office building',
     PropertyType.warehouse => 'Warehouse',
     PropertyType.businessCenter => 'Business centre',
     PropertyType.mixedUse => 'Mixed use',
+    PropertyType.commercialBuilding => 'Commercial building',
     PropertyType.other => 'Other',
     PropertyType.unknown => 'Property',
   };
 
+  /// The contract's ordinal. `other` has none — it is the app's own catch-all,
+  /// so it is sent as the nearest thing the server understands.
+  int get code => switch (this) {
+    PropertyType.mall => 0,
+    PropertyType.retailCenter => 1,
+    PropertyType.office => 2,
+    PropertyType.warehouse => 3,
+    PropertyType.businessCenter => 4,
+    PropertyType.mixedUse => 5,
+    PropertyType.commercialBuilding => 6,
+    PropertyType.other || PropertyType.unknown => 6,
+  };
+
+  static const Map<int, PropertyType> _codes = {
+    0: PropertyType.mall,
+    1: PropertyType.retailCenter,
+    2: PropertyType.office,
+    3: PropertyType.warehouse,
+    4: PropertyType.businessCenter,
+    5: PropertyType.mixedUse,
+    6: PropertyType.commercialBuilding,
+  };
+
   static PropertyType fromApi(String? raw) =>
       _parse(raw, values, (v) => v.api, PropertyType.unknown);
+
+  static PropertyType fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, PropertyType.unknown);
 }
 
 enum PropertyStatus {
   active,
   inactive,
   underConstruction,
+  underMaintenance,
   archived,
   unknown;
 
@@ -76,6 +128,7 @@ enum PropertyStatus {
     PropertyStatus.active => 'ACTIVE',
     PropertyStatus.inactive => 'INACTIVE',
     PropertyStatus.underConstruction => 'UNDER_CONSTRUCTION',
+    PropertyStatus.underMaintenance => 'UNDER_MAINTENANCE',
     PropertyStatus.archived => 'ARCHIVED',
     PropertyStatus.unknown => 'UNKNOWN',
   };
@@ -84,20 +137,116 @@ enum PropertyStatus {
     PropertyStatus.active => 'Active',
     PropertyStatus.inactive => 'Inactive',
     PropertyStatus.underConstruction => 'Under construction',
+    PropertyStatus.underMaintenance => 'Under maintenance',
     PropertyStatus.archived => 'Archived',
     PropertyStatus.unknown => 'Unknown',
   };
 
   StatusTone get tone => switch (this) {
     PropertyStatus.active => StatusTone.positive,
-    PropertyStatus.underConstruction => StatusTone.warning,
+    PropertyStatus.underConstruction ||
+    PropertyStatus.underMaintenance => StatusTone.warning,
     PropertyStatus.inactive ||
     PropertyStatus.archived ||
     PropertyStatus.unknown => StatusTone.neutral,
   };
 
+  /// The contract has no `UnderConstruction` for a property — that state
+  /// belongs to a block. It is sent as maintenance, the nearest thing the
+  /// server will accept, rather than silently as `Active`.
+  int get code => switch (this) {
+    PropertyStatus.active => 0,
+    PropertyStatus.inactive => 1,
+    PropertyStatus.underMaintenance || PropertyStatus.underConstruction => 2,
+    PropertyStatus.archived => 3,
+    PropertyStatus.unknown => 0,
+  };
+
+  static const Map<int, PropertyStatus> _codes = {
+    0: PropertyStatus.active,
+    1: PropertyStatus.inactive,
+    2: PropertyStatus.underMaintenance,
+    3: PropertyStatus.archived,
+  };
+
   static PropertyStatus fromApi(String? raw) =>
       _parse(raw, values, (v) => v.api, PropertyStatus.unknown);
+
+  static PropertyStatus fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, PropertyStatus.unknown);
+}
+
+// ---------------------------------------------------------------------------
+// Blocks (`PropertyBlock.status`)
+// ---------------------------------------------------------------------------
+
+/// A block's own lifecycle, which is not the property's.
+///
+/// A wing can be under construction while the mall around it trades, and the
+/// contract models that separately — hence a separate enum rather than reusing
+/// [PropertyStatus] and losing the distinction.
+enum BlockStatus {
+  active,
+  inactive,
+  underConstruction,
+  underMaintenance,
+  archived,
+  unknown;
+
+  String get label => switch (this) {
+    BlockStatus.active => 'Active',
+    BlockStatus.inactive => 'Inactive',
+    BlockStatus.underConstruction => 'Under construction',
+    BlockStatus.underMaintenance => 'Under maintenance',
+    BlockStatus.archived => 'Archived',
+    BlockStatus.unknown => 'Unknown',
+  };
+
+  StatusTone get tone => switch (this) {
+    BlockStatus.active => StatusTone.positive,
+    BlockStatus.underConstruction ||
+    BlockStatus.underMaintenance => StatusTone.warning,
+    BlockStatus.inactive ||
+    BlockStatus.archived ||
+    BlockStatus.unknown => StatusTone.neutral,
+  };
+
+  int get code => switch (this) {
+    BlockStatus.active => 0,
+    BlockStatus.inactive => 1,
+    BlockStatus.underConstruction => 2,
+    BlockStatus.underMaintenance => 3,
+    BlockStatus.archived => 4,
+    BlockStatus.unknown => 0,
+  };
+
+  String get api => switch (this) {
+    BlockStatus.active => 'ACTIVE',
+    BlockStatus.inactive => 'INACTIVE',
+    BlockStatus.underConstruction => 'UNDER_CONSTRUCTION',
+    BlockStatus.underMaintenance => 'UNDER_MAINTENANCE',
+    BlockStatus.archived => 'ARCHIVED',
+    BlockStatus.unknown => 'UNKNOWN',
+  };
+
+  /// The states an owner may choose from. `unknown` is a parsing outcome, not
+  /// something anyone sets.
+  static List<BlockStatus> get selectable =>
+      values.where((value) => value != BlockStatus.unknown).toList();
+
+  static const Map<int, BlockStatus> _codes = {
+    0: BlockStatus.active,
+    1: BlockStatus.inactive,
+    2: BlockStatus.underConstruction,
+    3: BlockStatus.underMaintenance,
+    4: BlockStatus.archived,
+  };
+
+  static BlockStatus fromApi(String? raw) =>
+      _parse(raw, values, (v) => v.api, BlockStatus.unknown);
+
+  static BlockStatus fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, BlockStatus.unknown);
 }
 
 // ---------------------------------------------------------------------------
@@ -154,8 +303,172 @@ enum UnitStatus {
   /// went stale still has to be able to come back with a conflict.
   bool get isBookable => this == UnitStatus.available;
 
+  int get code => switch (this) {
+    UnitStatus.available => 0,
+    UnitStatus.booked => 1,
+    UnitStatus.reserved => 2,
+    UnitStatus.leased => 3,
+    UnitStatus.blocked => 4,
+    UnitStatus.underMaintenance => 5,
+    UnitStatus.unavailable || UnitStatus.unknown => 6,
+  };
+
+  static const Map<int, UnitStatus> _codes = {
+    0: UnitStatus.available,
+    1: UnitStatus.booked,
+    2: UnitStatus.reserved,
+    3: UnitStatus.leased,
+    4: UnitStatus.blocked,
+    5: UnitStatus.underMaintenance,
+    6: UnitStatus.unavailable,
+  };
+
   static UnitStatus fromApi(String? raw) =>
       _parse(raw, values, (v) => v.api, UnitStatus.unknown);
+
+  static UnitStatus fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, UnitStatus.unknown);
+}
+
+/// What kind of space a unit is.
+///
+/// Named `UnitCategory` rather than `UnitType` because that name is already
+/// taken by the batch-creation template in `entities/unit.dart`. The contract
+/// calls this field `type` on `PropertyUnit`; the template is a different idea
+/// with the same word attached to it.
+enum UnitCategory {
+  shop,
+  kiosk,
+  office,
+  restaurant,
+  foodCourt,
+  supermarket,
+  entertainment,
+  storage,
+  parkingSpace,
+  billboard,
+  other,
+  unknown;
+
+  String get label => switch (this) {
+    UnitCategory.shop => 'Shop',
+    UnitCategory.kiosk => 'Kiosk',
+    UnitCategory.office => 'Office',
+    UnitCategory.restaurant => 'Restaurant',
+    UnitCategory.foodCourt => 'Food court',
+    UnitCategory.supermarket => 'Supermarket',
+    UnitCategory.entertainment => 'Entertainment',
+    UnitCategory.storage => 'Storage',
+    UnitCategory.parkingSpace => 'Parking space',
+    UnitCategory.billboard => 'Billboard',
+    UnitCategory.other => 'Other',
+    UnitCategory.unknown => 'Unit',
+  };
+
+  String get api => switch (this) {
+    UnitCategory.shop => 'SHOP',
+    UnitCategory.kiosk => 'KIOSK',
+    UnitCategory.office => 'OFFICE',
+    UnitCategory.restaurant => 'RESTAURANT',
+    UnitCategory.foodCourt => 'FOOD_COURT',
+    UnitCategory.supermarket => 'SUPERMARKET',
+    UnitCategory.entertainment => 'ENTERTAINMENT',
+    UnitCategory.storage => 'STORAGE',
+    UnitCategory.parkingSpace => 'PARKING_SPACE',
+    UnitCategory.billboard => 'BILLBOARD',
+    UnitCategory.other => 'OTHER',
+    UnitCategory.unknown => 'UNKNOWN',
+  };
+
+  int get code => switch (this) {
+    UnitCategory.shop => 0,
+    UnitCategory.kiosk => 1,
+    UnitCategory.office => 2,
+    UnitCategory.restaurant => 3,
+    UnitCategory.foodCourt => 4,
+    UnitCategory.supermarket => 5,
+    UnitCategory.entertainment => 6,
+    UnitCategory.storage => 7,
+    UnitCategory.parkingSpace => 8,
+    UnitCategory.billboard => 9,
+    UnitCategory.other || UnitCategory.unknown => 10,
+  };
+
+  static List<UnitCategory> get selectable =>
+      values.where((value) => value != UnitCategory.unknown).toList();
+
+  static const Map<int, UnitCategory> _codes = {
+    0: UnitCategory.shop,
+    1: UnitCategory.kiosk,
+    2: UnitCategory.office,
+    3: UnitCategory.restaurant,
+    4: UnitCategory.foodCourt,
+    5: UnitCategory.supermarket,
+    6: UnitCategory.entertainment,
+    7: UnitCategory.storage,
+    8: UnitCategory.parkingSpace,
+    9: UnitCategory.billboard,
+    10: UnitCategory.other,
+  };
+
+  static UnitCategory fromApi(String? raw) =>
+      _parse(raw, values, (v) => v.api, UnitCategory.unknown);
+
+  static UnitCategory fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, UnitCategory.unknown);
+}
+
+/// Where a tenant stands with the landlord, independent of any one lease.
+enum TenantStatus {
+  active,
+  inactive,
+  blacklisted,
+  suspended,
+  unknown;
+
+  String get label => switch (this) {
+    TenantStatus.active => 'Active',
+    TenantStatus.inactive => 'Inactive',
+    TenantStatus.blacklisted => 'Blacklisted',
+    TenantStatus.suspended => 'Suspended',
+    TenantStatus.unknown => 'Unknown',
+  };
+
+  StatusTone get tone => switch (this) {
+    TenantStatus.active => StatusTone.positive,
+    TenantStatus.suspended => StatusTone.warning,
+    TenantStatus.blacklisted => StatusTone.danger,
+    TenantStatus.inactive || TenantStatus.unknown => StatusTone.neutral,
+  };
+
+  String get api => switch (this) {
+    TenantStatus.active => 'ACTIVE',
+    TenantStatus.inactive => 'INACTIVE',
+    TenantStatus.blacklisted => 'BLACKLISTED',
+    TenantStatus.suspended => 'SUSPENDED',
+    TenantStatus.unknown => 'UNKNOWN',
+  };
+
+  int get code => switch (this) {
+    TenantStatus.active => 0,
+    TenantStatus.inactive => 1,
+    TenantStatus.blacklisted => 2,
+    TenantStatus.suspended => 3,
+    TenantStatus.unknown => 0,
+  };
+
+  static const Map<int, TenantStatus> _codes = {
+    0: TenantStatus.active,
+    1: TenantStatus.inactive,
+    2: TenantStatus.blacklisted,
+    3: TenantStatus.suspended,
+  };
+
+  static TenantStatus fromApi(String? raw) =>
+      _parse(raw, values, (v) => v.api, TenantStatus.unknown);
+
+  static TenantStatus fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, TenantStatus.unknown);
 }
 
 // ---------------------------------------------------------------------------
@@ -229,8 +542,30 @@ enum BookingStatus {
     _ => false,
   };
 
+  int get code => switch (this) {
+    BookingStatus.draft ||
+    BookingStatus.pendingPayment ||
+    BookingStatus.paymentPending => 0,
+    BookingStatus.active => 1,
+    BookingStatus.expired => 2,
+    BookingStatus.cancelled || BookingStatus.rejected => 3,
+    BookingStatus.convertedToLease => 4,
+    BookingStatus.unknown => 0,
+  };
+
+  static const Map<int, BookingStatus> _codes = {
+    0: BookingStatus.pendingPayment,
+    1: BookingStatus.active,
+    2: BookingStatus.expired,
+    3: BookingStatus.cancelled,
+    4: BookingStatus.convertedToLease,
+  };
+
   static BookingStatus fromApi(String? raw) =>
       _parse(raw, values, (v) => v.api, BookingStatus.unknown);
+
+  static BookingStatus fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, BookingStatus.unknown);
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +579,7 @@ enum LeaseStatus {
   signed,
   active,
   expiring,
+  terminationRequested,
   expired,
   terminated,
   cancelled,
@@ -256,6 +592,7 @@ enum LeaseStatus {
     LeaseStatus.signed => 'SIGNED',
     LeaseStatus.active => 'ACTIVE',
     LeaseStatus.expiring => 'EXPIRING',
+    LeaseStatus.terminationRequested => 'TERMINATION_REQUESTED',
     LeaseStatus.expired => 'EXPIRED',
     LeaseStatus.terminated => 'TERMINATED',
     LeaseStatus.cancelled => 'CANCELLED',
@@ -269,6 +606,7 @@ enum LeaseStatus {
     LeaseStatus.signed => 'Signed',
     LeaseStatus.active => 'Active',
     LeaseStatus.expiring => 'Expiring soon',
+    LeaseStatus.terminationRequested => 'Termination requested',
     LeaseStatus.expired => 'Expired',
     LeaseStatus.terminated => 'Terminated',
     LeaseStatus.cancelled => 'Cancelled',
@@ -280,12 +618,42 @@ enum LeaseStatus {
     LeaseStatus.pendingSignature ||
     LeaseStatus.partiallySigned => StatusTone.progress,
     LeaseStatus.signed => StatusTone.info,
-    LeaseStatus.draft || LeaseStatus.expiring => StatusTone.warning,
+    LeaseStatus.draft ||
+    LeaseStatus.expiring ||
+    LeaseStatus.terminationRequested => StatusTone.warning,
     LeaseStatus.terminated => StatusTone.danger,
     LeaseStatus.expired ||
     LeaseStatus.cancelled ||
     LeaseStatus.unknown => StatusTone.neutral,
   };
+
+  int get code => switch (this) {
+    LeaseStatus.draft => 0,
+    LeaseStatus.pendingSignature || LeaseStatus.partiallySigned => 1,
+    LeaseStatus.signed => 2,
+    LeaseStatus.active => 3,
+    LeaseStatus.expiring => 4,
+    LeaseStatus.terminationRequested => 5,
+    LeaseStatus.terminated => 6,
+    LeaseStatus.expired => 7,
+    LeaseStatus.cancelled => 8,
+    LeaseStatus.unknown => 0,
+  };
+
+  static const Map<int, LeaseStatus> _codes = {
+    0: LeaseStatus.draft,
+    1: LeaseStatus.pendingSignature,
+    2: LeaseStatus.signed,
+    3: LeaseStatus.active,
+    4: LeaseStatus.expiring,
+    5: LeaseStatus.terminationRequested,
+    6: LeaseStatus.terminated,
+    7: LeaseStatus.expired,
+    8: LeaseStatus.cancelled,
+  };
+
+  static LeaseStatus fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, LeaseStatus.unknown);
 
   /// The tenant still owes a signature (section 29).
   bool get needsTenantSignature => switch (this) {
@@ -375,11 +743,17 @@ enum InvoiceLineType {
   deposit,
   bookingFee,
   serviceCharge,
+  utility,
   electricity,
   water,
   internet,
   parking,
+  maintenance,
+  penalty,
   lateFee,
+  adjustment,
+  creditNote,
+  debitNote,
   other,
   unknown;
 
@@ -388,11 +762,17 @@ enum InvoiceLineType {
     InvoiceLineType.deposit => 'DEPOSIT',
     InvoiceLineType.bookingFee => 'BOOKING_FEE',
     InvoiceLineType.serviceCharge => 'SERVICE_CHARGE',
+    InvoiceLineType.utility => 'UTILITY',
     InvoiceLineType.electricity => 'ELECTRICITY',
     InvoiceLineType.water => 'WATER',
     InvoiceLineType.internet => 'INTERNET',
     InvoiceLineType.parking => 'PARKING',
+    InvoiceLineType.maintenance => 'MAINTENANCE',
+    InvoiceLineType.penalty => 'PENALTY',
     InvoiceLineType.lateFee => 'LATE_FEE',
+    InvoiceLineType.adjustment => 'ADJUSTMENT',
+    InvoiceLineType.creditNote => 'CREDIT_NOTE',
+    InvoiceLineType.debitNote => 'DEBIT_NOTE',
     InvoiceLineType.other => 'OTHER',
     InvoiceLineType.unknown => 'UNKNOWN',
   };
@@ -402,17 +782,62 @@ enum InvoiceLineType {
     InvoiceLineType.deposit => 'Deposit',
     InvoiceLineType.bookingFee => 'Booking fee',
     InvoiceLineType.serviceCharge => 'Service charge',
+    InvoiceLineType.utility => 'Utility',
     InvoiceLineType.electricity => 'Electricity',
     InvoiceLineType.water => 'Water',
     InvoiceLineType.internet => 'Internet',
     InvoiceLineType.parking => 'Parking',
+    InvoiceLineType.maintenance => 'Maintenance',
+    InvoiceLineType.penalty => 'Penalty',
     InvoiceLineType.lateFee => 'Late fee',
+    InvoiceLineType.adjustment => 'Adjustment',
+    InvoiceLineType.creditNote => 'Credit note',
+    InvoiceLineType.debitNote => 'Debit note',
     InvoiceLineType.other => 'Other',
     InvoiceLineType.unknown => 'Other',
   };
 
+  /// The contract's `InvoiceType`. The app's finer utility lines — electricity,
+  /// water, internet, parking — all collapse onto the server's single
+  /// `Utility`, and a late fee onto `Penalty`, since those are the only codes
+  /// it accepts.
+  int get code => switch (this) {
+    InvoiceLineType.rent => 0,
+    InvoiceLineType.deposit => 1,
+    InvoiceLineType.bookingFee => 2,
+    InvoiceLineType.serviceCharge => 3,
+    InvoiceLineType.utility ||
+    InvoiceLineType.electricity ||
+    InvoiceLineType.water ||
+    InvoiceLineType.internet ||
+    InvoiceLineType.parking => 4,
+    InvoiceLineType.maintenance => 5,
+    InvoiceLineType.penalty || InvoiceLineType.lateFee => 6,
+    InvoiceLineType.adjustment => 7,
+    InvoiceLineType.creditNote => 8,
+    InvoiceLineType.debitNote => 9,
+    InvoiceLineType.other || InvoiceLineType.unknown => 10,
+  };
+
+  static const Map<int, InvoiceLineType> _codes = {
+    0: InvoiceLineType.rent,
+    1: InvoiceLineType.deposit,
+    2: InvoiceLineType.bookingFee,
+    3: InvoiceLineType.serviceCharge,
+    4: InvoiceLineType.utility,
+    5: InvoiceLineType.maintenance,
+    6: InvoiceLineType.penalty,
+    7: InvoiceLineType.adjustment,
+    8: InvoiceLineType.creditNote,
+    9: InvoiceLineType.debitNote,
+    10: InvoiceLineType.other,
+  };
+
   static InvoiceLineType fromApi(String? raw) =>
       _parse(raw, values, (v) => v.api, InvoiceLineType.unknown);
+
+  static InvoiceLineType fromCode(Object? raw) =>
+      _parseCode(raw, _codes, fromApi, InvoiceLineType.unknown);
 }
 
 // ---------------------------------------------------------------------------
@@ -645,6 +1070,21 @@ enum AccountRole {
     AccountRole.tenant => 'TENANT',
     AccountRole.owner => 'OWNER',
     AccountRole.unknown => 'UNKNOWN',
+  };
+
+  /// The role's name as the server's own role table spells it.
+  ///
+  /// Registration is the one place a role is *sent* rather than read, and the
+  /// server matches it against `name` — `Tenant` — not against the normalised
+  /// `TENANT` that [api] carries. Sending the latter is refused outright with
+  /// "Role Not Found", so the two cannot be the same string.
+  ///
+  /// Reading is unaffected: [fromApi] upper-cases before it compares, so a
+  /// server that answers `Tenant`, `TENANT` or `tenant` all resolve.
+  String get roleName => switch (this) {
+    AccountRole.tenant => 'Tenant',
+    AccountRole.owner => 'Owner',
+    AccountRole.unknown => 'Unknown',
   };
 
   String get label => switch (this) {

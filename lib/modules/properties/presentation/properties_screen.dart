@@ -300,7 +300,8 @@ class _PropertyCard extends StatelessWidget {
   ) => switch (property.propertyType) {
     PropertyType.mall || PropertyType.retailCenter => Icons.local_mall_outlined,
     PropertyType.office ||
-    PropertyType.businessCenter => Icons.apartment_rounded,
+    PropertyType.businessCenter ||
+    PropertyType.commercialBuilding => Icons.apartment_rounded,
     PropertyType.warehouse => Icons.warehouse_outlined,
     PropertyType.mixedUse => Icons.domain_outlined,
     PropertyType.other || PropertyType.unknown => Icons.location_city_rounded,

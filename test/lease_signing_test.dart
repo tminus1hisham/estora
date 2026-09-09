@@ -1,10 +1,33 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mall/core/error/failure.dart';
+import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/booking.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/services/mock/mock_repositories.dart';
 import 'package:mall/services/mock/mock_server.dart';
 
 /// Section 93's lease cases, covering sections 28 to 30.
+
+/// The applicant every booking in this file is made by.
+///
+/// The published contract wants the person on the request rather than read off
+/// the session. None of these cases turn on who is asking, so one stand-in
+/// serves them all and keeps the assertions about what they are about.
+const _applicant = BookingApplicant(
+  fullName: 'Amina Wanjiru',
+  phoneNumber: '254712345678',
+  email: 'amina@example.co.ke',
+);
+
+/// The amount passed to `initiatePayment`.
+///
+/// Deliberately not the invoice total. The contract requires a figure on the
+/// request, and the mock server ignores it and charges what the invoice says —
+/// which is the behaviour these tests exist to hold. If a change ever made the
+/// client's figure decide the charge, the assertions below would break, and
+/// that is the point.
+final _statedAmount = Money.fromMajor(1, 'KES');
+
 void main() {
   late MockServer server;
   late MockLeaseRepository leases;
@@ -27,12 +50,14 @@ void main() {
   Future<String> leaseAwaitingSignature() async {
     final booking = await bookings.createBooking(
       unitId: 'unt_shop_102',
+      applicant: _applicant,
       idempotencyKey: 'booking-key',
     );
 
     await payments.initiatePayment(
       invoiceId: booking.value.bookingFeeInvoiceId!,
       method: PaymentMethod.mpesa,
+      amount: _statedAmount,
       idempotencyKey: 'fee-key',
     );
     await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -53,6 +78,7 @@ void main() {
     await payments.initiatePayment(
       invoiceId: active.value.depositInvoiceId!,
       method: PaymentMethod.mpesa,
+      amount: _statedAmount,
       idempotencyKey: 'deposit-key',
     );
     await Future<void>.delayed(const Duration(milliseconds: 50));

@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
+import '../../../services/update/app_update_service.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../notifications/application/notification_controller.dart';
 
@@ -25,6 +25,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _biometricEnabled = false;
   bool _biometricAvailable = false;
   bool _biometricBusy = false;
+  bool _updateBusy = false;
 
   @override
   void initState() {
@@ -84,6 +85,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _biometricEnabled = value;
       _biometricBusy = false;
     });
+  }
+
+  /// A check the tenant asked for, so unlike the one at launch it always says
+  /// something back — including that there is nothing to install.
+  Future<void> _checkForUpdate() async {
+    setState(() => _updateBusy = true);
+    final service = ref.read(appUpdateServiceProvider);
+    final status = await service.check();
+    if (!mounted) return;
+    setState(() => _updateBusy = false);
+
+    final message = switch (status.stance) {
+      UpdateStance.none => 'You are on the latest version.',
+      UpdateStance.readyToInstall =>
+        'An update is downloaded. Restart the app to install it.',
+      _ => 'Downloading the new version...',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+
+    // The gate around the app picks the download up from here: it is already
+    // listening for the install, and it survives leaving this screen.
+    if (status.stance == UpdateStance.none) return;
+    if (status.stance == UpdateStance.readyToInstall) {
+      await service.completeFlexible();
+    } else if (status.flexibleAllowed) {
+      await service.startFlexible();
+    } else {
+      await service.performImmediate();
+    }
   }
 
   Future<void> _confirmLogout() async {
@@ -182,7 +214,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const Divider(),
           _SectionHeader('About'),
           const ListTile(title: Text('Version'), trailing: Text('1.0.0')),
-          if (AppConfig.isMock)
+          // The app asks Play on its own at launch. This is for the tenant who
+          // has been told a fix is out and wants to go and get it rather than
+          // wait to be offered it.
+          if (AppUpdateService.isSupported)
+            ListTile(
+              leading: const Icon(Icons.system_update_outlined),
+              title: const Text('Check for updates'),
+              subtitle: Text(
+                _updateBusy ? 'Asking Google Play...' : 'Via Google Play',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              onTap: _updateBusy ? null : _checkForUpdate,
+            ),
+          if (ref.watch(isMockDataProvider))
             ListTile(
               leading: Icon(Icons.science_outlined, color: scheme.tertiary),
               title: const Text('Demo data'),

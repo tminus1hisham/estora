@@ -37,6 +37,7 @@ class AuthPage extends StatelessWidget {
     this.failure,
     this.onDismissFailure,
     this.showBackButton = true,
+    this.showBrandMark = true,
     super.key,
   });
 
@@ -57,6 +58,12 @@ class AuthPage extends StatelessWidget {
   final Failure? failure;
   final VoidCallback? onDismissFailure;
   final bool showBackButton;
+
+  /// Whether the heading carries the brand mark above it.
+  ///
+  /// The greeting and the registration screen say the name in words already;
+  /// the mark over the top of them is the same claim twice.
+  final bool showBrandMark;
 
   /// The narrowest window that can carry the heading and the console abreast.
   static const double _splitMinWidth = 720;
@@ -264,8 +271,10 @@ class AuthPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppBrandMark(size: roomy ? 68 : 56, withShadow: true),
-        Gap.h24,
+        if (showBrandMark) ...[
+          AppBrandMark(size: roomy ? 68 : 56, withShadow: true),
+          Gap.h24,
+        ],
         if (eyebrow != null) ...[
           Text(
             eyebrow!.toUpperCase(),

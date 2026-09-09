@@ -205,7 +205,11 @@ class RecordRow extends StatelessWidget {
             children: [
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [leading, Gap.w12, Expanded(child: titleBlock)],
+                children: [
+                  leading,
+                  Gap.w12,
+                  Expanded(child: titleBlock),
+                ],
               ),
               if (trailingBlock != null) ...[Gap.h12, trailingBlock],
             ],
@@ -228,10 +232,7 @@ class RecordRow extends StatelessWidget {
     );
 
     final padded = Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: Gap.lg,
-        vertical: Gap.lg,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: Gap.lg),
       child: body,
     );
 

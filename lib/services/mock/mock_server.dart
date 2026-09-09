@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:uuid/uuid.dart';
 
 import '../../core/utils/money.dart';
+import '../../core/utils/phone_number.dart';
 import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
@@ -14,6 +15,7 @@ import '../../domain/entities/tenant.dart';
 import '../../domain/entities/unit.dart';
 import '../../domain/enums/domain_enums.dart';
 import 'agreement_template.dart';
+import 'mock_back_office.dart';
 import 'mock_records.dart';
 import 'seed_data.dart';
 
@@ -87,6 +89,13 @@ class MockServer {
   /// Section 66. Maps an idempotency key to the id of the resource the first
   /// request created, so a replay returns that resource instead of creating a
   /// second one.
+  /// The treasury and identity surfaces.
+  ///
+  /// Lazy, because it seeds itself from the payments and accounts this server
+  /// creates — asking for it in the constructor would read them before they
+  /// exist.
+  late final MockBackOffice backOffice = MockBackOffice(this);
+
   final Map<String, String> _idempotency = {};
 
   /// Sequence counters behind the human-readable references in section 69.
@@ -176,14 +185,10 @@ class MockServer {
     defaultSession ??= session;
   }
 
-  /// Strips punctuation and country-code formatting so `+254 712 345678` and
-  /// `0712345678` reach the same account.
-  static String normalisePhone(String value) {
-    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-    // A leading national zero and a leading 254 are the same subscriber.
-    if (digits.startsWith('0')) return '254${digits.substring(1)}';
-    return digits;
-  }
+  /// Keys an account on the one form every number is sent in, so
+  /// `+254 712 345678`, `0712345678` and `712345678` all reach the same
+  /// account — the same rule the real API is spoken to with.
+  static String normalisePhone(String value) => PhoneNumber.normalize(value);
 
   String requestOtp(String phone) {
     final challengeId = _id('chg');
@@ -200,13 +205,34 @@ class MockServer {
     return _signIn(accountsByPhone[normalisePhone(phone)] ?? defaultSession);
   }
 
-  AuthSession? loginWithPassword(String email, String password) {
-    // Any non-empty password is accepted; this is a mock, and the real check
-    // belongs on the server.
-    if (email.trim().isEmpty || password.isEmpty) return null;
-    return _signIn(
-      accountsByEmail[email.trim().toLowerCase()] ?? defaultSession,
-    );
+  /// Passwords, once somebody has set one, keyed by normalised phone number.
+  ///
+  /// Empty to begin with, which is what lets the demo accounts sign in with
+  /// anything. The moment a password is changed or reset, the new one is
+  /// required — so those screens do something the next sign-in notices.
+  final Map<String, String> passwords = {};
+
+  /// Signs in with an identifier and a password.
+  ///
+  /// [identifier] is an email address or a phone number; both are tried,
+  /// because the published contract keys on the phone number and the demo
+  /// accounts are listed by email.
+  AuthSession? loginWithPassword(String identifier, String password) {
+    final trimmed = identifier.trim();
+    if (trimmed.isEmpty || password.isEmpty) return null;
+
+    final session =
+        accountsByEmail[trimmed.toLowerCase()] ??
+        accountsByPhone[normalisePhone(trimmed)] ??
+        defaultSession;
+
+    final phone = session?.user.phone;
+    final stored = phone == null ? null : passwords[normalisePhone(phone)];
+    // Any password is accepted until one has been set. The real check belongs
+    // on the server; this is the part of it the mock can honestly keep.
+    if (stored != null && stored != password) return null;
+
+    return _signIn(session);
   }
 
   /// Makes [session] the signed-in account.
@@ -401,6 +427,7 @@ class MockServer {
   /// a `ConflictFailure`.
   BookingRow createBooking({
     required String unitId,
+    required BookingApplicant applicant,
     required String idempotencyKey,
   }) {
     // Section 66: a retry must not create a second booking.
@@ -449,6 +476,7 @@ class MockServer {
             ),
           )
           .toList(),
+      applicant: applicant,
     );
 
     bookings[booking.id] = booking;
@@ -1433,10 +1461,7 @@ class MockServer {
       invoiceGenerationDay: 3,
       invoiceDueDay: 5,
       defaultDepositMonths: 3,
-      defaultBookingFee: Money.fromMajor(
-        10000,
-        draft.rentRatePerSqm.currency,
-      ),
+      defaultBookingFee: Money.fromMajor(10000, draft.rentRatePerSqm.currency),
       paymentGracePeriodDays: 5,
       platformFeePercent: 2,
     );
@@ -1758,7 +1783,9 @@ class MockServer {
     final mix = _mixFor(unitsHere);
 
     final activeLeases = leases.values
-        .where((lease) => lease.propertyId == propertyId && lease.status.isCurrent)
+        .where(
+          (lease) => lease.propertyId == propertyId && lease.status.isCurrent,
+        )
         .toList(growable: false);
 
     final monthStart = DateTime(now.year, now.month, 1);
@@ -1774,7 +1801,9 @@ class MockServer {
 
     final billed = _sum(
       invoicesHere
-          .where((invoice) => _within(invoice.invoiceDate, monthStart, monthEnd))
+          .where(
+            (invoice) => _within(invoice.invoiceDate, monthStart, monthEnd),
+          )
           .map((invoice) => invoice.total),
       currency,
     );
@@ -1845,33 +1874,33 @@ class MockServer {
         units.values.where((unit) => unit.propertyId == propertyId).toList()
           ..sort((a, b) => a.unitNumber.compareTo(b.unitNumber));
 
-    return rows.map((unit) {
-      final lease = leases.values
-          .cast<LeaseRow?>()
-          .firstWhere(
+    return rows
+        .map((unit) {
+          final lease = leases.values.cast<LeaseRow?>().firstWhere(
             (l) => l!.unitId == unit.id && l.status.isCurrent,
             orElse: () => null,
           );
 
-      return RentRollEntry(
-        unitId: unit.id,
-        unitNumber: unit.unitNumber,
-        name: unit.name,
-        status: unit.status,
-        area: unit.area,
-        areaUnit: unit.areaUnit,
-        baseRent: unit.baseRent,
-        ratePerSqm: unit.ratePerSqm,
-        rentOverridden: unit.rentOverridden,
-        tenantId: lease?.tenantId,
-        tenantName: lease == null ? null : _tenantName(lease.tenantId),
-        leaseId: lease?.id,
-        leaseEndDate: lease?.endDate,
-        outstanding: lease == null
-            ? null
-            : _outstandingForTenant(lease.tenantId, propertyId, currency),
-      );
-    }).toList(growable: false);
+          return RentRollEntry(
+            unitId: unit.id,
+            unitNumber: unit.unitNumber,
+            name: unit.name,
+            status: unit.status,
+            area: unit.area,
+            areaUnit: unit.areaUnit,
+            baseRent: unit.baseRent,
+            ratePerSqm: unit.ratePerSqm,
+            rentOverridden: unit.rentOverridden,
+            tenantId: lease?.tenantId,
+            tenantName: lease == null ? null : _tenantName(lease.tenantId),
+            leaseId: lease?.id,
+            leaseEndDate: lease?.endDate,
+            outstanding: lease == null
+                ? null
+                : _outstandingForTenant(lease.tenantId, propertyId, currency),
+          );
+        })
+        .toList(growable: false);
   }
 
   /// Every tenancy across the owner's buildings.
@@ -1879,61 +1908,67 @@ class MockServer {
     markOverdueInvoices();
 
     final owned = propertiesOwnedBy(ownerId).map((p) => p.id).toSet();
-    final scoped = propertyId == null ? owned : {propertyId}.intersection(owned);
+    final scoped = propertyId == null
+        ? owned
+        : {propertyId}.intersection(owned);
 
     final rows =
-        leases.values.where((lease) => scoped.contains(lease.propertyId)).toList()
+        leases.values
+            .where((lease) => scoped.contains(lease.propertyId))
+            .toList()
           ..sort((a, b) => b.startDate.compareTo(a.startDate));
 
-    return rows.map((lease) {
-      final currency = configs[lease.propertyId]?.defaultCurrency ?? 'KES';
-      final theirInvoices = invoices.values.where(
-        (invoice) =>
-            invoice.tenantId == lease.tenantId &&
-            invoice.propertyId == lease.propertyId,
-      );
+    return rows
+        .map((lease) {
+          final currency = configs[lease.propertyId]?.defaultCurrency ?? 'KES';
+          final theirInvoices = invoices.values.where(
+            (invoice) =>
+                invoice.tenantId == lease.tenantId &&
+                invoice.propertyId == lease.propertyId,
+          );
 
-      final settled =
-          payments.values
-              .where(
-                (payment) =>
-                    payment.tenantId == lease.tenantId &&
-                    payment.propertyId == lease.propertyId &&
-                    payment.status == PaymentStatus.success &&
-                    payment.paidAt != null,
-              )
-              .toList()
-            ..sort((a, b) => b.paidAt!.compareTo(a.paidAt!));
+          final settled =
+              payments.values
+                  .where(
+                    (payment) =>
+                        payment.tenantId == lease.tenantId &&
+                        payment.propertyId == lease.propertyId &&
+                        payment.status == PaymentStatus.success &&
+                        payment.paidAt != null,
+                  )
+                  .toList()
+                ..sort((a, b) => b.paidAt!.compareTo(a.paidAt!));
 
-      return OwnerTenancy(
-        leaseId: lease.id,
-        leaseNumber: lease.leaseNumber,
-        propertyId: lease.propertyId,
-        propertyName: lease.propertyName ?? '',
-        unitId: lease.unitId,
-        unitNumber: lease.unitNumber ?? '',
-        tenantId: lease.tenantId,
-        tenantName: _tenantName(lease.tenantId),
-        startDate: lease.startDate,
-        endDate: lease.endDate,
-        monthlyRent: lease.monthlyRent,
-        depositAmount: lease.depositAmount,
-        status: lease.status,
-        outstanding: _sum(
-          theirInvoices
-              .where((invoice) => invoice.status.isOutstanding)
-              .map((invoice) => invoice.amountDue),
-          currency,
-        ),
-        overdue: _sum(
-          theirInvoices
-              .where((invoice) => invoice.status == InvoiceStatus.overdue)
-              .map((invoice) => invoice.amountDue),
-          currency,
-        ),
-        lastPaymentAt: settled.isEmpty ? null : settled.first.paidAt,
-      );
-    }).toList(growable: false);
+          return OwnerTenancy(
+            leaseId: lease.id,
+            leaseNumber: lease.leaseNumber,
+            propertyId: lease.propertyId,
+            propertyName: lease.propertyName ?? '',
+            unitId: lease.unitId,
+            unitNumber: lease.unitNumber ?? '',
+            tenantId: lease.tenantId,
+            tenantName: _tenantName(lease.tenantId),
+            startDate: lease.startDate,
+            endDate: lease.endDate,
+            monthlyRent: lease.monthlyRent,
+            depositAmount: lease.depositAmount,
+            status: lease.status,
+            outstanding: _sum(
+              theirInvoices
+                  .where((invoice) => invoice.status.isOutstanding)
+                  .map((invoice) => invoice.amountDue),
+              currency,
+            ),
+            overdue: _sum(
+              theirInvoices
+                  .where((invoice) => invoice.status == InvoiceStatus.overdue)
+                  .map((invoice) => invoice.amountDue),
+              currency,
+            ),
+            lastPaymentAt: settled.isEmpty ? null : settled.first.paidAt,
+          );
+        })
+        .toList(growable: false);
   }
 
   OwnerTenancy tenancy(String ownerId, String leaseId) {
@@ -2040,10 +2075,7 @@ class MockServer {
           .toList(growable: false);
       return ArrearsBucket(
         label: label,
-        amount: _sum(
-          matching.map((invoice) => invoice.amountDue),
-          currency,
-        ),
+        amount: _sum(matching.map((invoice) => invoice.amountDue), currency),
         invoiceCount: matching.length,
       );
     }
@@ -2083,8 +2115,7 @@ class MockServer {
               paidAt: payment.paidAt!,
               amount: payment.amount,
               tenantName: _tenantName(payment.tenantId),
-              propertyName:
-                  properties[payment.propertyId]?.name ?? 'Property',
+              propertyName: properties[payment.propertyId]?.name ?? 'Property',
               unitNumber: payment.leaseId == null
                   ? null
                   : leases[payment.leaseId]?.unitNumber,
@@ -2192,7 +2223,8 @@ class MockServer {
         OwnerAlert(
           type: OwnerAlertType.arrears,
           title: name,
-          detail: '${total.format()} overdue across '
+          detail:
+              '${total.format()} overdue across '
               '${entry.value.length} invoice'
               '${entry.value.length == 1 ? '' : 's'}',
           target: NotificationTarget.invoice,
@@ -2265,9 +2297,8 @@ class MockServer {
 
   /// Collected over billed. A month that billed nothing has collected all of
   /// it, which is 1 rather than a division by zero.
-  static double _moneyRate(Money part, Money whole) => whole.isZero
-      ? 1
-      : (part.minorUnits / whole.minorUnits).clamp(0, 1);
+  static double _moneyRate(Money part, Money whole) =>
+      whole.isZero ? 1 : (part.minorUnits / whole.minorUnits).clamp(0, 1);
 
   // ==========================================================================
   // Seeding helpers
@@ -2517,6 +2548,287 @@ class MockServer {
   }
 
   String hashOf(String input) => _hash(input);
+
+  // -------------------------------------------------------------------------
+  // Invoice deferral and settlement
+  // -------------------------------------------------------------------------
+
+  /// Records a request to postpone payment.
+  ///
+  /// Note what does not happen: [InvoiceRow.amountDue] is untouched and the
+  /// status is left alone. Deferring an invoice changes what the landlord and
+  /// the tenant have agreed about *when*, not what is owed — and an overdue
+  /// invoice that has been deferred is still overdue, it is simply no longer a
+  /// surprise to either party.
+  InvoiceRow deferInvoice({required String invoiceId, required String reason}) {
+    final invoice = invoices[invoiceId];
+    if (invoice == null) throw const MockNotFound('Invoice not found');
+    if (invoice.status == InvoiceStatus.paid) {
+      throw const MockConflict('That invoice has already been paid.');
+    }
+
+    invoice.isDeferred = true;
+    invoice.deferReason = reason;
+
+    _notify(
+      NotificationType.invoiceDue,
+      'Deferral requested',
+      'We have passed on your request to postpone invoice '
+          '${invoice.invoiceNumber}. You will hear back shortly.',
+      target: NotificationTarget.invoice,
+      targetId: invoice.id,
+    );
+
+    return invoice;
+  }
+
+  /// Closes an invoice against something other than a payment through the app.
+  ///
+  /// The landlord's side of the same conversation. The balance goes to zero
+  /// because the debt is genuinely gone — settled, offset or written off — and
+  /// the invoice records when, so the write-off is auditable rather than
+  /// invisible.
+  InvoiceRow settleInvoice(String invoiceId) {
+    final invoice = invoices[invoiceId];
+    if (invoice == null) throw const MockNotFound('Invoice not found');
+    if (invoice.status == InvoiceStatus.paid) {
+      throw const MockConflict('That invoice has already been settled.');
+    }
+
+    invoice.settledOn = _clock();
+    invoice.amountPaid = invoice.total;
+    invoice.amountDue = Money.zero(invoice.currency);
+    invoice.status = InvoiceStatus.paid;
+    invoice.isDeferred = false;
+
+    return invoice;
+  }
+
+  // -------------------------------------------------------------------------
+  // Property structure
+  // -------------------------------------------------------------------------
+
+  Building createBlock(BuildingDraft draft) {
+    final property = properties[draft.propertyId];
+    if (property == null) throw const MockNotFound('Property not found');
+
+    final block = Building(
+      id: _id('blk'),
+      propertyId: draft.propertyId,
+      name: draft.name,
+      code: _blockCode(draft.name),
+      description: draft.description,
+      status: draft.status,
+      totalArea: draft.totalArea,
+      numberOfFloors: draft.numberOfFloors,
+      totalUnits: draft.totalUnits,
+      leasableUnits: draft.leasableUnits,
+      propertyName: property.name,
+    );
+    buildings.add(block);
+    return block;
+  }
+
+  Building updateBlock(String blockId, BuildingDraft draft) {
+    final index = buildings.indexWhere((block) => block.id == blockId);
+    if (index == -1) throw const MockNotFound('Block not found');
+
+    final existing = buildings[index];
+    final updated = Building(
+      id: existing.id,
+      propertyId: existing.propertyId,
+      name: draft.name,
+      code: existing.code,
+      description: draft.description,
+      status: draft.status,
+      totalArea: draft.totalArea,
+      numberOfFloors: draft.numberOfFloors,
+      totalUnits: draft.totalUnits,
+      leasableUnits: draft.leasableUnits,
+      propertyName: existing.propertyName,
+    );
+    buildings[index] = updated;
+
+    // A renamed wing is the same wing. Every unit that names it in a list has
+    // to say the new name, or the rename only half happened.
+    for (final unit in units.values) {
+      if (unit.buildingId == blockId) unit.buildingName = updated.name;
+    }
+    return updated;
+  }
+
+  /// Removes a block, refusing while units still sit in it.
+  ///
+  /// Deleting the wing out from under a let shop would orphan a live tenancy.
+  /// The refusal names the count, because "move these eleven units first" is
+  /// an instruction and "cannot delete" is not.
+  void deleteBlock(String blockId) {
+    final index = buildings.indexWhere((block) => block.id == blockId);
+    if (index == -1) throw const MockNotFound('Block not found');
+
+    final occupied = units.values
+        .where((unit) => unit.buildingId == blockId && !unit.isDeleted)
+        .length;
+    if (occupied > 0) {
+      throw MockConflict(
+        'This block still holds $occupied ${occupied == 1 ? 'unit' : 'units'}. '
+        'Move or remove them first.',
+      );
+    }
+
+    buildings.removeAt(index);
+    floors.removeWhere((floor) => floor.buildingId == blockId);
+  }
+
+  static String _blockCode(String name) {
+    final letters = name
+        .toUpperCase()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word[0])
+        .join();
+    return letters.isEmpty ? 'BLK' : letters;
+  }
+
+  UnitRow createUnit(UnitDraft draft) {
+    final property = properties[draft.propertyId];
+    if (property == null) throw const MockNotFound('Property not found');
+
+    final block = draft.blockId == null
+        ? null
+        : buildings.where((b) => b.id == draft.blockId).firstOrNull;
+
+    final unit = UnitRow(
+      id: _id('unit'),
+      propertyId: draft.propertyId,
+      buildingId: draft.blockId,
+      floorId: draft.floorNumber == null
+          ? null
+          : '${draft.blockId}:${draft.floorNumber}',
+      unitNumber: draft.unitNumber,
+      unitCode: draft.unitNumber,
+      description: draft.description,
+      length: draft.length,
+      width: draft.width,
+      area: draft.area,
+      baseRent: draft.monthlyRent,
+      status: UnitStatus.available,
+      category: draft.category,
+      wing: draft.wing,
+      section: draft.section,
+      floorNumber: draft.floorNumber,
+      depositAmount: draft.depositAmount,
+      serviceCharge: draft.serviceCharge,
+      depositMonths: configs[draft.propertyId]?.defaultDepositMonths,
+      // Entered by hand, so a later repricing of the property leaves it alone.
+      rentOverridden: true,
+      propertyName: property.name,
+      buildingName: block?.name,
+      floorName: _floorLabel(draft.floorNumber),
+    );
+
+    units[unit.id] = unit;
+    return unit;
+  }
+
+  UnitRow updateUnit(String unitId, UnitDraft draft) {
+    final unit = units[unitId];
+    if (unit == null) throw const MockNotFound('Unit not found');
+
+    final block = draft.blockId == null
+        ? null
+        : buildings.where((b) => b.id == draft.blockId).firstOrNull;
+
+    unit.unitNumber = draft.unitNumber;
+    unit.unitCode = draft.unitNumber;
+    unit.description = draft.description;
+    unit.category = draft.category;
+    unit.length = draft.length;
+    unit.width = draft.width;
+    unit.area = draft.area;
+    unit.baseRent = draft.monthlyRent;
+    unit.rentOverridden = true;
+    unit.depositAmount = draft.depositAmount;
+    unit.serviceCharge = draft.serviceCharge;
+    unit.wing = draft.wing;
+    unit.section = draft.section;
+    unit.floorNumber = draft.floorNumber;
+    unit.buildingId = draft.blockId;
+    unit.buildingName = block?.name;
+    unit.floorId = draft.floorNumber == null
+        ? null
+        : '${draft.blockId}:${draft.floorNumber}';
+    unit.floorName = _floorLabel(draft.floorNumber);
+
+    return unit;
+  }
+
+  /// Retires a unit, refusing while anyone is in it.
+  ///
+  /// Soft, like the contract's own delete: the row stays so that the invoices
+  /// and leases pointing at it still resolve. A let unit cannot be retired at
+  /// all — ending a tenancy is a different act with its own consequences, and
+  /// it does not happen as a side effect of tidying a list.
+  void deleteUnit(String unitId) {
+    final unit = units[unitId];
+    if (unit == null) throw const MockNotFound('Unit not found');
+
+    final live = leases.values.any(
+      (lease) => lease.unitId == unitId && lease.status.isCurrent,
+    );
+    if (live) {
+      throw const MockConflict(
+        'This unit is let. End the tenancy before removing it.',
+      );
+    }
+
+    unit.isDeleted = true;
+    unit.status = UnitStatus.unavailable;
+  }
+
+  static String? _floorLabel(int? floorNumber) => switch (floorNumber) {
+    null => null,
+    0 => 'Ground floor',
+    final level => 'Floor $level',
+  };
+
+  void updateProperty(String propertyId, PropertyDraft draft) {
+    final property = properties[propertyId];
+    if (property == null) throw const MockNotFound('Property not found');
+
+    property.name = draft.name;
+    property.propertyType = draft.propertyType;
+    property.description = draft.description;
+    property.address = draft.address;
+    property.city = draft.city;
+    property.county = draft.county;
+    property.country = draft.country;
+    property.totalArea = draft.totalArea;
+    property.rentRatePerSqm = draft.rentRatePerSqm;
+  }
+
+  void setPropertyArchived(String propertyId, {required bool archived}) {
+    final property = properties[propertyId];
+    if (property == null) throw const MockNotFound('Property not found');
+
+    if (archived) {
+      final live = leases.values.any(
+        (lease) =>
+            lease.status.isCurrent &&
+            units[lease.unitId]?.propertyId == propertyId,
+      );
+      if (live) {
+        throw const MockConflict(
+          'This property still has live tenancies. Archiving it would strand '
+          'them.',
+        );
+      }
+    }
+
+    property.status = archived
+        ? PropertyStatus.archived
+        : PropertyStatus.active;
+  }
 }
 
 /// Raised when a state transition is no longer legal, e.g. two tenants racing

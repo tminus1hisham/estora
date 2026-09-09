@@ -17,11 +17,7 @@ import '../domain/entities/owner.dart';
 /// of timing an owner is looking for. Both are measured against whichever is
 /// larger across the whole series.
 class CollectionColumns extends StatelessWidget {
-  const CollectionColumns({
-    required this.months,
-    this.height = 132,
-    super.key,
-  });
+  const CollectionColumns({required this.months, this.height = 132, super.key});
 
   final List<MonthlyCollection> months;
 

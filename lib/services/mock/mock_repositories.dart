@@ -4,6 +4,7 @@ import '../../core/config/app_config.dart';
 import '../../core/error/failure.dart';
 import '../../core/error/result.dart';
 import '../../core/utils/money.dart';
+import '../../domain/entities/access.dart';
 import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
@@ -11,9 +12,11 @@ import '../../domain/entities/lease.dart';
 import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/entities/tenant.dart';
+import '../../domain/entities/treasury.dart';
 import '../../domain/entities/unit.dart';
 import '../../domain/enums/domain_enums.dart';
 import '../../domain/repositories/repositories.dart';
+import 'mock_back_office.dart';
 import 'mock_records.dart';
 import 'mock_server.dart';
 
@@ -90,10 +93,10 @@ class MockAuthRepository with _MockLatency implements AuthRepository {
 
   @override
   Future<Result<AuthSession>> loginWithPassword({
-    required String email,
+    required String identifier,
     required String password,
   }) => guard(() {
-    final session = _server.loginWithPassword(email, password);
+    final session = _server.loginWithPassword(identifier, password);
     if (session == null) {
       throw const MockConflict('Those credentials were not recognised.');
     }
@@ -120,7 +123,12 @@ class MockAuthRepository with _MockLatency implements AuthRepository {
   );
 
   @override
-  Future<Result<void>> requestPasswordReset({required String email}) =>
+  /// Nothing to do but succeed.
+  ///
+  /// A reset code is sent out of band, and the mock's code is the same one
+  /// every other verification screen accepts — see
+  /// `MockBackOffice.verificationCode`.
+  Future<Result<void>> requestPasswordReset({required String identifier}) =>
       guard(() {});
 
   @override
@@ -345,10 +353,15 @@ class MockBookingRepository with _MockLatency implements BookingRepository {
   @override
   Future<Result<Booking>> createBooking({
     required String unitId,
+    required BookingApplicant applicant,
     required String idempotencyKey,
   }) => guard(
     () => _toDomain(
-      _server.createBooking(unitId: unitId, idempotencyKey: idempotencyKey),
+      _server.createBooking(
+        unitId: unitId,
+        applicant: applicant,
+        idempotencyKey: idempotencyKey,
+      ),
     ),
   );
 
@@ -494,12 +507,36 @@ class MockInvoiceRepository with _MockLatency implements InvoiceRepository {
   });
 
   @override
+  Future<Result<Page<Invoice>>> listInvoicesForTenant(String tenantId) =>
+      guard(() {
+        _server.markOverdueInvoices();
+        final rows =
+            _server.invoices.values
+                .where((invoice) => invoice.tenantId == tenantId)
+                .toList()
+              ..sort((a, b) => b.invoiceDate.compareTo(a.invoiceDate));
+        return Page.single(
+          rows.map((row) => row.toDomain()).toList(growable: false),
+        );
+      });
+
+  @override
   Future<Result<Invoice>> getInvoice(String invoiceId) => guard(() {
     _server.markOverdueInvoices();
     final row = _server.invoices[invoiceId];
     if (row == null) throw const MockNotFound('Invoice not found');
     return row.toDomain();
   });
+
+  @override
+  Future<Result<void>> deferInvoice({
+    required String invoiceId,
+    required String reason,
+  }) => guard(() => _server.deferInvoice(invoiceId: invoiceId, reason: reason));
+
+  @override
+  Future<Result<void>> settleInvoice(String invoiceId) =>
+      guard(() => _server.settleInvoice(invoiceId));
 }
 
 // ---------------------------------------------------------------------------
@@ -509,10 +546,17 @@ class MockPaymentRepository with _MockLatency implements PaymentRepository {
 
   final MockServer _server;
 
+  /// [amount] is deliberately unused.
+  ///
+  /// It is on the interface because the published contract requires it on the
+  /// wire. A server that trusted it would be a server that lets the client
+  /// decide what it is owed, so this one charges what the invoice says and
+  /// ignores what it was told (section 65).
   @override
   Future<Result<PaymentIntent>> initiatePayment({
     required String invoiceId,
     required PaymentMethod method,
+    required Money amount,
     required String idempotencyKey,
     String? phoneNumber,
   }) => guard(
@@ -832,15 +876,15 @@ class MockOwnerRepository with _MockLatency implements OwnerRepository {
   });
 
   @override
-  Future<Result<Unit>> setUnitRent({
-    required String unitId,
-    Money? override,
-  }) => guard(() {
-    final unit = _server.units[unitId];
-    if (unit == null) throw const MockNotFound('Unit not found');
-    _requireOwned(unit.propertyId);
-    return _server.setUnitRent(unitId: unitId, override: override).toDomain();
-  });
+  Future<Result<Unit>> setUnitRent({required String unitId, Money? override}) =>
+      guard(() {
+        final unit = _server.units[unitId];
+        if (unit == null) throw const MockNotFound('Unit not found');
+        _requireOwned(unit.propertyId);
+        return _server
+            .setUnitRent(unitId: unitId, override: override)
+            .toDomain();
+      });
 
   PropertyOwner _requireOwner() {
     final owner = _server.currentOwner;
@@ -868,4 +912,342 @@ class MockDashboardRepository with _MockLatency implements DashboardRepository {
   @override
   Future<Result<DashboardSummary>> getSummary() =>
       guard(() => _server.dashboard());
+}
+
+// ---------------------------------------------------------------------------
+// Property structure
+// ---------------------------------------------------------------------------
+
+class MockPropertyStructureRepository
+    with _MockLatency
+    implements PropertyStructureRepository {
+  MockPropertyStructureRepository(this._server);
+
+  final MockServer _server;
+
+  @override
+  Future<Result<void>> updateProperty({
+    required String propertyId,
+    required PropertyDraft draft,
+  }) => guard(() => _server.updateProperty(propertyId, draft));
+
+  @override
+  Future<Result<void>> archiveProperty(String propertyId) =>
+      guard(() => _server.setPropertyArchived(propertyId, archived: true));
+
+  @override
+  Future<Result<void>> restoreProperty(String propertyId) =>
+      guard(() => _server.setPropertyArchived(propertyId, archived: false));
+
+  @override
+  Future<Result<List<Building>>> listBlocks(String propertyId) => guard(
+    () => _server.buildings
+        .where((block) => block.propertyId == propertyId)
+        .toList(growable: false),
+  );
+
+  @override
+  Future<Result<Building>> getBlock(String blockId) => guard(() {
+    for (final block in _server.buildings) {
+      if (block.id == blockId) return block;
+    }
+    throw const MockNotFound('Block not found');
+  });
+
+  @override
+  Future<Result<void>> createBlock(BuildingDraft draft) =>
+      guard(() => _server.createBlock(draft));
+
+  @override
+  Future<Result<void>> updateBlock({
+    required String blockId,
+    required BuildingDraft draft,
+  }) => guard(() => _server.updateBlock(blockId, draft));
+
+  @override
+  Future<Result<void>> deleteBlock(String blockId) =>
+      guard(() => _server.deleteBlock(blockId));
+
+  @override
+  Future<Result<List<Unit>>> listBlockUnits(String blockId) => guard(() {
+    final rows =
+        _server.units.values
+            .where((unit) => unit.buildingId == blockId && !unit.isDeleted)
+            .map((unit) => unit.toDomain())
+            .toList()
+          ..sort((a, b) => a.unitNumber.compareTo(b.unitNumber));
+    return rows;
+  });
+
+  @override
+  Future<Result<void>> createUnit(UnitDraft draft) =>
+      guard(() => _server.createUnit(draft));
+
+  @override
+  Future<Result<void>> updateUnit({
+    required String unitId,
+    required UnitDraft draft,
+  }) => guard(() => _server.updateUnit(unitId, draft));
+
+  @override
+  Future<Result<void>> deleteUnit(String unitId) =>
+      guard(() => _server.deleteUnit(unitId));
+}
+
+// ---------------------------------------------------------------------------
+// Treasury
+// ---------------------------------------------------------------------------
+
+class MockTreasuryRepository with _MockLatency implements TreasuryRepository {
+  MockTreasuryRepository(this._server);
+
+  final MockServer _server;
+
+  @override
+  Future<Result<List<MpesaTransaction>>> listMpesaTransactions({
+    String? propertyId,
+  }) => guard(() => _server.backOffice.listMpesa(propertyId: propertyId));
+
+  @override
+  Future<Result<List<MpesaTransaction>>> findMpesaTransactions(
+    String transactionId,
+  ) => guard(() => _server.backOffice.findMpesa(transactionId));
+
+  @override
+  Future<Result<void>> setMpesaAccountNumber({
+    required String transactionId,
+    required String accountNumber,
+  }) => guard(
+    () => _server.backOffice.setAccountNumber(
+      transactionId: transactionId,
+      accountNumber: accountNumber,
+    ),
+  );
+
+  @override
+  Future<Result<List<BankPayment>>> listBankPayments() =>
+      guard(() => _server.backOffice.listBankPayments());
+
+  @override
+  Future<Result<void>> recordBankPayment({
+    required BankPaymentDraft draft,
+    required String idempotencyKey,
+  }) => guard(
+    () => _server.backOffice.recordBankPayment(
+      draft: draft,
+      idempotencyKey: idempotencyKey,
+    ),
+  );
+
+  @override
+  Future<Result<void>> updateBankPayment(BankPayment payment) =>
+      guard(() => _server.backOffice.updateBankPayment(payment));
+
+  @override
+  Future<Result<void>> deleteBankPayment(String bankPaymentId) =>
+      guard(() => _server.backOffice.deleteBankPayment(bankPaymentId));
+}
+
+// ---------------------------------------------------------------------------
+// Access control
+// ---------------------------------------------------------------------------
+
+class MockAccessRepository with _MockLatency implements AccessRepository {
+  MockAccessRepository(this._server);
+
+  final MockServer _server;
+
+  MockBackOffice get _office => _server.backOffice;
+
+  @override
+  Future<Result<List<PlatformUser>>> listUsers() =>
+      guard(() => _office.listUsers());
+
+  @override
+  Future<Result<void>> toggleUserEnabled(String userId) =>
+      guard(() => _office.toggleUserEnabled(userId));
+
+  @override
+  Future<Result<void>> deleteUser(String userId) =>
+      guard(() => _office.deleteUser(userId));
+
+  @override
+  Future<Result<List<AccessRole>>> listRoles() =>
+      guard(() => _office.listRoles());
+
+  @override
+  Future<Result<void>> createRole(String roleName) =>
+      guard(() => _office.createRole(roleName));
+
+  @override
+  Future<Result<List<AccessRole>>> rolesForUser(String phoneNumber) =>
+      guard(() => _office.rolesForUser(phoneNumber));
+
+  @override
+  Future<Result<void>> addUserToRole({
+    required String phoneNumber,
+    required String roleName,
+  }) => guard(
+    () => _office.addUserToRole(phoneNumber: phoneNumber, roleName: roleName),
+  );
+
+  @override
+  Future<Result<void>> removeUserFromRole({
+    required String phoneNumber,
+    required String roleName,
+  }) => guard(
+    () => _office.removeUserFromRole(
+      phoneNumber: phoneNumber,
+      roleName: roleName,
+    ),
+  );
+
+  @override
+  Future<Result<List<AccessClaim>>> claimsForUser(String phoneNumber) =>
+      guard(() => _office.claimsForUser(phoneNumber));
+
+  @override
+  Future<Result<void>> addClaimToUser({
+    required String phoneNumber,
+    required String claimType,
+    required String claimValue,
+  }) => guard(
+    () => _office.addClaimToUser(
+      phoneNumber: phoneNumber,
+      claimType: claimType,
+      claimValue: claimValue,
+    ),
+  );
+
+  @override
+  Future<Result<void>> removeClaimFromUser({
+    required String phoneNumber,
+    required String claimType,
+    required String claimValue,
+  }) => guard(
+    () => _office.removeClaimFromUser(
+      phoneNumber: phoneNumber,
+      claimType: claimType,
+      claimValue: claimValue,
+    ),
+  );
+
+  @override
+  Future<Result<List<AccessClaim>>> claimsForRole(String roleName) =>
+      guard(() => _office.claimsForRole(roleName));
+
+  @override
+  Future<Result<void>> addClaimToRole({
+    required String roleName,
+    required String claimType,
+    required String claimValue,
+  }) => guard(
+    () => _office.addClaimToRole(
+      roleName: roleName,
+      claimType: claimType,
+      claimValue: claimValue,
+    ),
+  );
+
+  @override
+  Future<Result<void>> removeClaimFromRole({
+    required String roleName,
+    required String claimType,
+    required String claimValue,
+  }) => guard(
+    () => _office.removeClaimFromRole(
+      roleName: roleName,
+      claimType: claimType,
+      claimValue: claimValue,
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The signed-in account
+// ---------------------------------------------------------------------------
+
+class MockAccountRepository with _MockLatency implements AccountRepository {
+  MockAccountRepository(this._server);
+
+  final MockServer _server;
+
+  MockBackOffice get _office => _server.backOffice;
+
+  @override
+  Future<Result<PlatformUser>> getAccount() =>
+      guard(() => _office.currentAccount());
+
+  @override
+  Future<Result<void>> changePassword({
+    required String phoneNumber,
+    required String currentPassword,
+    required String newPassword,
+  }) => guard(
+    () => _office.changePassword(
+      phoneNumber: phoneNumber,
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    ),
+  );
+
+  @override
+  Future<Result<void>> resetPassword({
+    required String phoneNumber,
+    required String resetToken,
+    required String newPassword,
+  }) => guard(
+    () => _office.resetPassword(
+      phoneNumber: phoneNumber,
+      resetToken: resetToken,
+      newPassword: newPassword,
+    ),
+  );
+
+  @override
+  Future<Result<void>> enableTwoFactor() => guard(_office.enableTwoFactor);
+
+  @override
+  Future<Result<void>> verifyTwoFactor({
+    required String email,
+    required String code,
+  }) => guard(() => _office.verifyTwoFactor(email: email, code: code));
+
+  @override
+  Future<Result<void>> confirmEmail({
+    required String email,
+    required String token,
+  }) => guard(() => _office.confirmEmail(email: email, token: token));
+
+  @override
+  Future<Result<void>> confirmPhoneNumber({
+    required String email,
+    required String phoneNumber,
+    required String token,
+  }) => guard(
+    () => _office.confirmPhoneNumber(
+      email: email,
+      phoneNumber: phoneNumber,
+      token: token,
+    ),
+  );
+
+  @override
+  Future<Result<void>> updateProfilePicture(String encodedImage) =>
+      guard(() => _office.updateProfilePicture(encodedImage));
+
+  @override
+  Future<Result<void>> updateAccount({
+    required String userId,
+    required String fullName,
+    required String emailAddress,
+    required String phoneNumber,
+  }) => guard(
+    () => _office.updateAccount(
+      userId: userId,
+      fullName: fullName,
+      emailAddress: emailAddress,
+      phoneNumber: phoneNumber,
+    ),
+  );
 }

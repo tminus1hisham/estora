@@ -91,7 +91,9 @@ class _Portfolio extends StatelessWidget {
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),
@@ -131,7 +133,8 @@ class _AlertRail extends StatelessWidget {
             iconColor: statuses.resolve(alert.type.tone),
             title: alert.title,
             subtitle: alert.detail,
-            onTap: alert.type == OwnerAlertType.vacancy && alert.targetId != null
+            onTap:
+                alert.type == OwnerAlertType.vacancy && alert.targetId != null
                 ? () => context.pushNamed(
                     Routes.ownerProperty,
                     pathParameters: {'propertyId': alert.targetId!},

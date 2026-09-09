@@ -203,23 +203,48 @@ class UnitRow {
     this.floorName,
     this.billingFrequency = BillingFrequency.monthly,
     this.imageUrls = const <String>[],
+    this.category = UnitCategory.shop,
+    this.wing,
+    this.section,
+    this.floorNumber,
+    this.depositAmount,
+    this.serviceCharge,
+    this.availableFrom,
+    this.isDeleted = false,
   });
 
   final String id;
   final String propertyId;
-  final String? buildingId;
-  final String? floorId;
+
+  /// Mutable from here down where the owner's unit form can change it. A unit
+  /// gets renumbered, moved between wings and re-let as a different kind of
+  /// space; none of that is a new unit.
+  String? buildingId;
+  String? floorId;
   final String? unitTypeId;
 
-  final String unitNumber;
-  final String unitCode;
+  String unitNumber;
+  String unitCode;
   final String? name;
-  final String? description;
+  String? description;
 
-  final double? length;
-  final double? width;
-  final double? area;
+  double? length;
+  double? width;
+  double? area;
   final String areaUnit;
+
+  UnitCategory category;
+  String? wing;
+  String? section;
+  int? floorNumber;
+  Money? depositAmount;
+  Money? serviceCharge;
+  DateTime? availableFrom;
+
+  /// The contract's delete is a soft one. A deleted unit stays in the store so
+  /// its bookings, leases and invoices still resolve — it simply stops being
+  /// listed.
+  bool isDeleted;
 
   /// Mutable: an owner reprices, either by moving the property's rate or by
   /// overriding this unit directly.
@@ -239,8 +264,8 @@ class UnitRow {
   final List<UnitRequirement> requirements;
 
   final String? propertyName;
-  final String? buildingName;
-  final String? floorName;
+  String? buildingName;
+  String? floorName;
   final List<String> imageUrls;
 
   /// Mutable: recomputed from bookings and leases (section 15).
@@ -272,6 +297,13 @@ class UnitRow {
     buildingName: buildingName,
     floorName: floorName,
     imageUrls: imageUrls,
+    category: category,
+    wing: wing,
+    section: section,
+    floorNumber: floorNumber,
+    depositAmount: depositAmount,
+    serviceCharge: serviceCharge,
+    availableFrom: availableFrom,
   );
 }
 
@@ -296,6 +328,7 @@ class BookingRow {
     this.leaseId,
     this.bookingFeeInvoiceId,
     this.depositInvoiceId,
+    this.applicant,
   });
 
   final String id;
@@ -318,6 +351,10 @@ class BookingRow {
   String? leaseId;
   String? bookingFeeInvoiceId;
   String? depositInvoiceId;
+
+  /// Who asked for the unit, and on whose behalf. Null on a booking made
+  /// before the application form existed.
+  final BookingApplicant? applicant;
 
   Booking toDomain({String? propertyName, String? unitNumber}) => Booking(
     id: id,
@@ -553,6 +590,16 @@ class InvoiceRow {
   Money amountDue;
   InvoiceStatus status;
 
+  /// Deferral moves the conversation, not the debt. Neither field touches
+  /// [amountDue] — a postponed invoice is still owed, and still counts.
+  bool isDeferred = false;
+  String? deferReason;
+
+  /// Set when the landlord closes the invoice against something other than a
+  /// payment made through the app.
+  DateTime? settledOn;
+  String? paymentReceipt;
+
   Invoice toDomain() => Invoice(
     id: id,
     invoiceNumber: invoiceNumber,
@@ -576,6 +623,10 @@ class InvoiceRow {
     status: status,
     lines: lines,
     documentId: documentId,
+    isDeferred: isDeferred,
+    deferReason: deferReason,
+    settledOn: settledOn,
+    paymentReceipt: paymentReceipt,
   );
 }
 

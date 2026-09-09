@@ -81,9 +81,7 @@ class _Tenancies extends StatelessWidget {
         .where((t) => !t.isInArrears && t.isExpiringSoon)
         .toList();
     final active = tenancies
-        .where(
-          (t) => !t.isInArrears && !t.isExpiringSoon && t.status.isCurrent,
-        )
+        .where((t) => !t.isInArrears && !t.isExpiringSoon && t.status.isCurrent)
         .toList();
     final ended = tenancies.where((t) => !t.status.isCurrent).toList();
 
@@ -99,7 +97,9 @@ class _Tenancies extends StatelessWidget {
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),

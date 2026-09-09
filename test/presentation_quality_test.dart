@@ -230,7 +230,8 @@ void main() {
     expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
-    expect(find.byType(AppBrandMark), findsOneWidget);
+    // The greeting says the name in words; the mark is not repeated over it.
+    expect(find.byType(AppBrandMark), findsNothing);
     expect(tester.takeException(), isNull);
 
     // The lower actions remain reachable rather than being clipped by the

@@ -482,10 +482,7 @@ void seedMockServer(MockServer server) {
 ///
 /// Sign in with `+254733000111` (or `owner@karunaholdings.co.ke`) and the same
 /// demo OTP to land on the owner side of the app.
-void seedOwnerAccount(
-  MockServer server, {
-  required List<String> propertyIds,
-}) {
+void seedOwnerAccount(MockServer server, {required List<String> propertyIds}) {
   const ownerId = 'own_demo';
   const ownerUserId = 'usr_owner';
 
@@ -569,8 +566,7 @@ void seedPortfolioTenancies(MockServer server) {
     final leaseId = 'lse_$suffix';
 
     final rate = server.properties[propertyId]!.rentRatePerSqm!;
-    final rent =
-        rentOverride ?? server.rentFor(area: area, ratePerSqm: rate);
+    final rent = rentOverride ?? server.rentFor(area: area, ratePerSqm: rate);
     final config = server.configs[propertyId]!;
 
     server.units[unitId] = UnitRow(
@@ -613,8 +609,11 @@ void seedPortfolioTenancies(MockServer server) {
       startDate: start,
       endDate: endsInDays != null
           ? now.add(Duration(days: endsInDays))
-          : DateTime(start.year + 1, start.month, start.day)
-                .subtract(const Duration(days: 1)),
+          : DateTime(
+              start.year + 1,
+              start.month,
+              start.day,
+            ).subtract(const Duration(days: 1)),
       monthlyRent: rent,
       depositAmount: rent * depositMonths,
       billingFrequency: BillingFrequency.monthly,
@@ -670,11 +669,7 @@ void seedPortfolioTenancies(MockServer server) {
       1,
     ).subtract(const Duration(days: 1));
     final description = 'Rent for ${_monthName(thisMonth)}';
-    final issuedAt = DateTime(
-      now.year,
-      now.month,
-      config.invoiceGenerationDay,
-    );
+    final issuedAt = DateTime(now.year, now.month, config.invoiceGenerationDay);
 
     if (inArrears) {
       server.seedOpenInvoice(

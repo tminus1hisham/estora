@@ -18,6 +18,8 @@
 library;
 
 import '../../core/utils/money.dart';
+import '../../core/utils/phone_number.dart';
+import '../../domain/entities/access.dart';
 import '../../domain/entities/billing.dart';
 import '../../domain/entities/booking.dart';
 import '../../domain/entities/dashboard_summary.dart';
@@ -25,6 +27,7 @@ import '../../domain/entities/lease.dart';
 import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
 import '../../domain/entities/tenant.dart';
+import '../../domain/entities/treasury.dart';
 import '../../domain/entities/unit.dart';
 import '../../domain/enums/domain_enums.dart';
 import '../../domain/repositories/repositories.dart';
@@ -72,6 +75,17 @@ DateTime? _dateOrNull(Object? value) {
   return DateTime.tryParse(value.toString())?.toLocal();
 }
 
+/// Sends an id back in the shape the contract expects.
+///
+/// The domain holds every id as a string, because an id is a name and not a
+/// quantity. The contract types them as integers. This converts where it can
+/// and passes the string through where it cannot — a server that starts
+/// issuing opaque ids should not need a client release.
+Object? _idToApi(String? id) {
+  if (id == null || id.isEmpty) return null;
+  return int.tryParse(id) ?? id;
+}
+
 /// Reads a money field, defaulting the currency from the enclosing object.
 Money _money(Json json, String key, String currency) =>
     Money.fromJson(json[key], _str(json['currency'], currency));
@@ -93,30 +107,63 @@ Page<T> pageFromJson<T>(Json json, T Function(Json) item) {
   );
 }
 
+/// Reads a route that answers with a bare array.
+///
+/// The transport boxes an array under `data` so every parse function receives
+/// a map; this unboxes it. A route that answers with a single object instead
+/// of a one-element array — which the contract does in a couple of places —
+/// still reads as a list of one rather than as nothing.
+List<T> listFromJson<T>(Json json, T Function(Json) item) =>
+    rawListFromJson(json).map(item).toList(growable: false);
+
+List<Json> rawListFromJson(Json json) {
+  final data = json['data'];
+  if (data is List) return data.whereType<Json>().toList(growable: false);
+  if (data is Json) return [data];
+  // No `data` key at all: the response was already the object being asked for.
+  return json.isEmpty ? const <Json>[] : [json];
+}
+
 // -- Property ----------------------------------------------------------------
 
+/// The contract measures in square feet and says so in the field names —
+/// `totalAreaSqFeet`, `areaSqFeet`. Areas are carried through unchanged and
+/// labelled in the unit they arrived in. Converting them to square metres here
+/// would put a number on screen that nobody typed and no lease mentions.
+const String _apiAreaUnit = 'sq ft';
+
+/// The contract states no currency outside the invoice, where it is
+/// `currencyCode`. Everything else is read in the platform's own currency.
+const String _defaultCurrency = 'KES';
+
 Property propertyFromJson(Json json) {
-  final currency = _str(json['currency'], 'KES');
+  final units = _list(json['units']);
   return Property(
     id: _str(json['id']),
-    name: _str(json['name']),
+    name: _str(json['propertyName']),
+    // The contract has no short code for a property. Rather than invent one,
+    // the field stays empty and the screens that offer it fall back to the
+    // name.
     code: _str(json['code']),
-    propertyType: PropertyType.fromApi(_strOrNull(json['propertyType'])),
-    status: PropertyStatus.fromApi(_strOrNull(json['status'])),
+    propertyType: PropertyType.fromCode(json['type']),
+    status: PropertyStatus.fromCode(json['status']),
     description: _strOrNull(json['description']),
     address: _strOrNull(json['address']),
     city: _str(json['city']),
-    county: _strOrNull(json['county'] ?? json['state']),
+    county: _strOrNull(json['county']),
     country: _str(json['country']),
     latitude: _doubleOrNull(json['latitude']),
     longitude: _doubleOrNull(json['longitude']),
-    totalArea: _doubleOrNull(json['totalArea']),
+    totalArea: _doubleOrNull(json['totalAreaSqFeet']),
     totalUnits: _intOrNull(json['totalUnits']),
-    availableUnits: _intOrNull(json['availableUnits']),
-    ownerId: _strOrNull(json['ownerId']),
-    rentRatePerSqm: json['rentRatePerSqm'] == null
+    // `leasableUnits` counts what *could* be let, not what is free today. When
+    // the payload carries the units themselves, availability is counted from
+    // them; otherwise it is left unstated rather than guessed at.
+    availableUnits: units.isEmpty
         ? null
-        : _money(json, 'rentRatePerSqm', currency),
+        : units.where((unit) => _bool(unit['isAvailable'])).length,
+    ownerId: _strOrNull(json['ownerId']),
+    rentRatePerSqm: null,
     logoUrl: _strOrNull(json['logo'] ?? json['logoUrl']),
     imageUrl: _strOrNull(json['imageUrl']),
   );
@@ -125,10 +172,51 @@ Property propertyFromJson(Json json) {
 Building buildingFromJson(Json json) => Building(
   id: _str(json['id']),
   propertyId: _str(json['propertyId']),
-  name: _str(json['name']),
+  name: _str(json['blockName']),
   code: _str(json['code']),
   description: _strOrNull(json['description']),
+  status: BlockStatus.fromCode(json['status']),
+  totalArea: _doubleOrNull(json['totalAreaSqFeet']),
+  numberOfFloors: _intOrNull(json['numberOfFloors']),
+  totalUnits: _intOrNull(json['totalUnits']),
+  leasableUnits: _intOrNull(json['leasableUnits']),
+  propertyName: json['property'] is Json
+      ? _strOrNull((json['property'] as Json)['propertyName'])
+      : null,
 );
+
+Json buildingDraftToJson(BuildingDraft draft) => {
+  'propertyId': _idToApi(draft.propertyId),
+  'blockName': draft.name,
+  'description': draft.description,
+  'status': draft.status.code,
+  'totalAreaSqFeet': draft.totalArea,
+  'numberOfFloors': draft.numberOfFloors,
+  'totalUnits': draft.totalUnits,
+  'leasableUnits': draft.leasableUnits,
+};
+
+/// Expands a block's floor *count* into floor records.
+///
+/// The contract models floors as a number on the block, not as entities. The
+/// browse filter needs something to select, so the count is projected into
+/// "Floor 1..n" — with ground as floor 0 where the block says it has one. This
+/// is a rendering of what the server said, not a second source of truth: no id
+/// here is ever sent back.
+List<Floor> floorsFromBlock(Json json) {
+  final blockId = _str(json['id']);
+  final count = _int(json['numberOfFloors']);
+  if (count <= 0) return const <Floor>[];
+  return [
+    for (var level = 0; level < count; level++)
+      Floor(
+        id: '$blockId:$level',
+        buildingId: blockId,
+        name: level == 0 ? 'Ground floor' : 'Floor $level',
+        floorNumber: level,
+      ),
+  ];
+}
 
 Floor floorFromJson(Json json) => Floor(
   id: _str(json['id']),
@@ -141,46 +229,84 @@ Floor floorFromJson(Json json) => Floor(
 // -- Unit --------------------------------------------------------------------
 
 Unit unitFromJson(Json json) {
-  final currency = _str(json['currency'], 'KES');
+  final currency = _str(json['currencyCode'], _defaultCurrency);
+  final floorNumber = _intOrNull(json['floorNumber']);
+  final property = json['property'] is Json ? json['property'] as Json : null;
+  final block = json['block'] is Json ? json['block'] as Json : null;
+
   return Unit(
     id: _str(json['id']),
     propertyId: _str(json['propertyId']),
-    buildingId: _strOrNull(json['buildingId']),
-    floorId: _strOrNull(json['floorId']),
+    buildingId: _strOrNull(json['blockId']),
+    floorId: floorNumber == null
+        ? null
+        : '${_str(json['blockId'])}:$floorNumber',
     unitTypeId: _strOrNull(json['unitTypeId']),
     unitNumber: _str(json['unitNumber']),
-    unitCode: _str(json['unitCode']),
+    // The contract has one identifier for a unit, and this is it. The app's
+    // separate "code" is the same string rather than a second one nobody
+    // maintains.
+    unitCode: _str(json['unitNumber']),
     name: _strOrNull(json['name']),
     description: _strOrNull(json['description']),
+    category: UnitCategory.fromCode(json['type']),
     length: _doubleOrNull(json['length']),
     width: _doubleOrNull(json['width']),
-    area: _doubleOrNull(json['area']),
-    areaUnit: _str(json['areaUnit'], 'm²'),
-    baseRent: _money(json, 'baseRent', currency),
-    billingFrequency: BillingFrequency.fromApi(
-      _strOrNull(json['billingFrequency']),
-    ),
-    status: UnitStatus.fromApi(_strOrNull(json['status'])),
+    area: _doubleOrNull(json['areaSqFeet']),
+    areaUnit: _apiAreaUnit,
+    baseRent: _money(json, 'monthlyRent', currency),
+    // Rent is quoted per month throughout the contract; there is no field
+    // offering anything else.
+    billingFrequency: BillingFrequency.monthly,
+    status: UnitStatus.fromCode(json['status']),
     depositMonths: _intOrNull(json['depositMonths']),
-    bookingFee: json['bookingFee'] == null
+    depositAmount: json['depositAmount'] == null
         ? null
-        : _money(json, 'bookingFee', currency),
-    ratePerSqm: json['ratePerSqm'] == null
+        : _money(json, 'depositAmount', currency),
+    serviceCharge: json['serviceChargeAmount'] == null
         ? null
-        : _money(json, 'ratePerSqm', currency),
-    rentOverridden: _bool(json['rentOverridden']),
+        : _money(json, 'serviceChargeAmount', currency),
+    bookingFee: null,
+    ratePerSqm: null,
+    rentOverridden: false,
+    wing: _strOrNull(json['wing']),
+    section: _strOrNull(json['section']),
+    floorNumber: floorNumber,
+    availableFrom: _dateOrNull(json['availableFrom']),
     requirements: _list(
       json['requirements'],
     ).map(unitRequirementFromJson).toList(growable: false),
-    propertyName: _strOrNull(json['propertyName']),
-    buildingName: _strOrNull(json['buildingName']),
-    floorName: _strOrNull(json['floorName']),
+    propertyName: _strOrNull(property?['propertyName']),
+    buildingName: _strOrNull(block?['blockName']),
+    floorName: floorNumber == null
+        ? null
+        : (floorNumber == 0 ? 'Ground floor' : 'Floor $floorNumber'),
     imageUrls: _list(json['images'])
         .map((i) => _str(i['url']))
         .where((url) => url.isNotEmpty)
         .toList(growable: false),
   );
 }
+
+Json unitDraftToJson(UnitDraft draft) => {
+  'propertyId': _idToApi(draft.propertyId),
+  'blockId': _idToApi(draft.blockId),
+  'unitNumber': draft.unitNumber,
+  'type': draft.category.code,
+  'description': draft.description,
+  'length': draft.length,
+  'width': draft.width,
+  'areaSqFeet': draft.area,
+  'monthlyRent': draft.monthlyRent.toJson(),
+  'bookingFeeType': draft.bookingFeeType,
+  'depositAmount': draft.depositAmount?.toJson(),
+  'depositPercentage': draft.depositPercentage,
+  'serviceChargeAmount': draft.serviceCharge?.toJson(),
+  'bookingFeePercentage': draft.bookingFeePercentage,
+  'wing': draft.wing,
+  'section': draft.section,
+  'floorNumber': draft.floorNumber,
+};
 
 UnitRequirement unitRequirementFromJson(Json json) => UnitRequirement(
   id: _str(json['id']),
@@ -236,23 +362,29 @@ UnitPricing unitPricingFromJson(Json json) {
 // -- Booking -----------------------------------------------------------------
 
 Booking bookingFromJson(Json json) {
-  final currency = _str(json['currency'], 'KES');
+  final currency = _str(json['currencyCode'], _defaultCurrency);
+  final property = json['property'] is Json ? json['property'] as Json : null;
+  final unit = json['unit'] is Json ? json['unit'] as Json : null;
+
   return Booking(
     id: _str(json['id']),
     unitId: _str(json['unitId']),
     tenantId: _str(json['tenantId']),
     propertyId: _strOrNull(json['propertyId']),
-    propertyName: _strOrNull(json['propertyName']),
-    unitNumber: _strOrNull(json['unitNumber']),
-    bookingReference: _str(json['bookingReference']),
+    propertyName: _strOrNull(property?['propertyName']),
+    unitNumber: _strOrNull(unit?['unitNumber']),
+    // The contract identifies a booking by its id alone. The reference shown
+    // to the tenant is that id rather than a second one the server has never
+    // heard of.
+    bookingReference: _str(json['bookingReference'], _str(json['id'])),
     // Section 21: these are the terms the server captured at booking time.
     // Rendered as received; never recomputed from the unit's current pricing.
     monthlyRent: _money(json, 'monthlyRent', currency),
     depositAmount: _money(json, 'depositAmount', currency),
     bookingFee: _money(json, 'bookingFee', currency),
-    expiresAt: _dateOrNull(json['expiresAt']),
-    status: BookingStatus.fromApi(_strOrNull(json['status'])),
-    createdAt: _date(json['createdAt']),
+    expiresAt: _dateOrNull(json['expiryDate']),
+    status: BookingStatus.fromCode(json['status']),
+    createdAt: _date(json['bookingDate'] ?? json['createdAt']),
     leaseId: _strOrNull(json['leaseId']),
     bookingFeeInvoiceId: _strOrNull(json['bookingFeeInvoiceId']),
     depositInvoiceId: _strOrNull(json['depositInvoiceId']),
@@ -261,6 +393,101 @@ Booking bookingFromJson(Json json) {
     ).map(bookingRequirementFromJson).toList(growable: false),
   );
 }
+
+/// Reads the terms of a booking off the unit being booked.
+///
+/// The contract publishes no quote route, and the unit already states every
+/// figure one would contain: the rent, the deposit, the service charge. This
+/// reads them rather than computing them — the one exception being a deposit
+/// stated as a number of months, where the multiplication is the server's own
+/// rule applied to the server's own figures, and is shown to the tenant before
+/// anything is committed.
+BookingQuote quoteFromUnit(Unit unit) {
+  final rent = unit.baseRent;
+  final deposit =
+      unit.depositAmount ??
+      (unit.depositMonths == null ? rent : rent * unit.depositMonths!);
+  final bookingFee = unit.bookingFee ?? Money.zero(rent.currency);
+
+  return BookingQuote(
+    unitId: unit.id,
+    monthlyRent: rent,
+    depositAmount: deposit,
+    bookingFee: bookingFee,
+    total: bookingFee.isZero ? deposit : bookingFee,
+    currency: rent.currency,
+    depositMonths: unit.depositMonths,
+    // The contract sets an expiry date on the booking it creates rather than
+    // publishing the window in advance. Two days is what the app has always
+    // shown; the booking itself carries the real date once it exists.
+    expiryHours: 48,
+    requirements: const <UnitRequirementSummary>[],
+  );
+}
+
+/// Builds the booking a create request just made.
+///
+/// The route answers with a message, not with the record. Rather than show a
+/// blank confirmation, the booking is assembled from the unit that was booked
+/// and the terms it carried — every figure server-supplied, none of it
+/// invented — and marked as awaiting payment, which is the state the contract
+/// says a new booking is in.
+Booking bookingFromCreation(Json json, Unit unit, BookingApplicant applicant) {
+  final quote = quoteFromUnit(unit);
+  final id = _str(json['id'], _str(json['bookingId']));
+
+  return Booking(
+    id: id,
+    unitId: unit.id,
+    tenantId: _str(json['tenantId']),
+    bookingReference: id.isEmpty ? unit.unitNumber : id,
+    monthlyRent: quote.monthlyRent,
+    depositAmount: quote.depositAmount,
+    bookingFee: quote.bookingFee,
+    status: BookingStatus.pendingPayment,
+    createdAt: DateTime.now(),
+    propertyId: unit.propertyId,
+    propertyName: unit.propertyName,
+    unitNumber: unit.unitNumber,
+  );
+}
+
+/// Builds the payment intent an M-Pesa request just started.
+///
+/// The route answers with the tenant's invoices rather than with a payment, so
+/// there is no payment id to poll — the outcome arrives as a notification when
+/// the callback reconciles. The intent says what was asked for and carries the
+/// instruction the tenant needs to act on, and nothing here claims the payment
+/// succeeded (section 39).
+PaymentIntent paymentIntentFromRequest(
+  Json json,
+  String invoiceId,
+  Money amount,
+) => PaymentIntent(
+  paymentId: _str(json['paymentId'], 'invoice-$invoiceId'),
+  status: PaymentStatus.pending,
+  amount: amount,
+  providerReference: _strOrNull(json['transactionId']),
+  instruction:
+      'Check your phone for the M-Pesa prompt and enter your PIN to '
+      'authorise the payment.',
+);
+
+Json bookingRequestToJson({
+  required String unitId,
+  required String? propertyId,
+  required String? blockId,
+  required BookingApplicant applicant,
+}) => {
+  'propertyId': _idToApi(propertyId),
+  'blockId': _idToApi(blockId),
+  'unitId': _idToApi(unitId),
+  'fullName': applicant.fullName,
+  'phoneNumber': PhoneNumber.normalize(applicant.phoneNumber),
+  'email': applicant.email,
+  'companyName': applicant.companyName,
+  'businessType': applicant.businessType,
+};
 
 BookingRequirement bookingRequirementFromJson(Json json) => BookingRequirement(
   id: _str(json['id']),
@@ -310,7 +537,10 @@ BookingQuote bookingQuoteFromJson(Json json) {
 // -- Lease -------------------------------------------------------------------
 
 Lease leaseFromJson(Json json) {
-  final currency = _str(json['currency'], 'KES');
+  final currency = _str(json['currencyCode'], _defaultCurrency);
+  final property = json['property'] is Json ? json['property'] as Json : null;
+  final unit = json['unit'] is Json ? json['unit'] as Json : null;
+
   return Lease(
     id: _str(json['id']),
     leaseNumber: _str(json['leaseNumber']),
@@ -318,20 +548,20 @@ Lease leaseFromJson(Json json) {
     unitId: _str(json['unitId']),
     tenantId: _str(json['tenantId']),
     bookingId: _strOrNull(json['bookingId']),
-    propertyName: _strOrNull(json['propertyName']),
-    unitNumber: _strOrNull(json['unitNumber']),
+    propertyName: _strOrNull(property?['propertyName']),
+    unitNumber: _strOrNull(unit?['unitNumber']),
     startDate: _date(json['startDate']),
     endDate: _date(json['endDate']),
     monthlyRent: _money(json, 'monthlyRent', currency),
     depositAmount: _money(json, 'depositAmount', currency),
-    billingFrequency: BillingFrequency.fromApi(
-      _strOrNull(json['billingFrequency']),
-    ),
+    // The contract quotes rent monthly and bills on a day of the month; there
+    // is no field offering another frequency.
+    billingFrequency: BillingFrequency.monthly,
     paymentDueDay: _int(json['paymentDueDay'], 1),
-    status: LeaseStatus.fromApi(_strOrNull(json['status'])),
-    signedAt: _dateOrNull(json['signedAt']),
+    status: LeaseStatus.fromCode(json['status']),
+    signedAt: _dateOrNull(json['tenantSignedAt'] ?? json['signedAt']),
     activatedAt: _dateOrNull(json['activatedAt']),
-    terminatedAt: _dateOrNull(json['terminatedAt']),
+    terminatedAt: _dateOrNull(json['terminationDate']),
     createdAt: _date(json['createdAt']),
     agreementDocumentId: _strOrNull(json['agreementDocumentId']),
     signedAgreementDocumentId: _strOrNull(json['signedAgreementDocumentId']),
@@ -388,16 +618,22 @@ LeaseAgreement leaseAgreementFromJson(Json json) => LeaseAgreement(
 // -- Billing -----------------------------------------------------------------
 
 Invoice invoiceFromJson(Json json) {
-  final currency = _str(json['currency'], 'KES');
+  final currency = _str(json['currencyCode'], _defaultCurrency);
+  final property = json['property'] is Json ? json['property'] as Json : null;
+  final unit = json['unit'] is Json ? json['unit'] as Json : null;
+
   return Invoice(
     id: _str(json['id']),
-    invoiceNumber: _str(json['invoiceNumber']),
+    // The contract numbers invoices by id. Shown as `INV-` plus the id rather
+    // than as a bare integer, so a tenant quoting it on a bank transfer is
+    // quoting something that looks like a reference.
+    invoiceNumber: _str(json['invoiceNumber'], 'INV-${_str(json['id'])}'),
     tenantId: _str(json['tenantId']),
     leaseId: _strOrNull(json['leaseId']),
     propertyId: _strOrNull(json['propertyId']),
     unitId: _strOrNull(json['unitId']),
-    propertyName: _strOrNull(json['propertyName']),
-    unitNumber: _strOrNull(json['unitNumber']),
+    propertyName: _strOrNull(property?['propertyName']),
+    unitNumber: _strOrNull(unit?['unitNumber']),
     invoiceDate: _date(json['invoiceDate']),
     dueDate: _date(json['dueDate']),
     billingPeriodStart: _dateOrNull(json['billingPeriodStart']),
@@ -405,17 +641,69 @@ Invoice invoiceFromJson(Json json) {
     // Section 84 rules 4 and 7: every figure below is the server's, frozen at
     // issue. Nothing here re-derives a total from the lines.
     subtotal: _money(json, 'subtotal', currency),
-    tax: _money(json, 'tax', currency),
-    discount: _money(json, 'discount', currency),
-    total: _money(json, 'total', currency),
-    amountPaid: _money(json, 'amountPaid', currency),
-    amountDue: _money(json, 'amountDue', currency),
+    tax: _money(json, 'taxAmount', currency),
+    discount: _money(json, 'discountAmount', currency),
+    total: _money(json, 'totalAmount', currency),
+    amountPaid: _money(json, 'paidAmount', currency),
+    amountDue: _money(json, 'balanceDue', currency),
     currency: currency,
-    status: InvoiceStatus.fromApi(_strOrNull(json['status'])),
-    lines: _list(
-      json['lines'],
-    ).map((l) => invoiceLineFromJson(l, currency)).toList(growable: false),
+    status: _invoiceStatusFromContract(json),
+    // The contract carries a single typed invoice rather than a line
+    // breakdown. One line is synthesised from the invoice's own type and
+    // total so the detail screen has something true to show — it is the
+    // server's figure, relabelled, not a breakdown the app invented.
+    lines: _list(json['lines']).isEmpty
+        ? [_invoiceLineFromInvoice(json, currency)]
+        : _list(json['lines'])
+              .map((l) => invoiceLineFromJson(l, currency))
+              .toList(growable: false),
     documentId: _strOrNull(json['documentId']),
+    isDeferred: _bool(json['isDeferred']),
+    deferReason: _strOrNull(json['deferReason']),
+    settledOn: _dateOrNull(json['settledOn']),
+    paymentReceipt: _strOrNull(json['paymentReceipt']),
+  );
+}
+
+/// Works out an invoice's status from the several fields the contract spreads
+/// it across.
+///
+/// `invoiceStatus` is free text and may be absent; `isPaid`, `cancelledDate`
+/// and `dueDate` are the facts. Reading them in that order gives a status the
+/// tenant would recognise, and never contradicts an explicit one the server
+/// sent.
+InvoiceStatus _invoiceStatusFromContract(Json json) {
+  final stated = InvoiceStatus.fromApi(
+    _strOrNull(json['invoiceStatus'])?.replaceAll(' ', '_'),
+  );
+  if (stated != InvoiceStatus.unknown) return stated;
+
+  if (_dateOrNull(json['cancelledDate']) != null) {
+    return InvoiceStatus.cancelled;
+  }
+  if (_bool(json['isPaid'])) return InvoiceStatus.paid;
+
+  final paid = _doubleOrNull(json['paidAmount']) ?? 0;
+  final due = _dateOrNull(json['dueDate']);
+  if (due != null && due.isBefore(DateTime.now())) {
+    return InvoiceStatus.overdue;
+  }
+  return paid > 0 ? InvoiceStatus.partiallyPaid : InvoiceStatus.issued;
+}
+
+InvoiceLine _invoiceLineFromInvoice(Json json, String currency) {
+  final lineType = InvoiceLineType.fromCode(json['type']);
+  return InvoiceLine(
+    id: 'invoice-${_str(json['id'])}',
+    invoiceId: _str(json['id']),
+    description: _str(json['notes'], lineType.label),
+    quantity: 1,
+    unitPrice: _money(json, 'subtotal', currency),
+    amount: _money(json, 'subtotal', currency),
+    lineType: lineType,
+    taxAmount: json['taxAmount'] == null
+        ? null
+        : _money(json, 'taxAmount', currency),
   );
 }
 
@@ -506,19 +794,188 @@ Receipt receiptFromJson(Json json) {
 
 // -- Tenant, documents, notifications ----------------------------------------
 
-AppUser userFromJson(Json json) => AppUser(
+/// Reads the contract's `MallUsers` into the app's signed-in user.
+///
+/// The contract holds one `fullName`; the app shows a first and last name and
+/// builds initials from them. Splitting on the last space is a display
+/// convenience and nothing more — the whole string is preserved between the
+/// two fields, so nothing is lost on a name that does not split the way the
+/// split assumes.
+AppUser userFromJson(Json json) {
+  final (firstName, lastName) = _splitName(
+    _str(json['fullName'], _str(json['userName'])),
+    fallbackFirst: _str(json['firstName']),
+    fallbackLast: _str(json['lastName']),
+  );
+
+  return AppUser(
+    id: _str(json['userId'], _str(json['id'])),
+    organizationId: _strOrNull(json['organizationId']),
+    firstName: firstName,
+    lastName: lastName,
+    email: _strOrNull(json['emailAddress'] ?? json['email']),
+    phone: _strOrNull(json['phoneNumber'] ?? json['phone']),
+    status: _bool(json['userActive'], true) ? 'ACTIVE' : 'DISABLED',
+    role: AccountRole.fromApi(_strOrNull(json['userRole'] ?? json['role'])),
+    emailVerified: _bool(json['emailConfirmed'] ?? json['emailVerified']),
+    phoneVerified: _bool(json['phoneNumberConfirmed'] ?? json['phoneVerified']),
+    lastLoginAt: _dateOrNull(json['lastLogin'] ?? json['lastLoginAt']),
+  );
+}
+
+(String, String) _splitName(
+  String fullName, {
+  String fallbackFirst = '',
+  String fallbackLast = '',
+}) {
+  if (fallbackFirst.isNotEmpty || fallbackLast.isNotEmpty) {
+    return (fallbackFirst, fallbackLast);
+  }
+  final trimmed = fullName.trim();
+  if (trimmed.isEmpty) return ('', '');
+  final split = trimmed.lastIndexOf(' ');
+  if (split == -1) return (trimmed, '');
+  return (trimmed.substring(0, split), trimmed.substring(split + 1));
+}
+
+// -- Accounts, roles and claims ----------------------------------------------
+
+PlatformUser platformUserFromJson(Json json) => PlatformUser(
   id: _str(json['id']),
-  organizationId: _strOrNull(json['organizationId']),
-  firstName: _str(json['firstName']),
-  lastName: _str(json['lastName']),
-  email: _strOrNull(json['email']),
-  phone: _strOrNull(json['phone']),
-  status: _str(json['status'], 'ACTIVE'),
-  role: AccountRole.fromApi(_strOrNull(json['role'])),
-  emailVerified: _bool(json['emailVerified']),
-  phoneVerified: _bool(json['phoneVerified']),
-  lastLoginAt: _dateOrNull(json['lastLoginAt']),
+  userId: _strOrNull(json['userId']),
+  fullName: _str(json['fullName'], _str(json['userName'])),
+  phoneNumber: _strOrNull(json['phoneNumber']),
+  emailAddress: _strOrNull(json['emailAddress'] ?? json['email']),
+  role: _strOrNull(json['userRole']),
+  profileImage: _strOrNull(json['profileImage']),
+  roles: _list(json['roles']).isEmpty
+      ? (json['roles'] is List
+            ? (json['roles'] as List)
+                  .map((role) => role.toString())
+                  .where((role) => role.isNotEmpty)
+                  .toList(growable: false)
+            : const <String>[])
+      : const <String>[],
+  isActive: _bool(json['userActive'], true),
+  isDeleted: _bool(json['isDeleted']),
+  emailConfirmed: _bool(json['emailConfirmed']),
+  phoneConfirmed: _bool(json['phoneNumberConfirmed']),
+  twoFactorEnabled: _bool(json['twoFactorEnabled']),
+  lockoutEnabled: _bool(json['lockoutEnabled']),
+  lockedOutUntil: _dateOrNull(json['lockoutEnd']),
+  createdByName: _strOrNull(json['createdByName']),
+  lastLoginAt: _dateOrNull(json['lastLogin']),
+  createdAt: _dateOrNull(json['createdAt']),
 );
+
+AccessRole accessRoleFromJson(Json json) => AccessRole(
+  id: _strOrNull(json['id']),
+  name: _str(json['name'], _str(json['normalizedName'])),
+);
+
+AccessClaim accessClaimFromJson(Json json) => AccessClaim(
+  type: _str(json['type']),
+  value: _str(json['value']),
+  issuer: _strOrNull(json['issuer']),
+);
+
+// -- Treasury ----------------------------------------------------------------
+
+MpesaTransaction mpesaTransactionFromJson(Json json) => MpesaTransaction(
+  id: _str(json['id']),
+  transactionId: _str(json['transID']),
+  // The gateway sends amounts as strings. Parsed once, here, and never
+  // arithmetic'd afterwards.
+  amount: Money.fromJson(json['transAmount'], _defaultCurrency),
+  processed: _bool(json['processed']),
+  transactionType: _strOrNull(json['transactionType']),
+  transactedAt:
+      _mpesaTimestamp(json['transTime']) ?? _dateOrNull(json['createdAt']),
+  businessShortCode: _strOrNull(json['businessShortCode']),
+  accountNumber: _strOrNull(json['billRefNumber']),
+  invoiceNumber: _strOrNull(json['invoiceNumber']),
+  payerPhone: _strOrNull(json['msisdn']),
+  payerName: _strOrNull(json['firstName']),
+  propertyId: _strOrNull(json['propertyId']),
+  blockId: _strOrNull(json['blockId']),
+  thirdPartyTransactionId: _strOrNull(json['thirdPartyTransID']),
+  organisationBalance: _strOrNull(json['orgAccountBalance']),
+  isReissued: _bool(json['is_reissued']),
+  isEdited: _bool(json['is_edited']),
+  isSplit: _bool(json['is_split']),
+  createdAt: _dateOrNull(json['createdAt']),
+);
+
+/// M-Pesa stamps its timestamps as `yyyyMMddHHmmss`, which is not ISO-8601 and
+/// will not parse as one. Anything else is left to the ordinary date parser.
+DateTime? _mpesaTimestamp(Object? raw) {
+  final text = raw?.toString();
+  if (text == null || text.length != 14) return _dateOrNull(raw);
+  final parsed = DateTime.tryParse(
+    '${text.substring(0, 4)}-${text.substring(4, 6)}-${text.substring(6, 8)} '
+    '${text.substring(8, 10)}:${text.substring(10, 12)}:'
+    '${text.substring(12, 14)}',
+  );
+  return parsed ?? _dateOrNull(raw);
+}
+
+BankPayment bankPaymentFromJson(Json json) => BankPayment(
+  id: _str(json['id']),
+  amount: Money.fromJson(json['amount'], _defaultCurrency),
+  paidAt: _date(json['paymentDate']),
+  paymentMethod: _str(json['paymentMethod']),
+  paymentReference: _str(json['paymentReference']),
+  invoiceId: _strOrNull(json['invoiceId']),
+  tenantId: _strOrNull(json['tenantId']),
+  propertyId: _strOrNull(json['propertyId']),
+  blockId: _strOrNull(json['blockId']),
+  purpose: _strOrNull(json['purpose']),
+  paidByName: _strOrNull(json['paidBy']),
+  bankAccountNumber: _strOrNull(json['bankAccountNumber']),
+  bankName: _strOrNull(json['bankName']),
+  branchName: _strOrNull(json['branchName']),
+  status: _strOrNull(json['status']),
+  proofOfPaymentUrl: _strOrNull(json['proofOfPaymentUrl']),
+  isProcessed: _bool(json['isProcessed']),
+  isSplit: _bool(json['isSplit']),
+  isReissued: _bool(json['isReissued']),
+  createdByName: _strOrNull(json['createdByName']),
+  createdAt: _dateOrNull(json['createdAt']),
+);
+
+Json bankPaymentDraftToJson(BankPaymentDraft draft) => {
+  'paymentDate': draft.paidAt.toUtc().toIso8601String(),
+  'amount': draft.amount.toJson(),
+  'paymentMethod': draft.paymentMethod,
+  'paymentReference': draft.paymentReference,
+  'invoiceId': _idToApi(draft.invoiceId),
+  'tenantId': _idToApi(draft.tenantId),
+  'purpose': draft.purpose,
+  'paidByName': draft.paidByName,
+  'bankAccountNumber': draft.bankAccountNumber,
+  'bankName': draft.bankName,
+  'branchName': draft.branchName,
+  'proofOfPaymentUrl': draft.proofOfPaymentUrl,
+};
+
+Json bankPaymentToJson(BankPayment payment) => {
+  'id': _idToApi(payment.id),
+  'paymentDate': payment.paidAt.toUtc().toIso8601String(),
+  'amount': payment.amount.toJson(),
+  'paymentMethod': payment.paymentMethod,
+  'paymentReference': payment.paymentReference,
+  'invoiceId': _idToApi(payment.invoiceId),
+  'tenantId': _idToApi(payment.tenantId),
+  'propertyId': _idToApi(payment.propertyId),
+  'blockId': _idToApi(payment.blockId),
+  'purpose': payment.purpose,
+  'paidBy': payment.paidByName,
+  'bankAccountNumber': payment.bankAccountNumber,
+  'bankName': payment.bankName,
+  'branchName': payment.branchName,
+  'status': payment.status,
+  'proofOfPaymentUrl': payment.proofOfPaymentUrl,
+};
 
 // -- Owner reporting (section 88) --------------------------------------------
 
@@ -558,18 +1015,53 @@ RepricingImpact repricingImpactFromJson(Json json) => RepricingImpact(
 /// The client describes what it wants; the server decides what it gets. No id,
 /// no status, no derived counts — and notably no rents, only the rate they are
 /// derived from.
+/// The contract's `CreatePropertyRequest`.
+///
+/// Two fields the app carries have nowhere to go: the street address, which
+/// the contract records only as a city and a country, and the rate per square
+/// metre, which it has no concept of. The rate is not dropped silently — it is
+/// what every generated unit's rent is worked out from before the units are
+/// sent, so it survives where it matters even though the property itself
+/// cannot hold it.
 Json propertyDraftToJson(PropertyDraft draft) => {
-  'name': draft.name,
-  'propertyType': draft.propertyType.api,
+  'propertyName': draft.name,
+  'type': draft.propertyType.code,
+  'status': PropertyStatus.active.code,
   'description': draft.description,
-  'address': draft.address,
   'city': draft.city,
-  'county': draft.county,
   'country': draft.country,
-  'totalArea': draft.totalArea,
-  'rentRatePerSqm': draft.rentRatePerSqm.toJson(),
-  'currency': draft.rentRatePerSqm.currency,
+  'totalAreaSqFeet': draft.totalArea,
+  'leasableAreaSqFeet': draft.totalArea,
 };
+
+/// One unit out of a batch, numbered.
+///
+/// The contract creates units singly, so a batch becomes this called
+/// repeatedly. Each unit's rent is the batch's rate times its area — worked
+/// out here because the server has no rate to work it out from, and worked out
+/// once per unit rather than once and copied, so a rounding is the same
+/// rounding the owner was shown.
+UnitDraft unitDraftFromBatch(
+  UnitBatchDraft draft,
+  String propertyId,
+  int index,
+) {
+  final rate = draft.ratePerSqm;
+  return UnitDraft(
+    propertyId: propertyId,
+    unitNumber: '${draft.numberPrefix}-${draft.startNumber + index}',
+    category: UnitCategory.shop,
+    monthlyRent: rate == null
+        ? Money.zero(_defaultCurrency)
+        : rate.scaledBy(draft.area),
+    description: draft.description,
+    length: draft.length,
+    width: draft.width,
+    area: draft.area,
+    depositAmount: null,
+    serviceCharge: null,
+  );
+}
 
 Json unitBatchDraftToJson(UnitBatchDraft draft) => {
   'typeName': draft.typeName,
@@ -730,9 +1222,9 @@ OwnerPortfolio ownerPortfolioFromJson(Json json) {
     history: _list(json['history'])
         .map((month) => _monthlyCollectionFromJson(month, currency))
         .toList(growable: false),
-    alerts: _list(json['alerts']).map(_ownerAlertFromJson).toList(
-      growable: false,
-    ),
+    alerts: _list(
+      json['alerts'],
+    ).map(_ownerAlertFromJson).toList(growable: false),
   );
 }
 
@@ -780,10 +1272,10 @@ Json tenantProfileToJson(TenantProfile profile) => {
   'nationalId': profile.nationalId,
   'passportNumber': profile.passportNumber,
   'email': profile.email,
-  'phone': profile.phone,
+  'phone': PhoneNumber.normalizeOrNull(profile.phone),
   'address': profile.address,
   'contactPerson': profile.contactPerson,
-  'contactPersonPhone': profile.contactPersonPhone,
+  'contactPersonPhone': PhoneNumber.normalizeOrNull(profile.contactPersonPhone),
 };
 
 Document documentFromJson(Json json) => Document(

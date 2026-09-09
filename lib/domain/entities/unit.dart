@@ -29,6 +29,13 @@ class Unit {
     this.rentOverridden = false,
     this.requirements = const <UnitRequirement>[],
     this.imageUrls = const <String>[],
+    this.category = UnitCategory.unknown,
+    this.wing,
+    this.section,
+    this.floorNumber,
+    this.depositAmount,
+    this.serviceCharge,
+    this.availableFrom,
   });
 
   final String id;
@@ -42,6 +49,30 @@ class Unit {
   final String? description;
 
   final String? unitTypeId;
+
+  /// What kind of space this is — a shop, a kiosk, a restaurant.
+  ///
+  /// Distinct from [unitTypeId], which points at a batch-creation template.
+  /// Two units built from the same template are both shops; a shop and a
+  /// kiosk in the same wing were built from different ones.
+  final UnitCategory category;
+
+  /// Where in the building. The contract carries these as loose labels rather
+  /// than references, and they are kept that way — a wing called "East" is not
+  /// an entity anyone maintains.
+  final String? wing;
+  final String? section;
+  final int? floorNumber;
+
+  /// The deposit as a cash figure, where the server states one outright rather
+  /// than as a multiple of rent. Both forms exist in the contract; whichever
+  /// arrives is what gets shown.
+  final Money? depositAmount;
+
+  final Money? serviceCharge;
+
+  /// When the unit can next be occupied.
+  final DateTime? availableFrom;
 
   final double? length;
   final double? width;
@@ -114,8 +145,9 @@ class Unit {
   List<UnitRequirement> get mandatoryRequirements =>
       requirements.where((r) => r.isMandatory).toList(growable: false);
 
-  static String _trim(double value) =>
-      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+  static String _trim(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toString();
 }
 
 /// Section 16. A template used for batch unit creation (section 17).
@@ -155,6 +187,80 @@ class UnitType {
   ///
   /// Null means the units inherit `Property.rentRatePerSqm`.
   final Money? ratePerSqm;
+}
+
+/// What an owner submits to create or amend a single unit.
+///
+/// The batch draft in `owner.dart` builds a floor of identical shops in one
+/// go; this is the other half of the job — the one unit that is not like the
+/// others, and the correction to a unit that already exists.
+///
+/// The deposit and booking fee can each be stated as a cash amount *or* as a
+/// percentage of rent, because the contract accepts both and back offices use
+/// both. Nothing here converts between them: whichever the owner entered is
+/// what gets sent.
+class UnitDraft {
+  const UnitDraft({
+    required this.propertyId,
+    required this.unitNumber,
+    required this.category,
+    required this.monthlyRent,
+    this.blockId,
+    this.description,
+    this.length,
+    this.width,
+    this.area,
+    this.bookingFeeType,
+    this.depositAmount,
+    this.depositPercentage,
+    this.serviceCharge,
+    this.bookingFeePercentage,
+    this.wing,
+    this.section,
+    this.floorNumber,
+  });
+
+  /// Seeds the form from a unit that already exists.
+  UnitDraft.from(Unit unit)
+    : propertyId = unit.propertyId,
+      blockId = unit.buildingId,
+      unitNumber = unit.unitNumber,
+      category = unit.category,
+      monthlyRent = unit.baseRent,
+      description = unit.description,
+      length = unit.length,
+      width = unit.width,
+      area = unit.area,
+      bookingFeeType = null,
+      depositAmount = unit.depositAmount,
+      depositPercentage = null,
+      serviceCharge = unit.serviceCharge,
+      bookingFeePercentage = null,
+      wing = unit.wing,
+      section = unit.section,
+      floorNumber = unit.floorNumber;
+
+  final String propertyId;
+  final String? blockId;
+  final String unitNumber;
+  final UnitCategory category;
+  final String? description;
+
+  final double? length;
+  final double? width;
+  final double? area;
+
+  final Money monthlyRent;
+
+  final String? bookingFeeType;
+  final Money? depositAmount;
+  final double? depositPercentage;
+  final Money? serviceCharge;
+  final double? bookingFeePercentage;
+
+  final String? wing;
+  final String? section;
+  final int? floorNumber;
 }
 
 /// Section 19. Effective-dated pricing, so a rent increase never rewrites

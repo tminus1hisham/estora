@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/debug/debug_log.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
@@ -50,8 +51,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    // Both refusals below happen entirely on the handset: no request is sent,
+    // so nothing downstream has anything to say about them. Without these two
+    // lines the button looks dead — the commonest reason "creating an account
+    // does nothing" turns out to be a field the tenant never scrolled back to.
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      DebugLog.write(
+        'auth',
+        'Create account blocked: the form did not validate',
+        detail: _unfilledFields(),
+      );
+      return;
+    }
     if (!_acceptedTerms) {
+      DebugLog.write('auth', 'Create account blocked: terms not accepted');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please accept the terms to continue.')),
       );
@@ -72,6 +86,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (ok && mounted) context.pushNamed(Routes.otp);
   }
 
+  /// Which inputs are still empty, by name only.
+  ///
+  /// An empty field is the usual cause of a refused form and the one thing the
+  /// validators cannot say from here. The values are deliberately left out:
+  /// a name, an email address and a phone number are the tenant's, and a log
+  /// is not the place for them.
+  List<String> _unfilledFields() => <String>[
+    if (_firstName.text.trim().isEmpty) 'firstName',
+    if (_lastName.text.trim().isEmpty) 'lastName',
+    if (_phone.text.trim().isEmpty) 'phone',
+    if (_email.text.trim().isEmpty) 'email',
+    if (_password.text.isEmpty) 'password',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
@@ -79,6 +107,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     return AuthPage(
       eyebrow: 'Join',
       title: 'Create your account',
+      showBrandMark: false,
       subtitle:
           'Tell us how you will use the space. You can add company details later.',
       failure: auth.failure,

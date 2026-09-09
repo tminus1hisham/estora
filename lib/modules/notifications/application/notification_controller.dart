@@ -7,9 +7,7 @@ import '../../../services/providers.dart';
 
 /// Badge count for the home screen's bell icon.
 final unreadNotificationCountProvider = FutureProvider<int>((ref) async {
-  final result = await ref
-      .watch(notificationRepositoryProvider)
-      .unreadCount();
+  final result = await ref.watch(notificationRepositoryProvider).unreadCount();
   return result.valueOrNull ?? 0;
 });
 
@@ -19,8 +17,7 @@ final notificationListProvider =
       NotificationListController.new,
     );
 
-class NotificationListController
-    extends AsyncNotifier<List<NotificationItem>> {
+class NotificationListController extends AsyncNotifier<List<NotificationItem>> {
   @override
   Future<List<NotificationItem>> build() async {
     final result = await ref
@@ -50,8 +47,10 @@ class NotificationListController
 
 /// Section 49's channels, as a tenant preference.
 final notificationChannelsProvider =
-    AsyncNotifierProvider<NotificationChannelsController,
-        Set<NotificationChannel>>(NotificationChannelsController.new);
+    AsyncNotifierProvider<
+      NotificationChannelsController,
+      Set<NotificationChannel>
+    >(NotificationChannelsController.new);
 
 class NotificationChannelsController
     extends AsyncNotifier<Set<NotificationChannel>> {

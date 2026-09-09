@@ -63,7 +63,9 @@ class AppDate {
     final days = remaining.inDays;
     final hours = remaining.inHours.remainder(24);
     final minutes = remaining.inMinutes.remainder(60);
-    if (days > 0) return '$days ${_plural(days, 'day')}, $hours ${_plural(hours, 'hour')}';
+    if (days > 0) {
+      return '$days ${_plural(days, 'day')}, $hours ${_plural(hours, 'hour')}';
+    }
     if (hours > 0) {
       return '$hours ${_plural(hours, 'hour')}, $minutes ${_plural(minutes, 'minute')}';
     }
@@ -72,7 +74,8 @@ class AppDate {
 
   static String _pad(int value) => value.toString().padLeft(2, '0');
 
-  static String _plural(int count, String noun) => count == 1 ? noun : '${noun}s';
+  static String _plural(int count, String noun) =>
+      count == 1 ? noun : '${noun}s';
 
   /// Parses an API timestamp, tolerating a null or malformed value.
   static DateTime? tryParse(Object? value) {

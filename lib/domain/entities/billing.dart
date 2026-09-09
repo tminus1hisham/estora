@@ -32,6 +32,10 @@ class Invoice {
     this.billingPeriodStart,
     this.billingPeriodEnd,
     this.documentId,
+    this.isDeferred = false,
+    this.deferReason,
+    this.settledOn,
+    this.paymentReceipt,
   });
 
   final String id;
@@ -67,9 +71,33 @@ class Invoice {
   final String? unitNumber;
   final String? documentId;
 
+  /// Whether payment has been formally postponed.
+  ///
+  /// A deferred invoice is still owed — deferral moves the conversation, not
+  /// the debt — so nothing here removes it from the balance. What it changes
+  /// is the pressure: an invoice with an agreed postponement should not be
+  /// shouted at the tenant as overdue.
+  final bool isDeferred;
+
+  /// Why, in the words that were agreed. Shown to both sides.
+  final String? deferReason;
+
+  /// When the landlord wrote the invoice off against something other than a
+  /// payment through this app — a settlement, a credit, an offset.
+  final DateTime? settledOn;
+
+  /// The receipt reference the server attached once money landed.
+  final String? paymentReceipt;
+
   bool get isOverdue => status == InvoiceStatus.overdue;
 
   bool get isPayable => status.isPayable && amountDue.isPositive;
+
+  /// Whether a tenant may ask for this one to be deferred.
+  ///
+  /// Only something still owed and not already postponed. Asking twice is not
+  /// a second request, it is the same conversation.
+  bool get canRequestDeferral => status.isPayable && !isDeferred;
 
   int get daysUntilDue => DateTime(dueDate.year, dueDate.month, dueDate.day)
       .difference(

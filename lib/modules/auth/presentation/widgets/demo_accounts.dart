@@ -217,9 +217,7 @@ class _AccountTile extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 borderRadius: AppRadius.medium,
-                border: Border.all(
-                  color: kAuthOnDark.withValues(alpha: 0.18),
-                ),
+                border: Border.all(color: kAuthOnDark.withValues(alpha: 0.18)),
               ),
               child: body,
             ),

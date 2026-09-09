@@ -79,7 +79,9 @@ class _Performance extends StatelessWidget {
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),
@@ -233,6 +235,37 @@ class _Actions extends StatelessWidget {
           ),
           onTap: () => context.pushNamed(
             Routes.ownerPropertyRate,
+            pathParameters: {'propertyId': performance.propertyId},
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.dashboard_outlined),
+          title: const Text('Blocks'),
+          subtitle: const Text(
+            'The wings the property is divided into, and the units in them.',
+          ),
+          onTap: () => context.pushNamed(
+            Routes.blocks,
+            pathParameters: {'propertyId': performance.propertyId},
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.add_business_outlined),
+          title: const Text('Add a unit'),
+          subtitle: const Text('One unit, priced and placed by hand.'),
+          onTap: () => context.pushNamed(
+            Routes.unitCreate,
+            pathParameters: {'propertyId': performance.propertyId},
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.edit_outlined),
+          title: const Text('Edit this property'),
+          subtitle: const Text(
+            'What it is, where it is, and whether it is still listed.',
+          ),
+          onTap: () => context.pushNamed(
+            Routes.propertyEdit,
             pathParameters: {'propertyId': performance.propertyId},
           ),
         ),

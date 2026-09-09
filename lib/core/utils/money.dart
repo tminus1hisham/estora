@@ -67,7 +67,8 @@ class Money implements Comparable<Money> {
 
   /// Applies a percentage rate, e.g. the 2% platform fee in section 41 or a VAT
   /// rate from section 57. Rounds to the nearest minor unit.
-  Money percentage(num rate) => Money((minorUnits * rate / 100).round(), currency);
+  Money percentage(num rate) =>
+      Money((minorUnits * rate / 100).round(), currency);
 
   /// Scales by a fractional factor, e.g. a rate per square metre times an area.
   ///
@@ -134,7 +135,8 @@ class Money implements Comparable<Money> {
   }
 
   /// Serialises back to a major-unit number for the API.
-  num toJson() => minorUnits % _factor == 0 ? minorUnits ~/ _factor : majorUnits;
+  num toJson() =>
+      minorUnits % _factor == 0 ? minorUnits ~/ _factor : majorUnits;
 
   @override
   int compareTo(Money other) {

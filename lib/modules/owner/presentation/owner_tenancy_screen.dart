@@ -102,10 +102,7 @@ class _Tenancy extends StatelessWidget {
         children: [
           DetailRow(
             label: 'Monthly rent',
-            valueWidget: AmountText(
-              tenancy.monthlyRent,
-              align: TextAlign.end,
-            ),
+            valueWidget: AmountText(tenancy.monthlyRent, align: TextAlign.end),
             emphasise: true,
           ),
           DetailRow(
@@ -141,9 +138,23 @@ class _Tenancy extends StatelessWidget {
         ],
       ),
       RecordGroup(
-        heading: 'Documents',
+        heading: 'Records',
         rowInset: 56,
         children: [
+          ListTile(
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: const Text('Invoices'),
+            subtitle: Text(
+              tenancy.outstanding.isPositive
+                  ? '${tenancy.outstanding.format()} outstanding.'
+                  : 'Everything billed so far is settled.',
+            ),
+            onTap: () => context.pushNamed(
+              Routes.tenantInvoices,
+              pathParameters: {'tenantId': tenancy.tenantId},
+              queryParameters: {'name': tenancy.tenantName},
+            ),
+          ),
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text('Lease agreement'),
@@ -161,7 +172,9 @@ class _Tenancy extends StatelessWidget {
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),

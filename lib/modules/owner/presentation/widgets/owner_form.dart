@@ -106,14 +106,11 @@ class MoneyField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-      ],
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
       validator:
           validator ??
-          (value) => parse(value ?? '', currency) == null
-              ? 'Enter an amount'
-              : null,
+          (value) =>
+              parse(value ?? '', currency) == null ? 'Enter an amount' : null,
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
@@ -216,9 +213,7 @@ class RatePreview extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh.withValues(alpha: 0.5),
         borderRadius: AppRadius.medium,
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.6),
-        ),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

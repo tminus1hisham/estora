@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mall/core/config/app_config.dart';
 import 'package:mall/app.dart';
 import 'package:mall/core/utils/money.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
@@ -51,6 +52,9 @@ void main() {
     return ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
+        // Pinned so the suite never reaches the network, whatever
+        // AppConfig.dataSource is set to.
+        dataSourceProvider.overrideWithValue(DataSource.mock),
         // Shared with the test body, so assertions can read server state.
         mockServerProvider.overrideWithValue(server),
       ],
@@ -202,7 +206,13 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('Your rent'),
       240,
-      scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
+      // `.first` is the ListView's own scrollable. The applicant fields
+      // further down the page are text fields, and every text field carries a
+      // Scrollable of its own — so once they build, an unqualified descendant
+      // finder matches more than one.
+      scrollable: find
+          .descendant(of: list, matching: find.byType(Scrollable))
+          .first,
     );
     await tester.pumpAndSettle();
 
@@ -212,7 +222,13 @@ void main() {
     await tester.scrollUntilVisible(
       find.byType(CheckboxListTile),
       240,
-      scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
+      // `.first` is the ListView's own scrollable. The applicant fields
+      // further down the page are text fields, and every text field carries a
+      // Scrollable of its own — so once they build, an unqualified descendant
+      // finder matches more than one.
+      scrollable: find
+          .descendant(of: list, matching: find.byType(Scrollable))
+          .first,
     );
     await tester.pumpAndSettle();
 

@@ -15,6 +15,7 @@ import '../../../core/utils/money.dart';
 import '../../../domain/entities/booking.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
+import '../../auth/application/auth_controller.dart';
 import '../application/booking_controller.dart';
 
 /// Section 77's Booking screen.
@@ -23,7 +24,14 @@ import '../application/booking_controller.dart';
 /// is no arithmetic here: no summing of fee and tax into a total, no
 /// multiplying rent by deposit months. Section 65 puts that on the server, and
 /// section 84 rule 7 makes it a rule rather than a preference — so the screen
-/// renders the server's numbers and submits only the unit id.
+/// renders the server's numbers and sends back no amounts at all.
+///
+/// What it does send is who is asking. The published contract wants the
+/// applicant on the booking request rather than read off the session, and it
+/// is right to: the person holding the phone is not always the person whose
+/// name goes on the lease, and a landlord agreeing to let a unit is agreeing
+/// to a particular trade in it. The fields are prefilled from the signed-in
+/// account, so the common case stays one confirmation.
 class BookingScreen extends ConsumerStatefulWidget {
   const BookingScreen({required this.unitId, super.key});
 
@@ -34,12 +42,59 @@ class BookingScreen extends ConsumerStatefulWidget {
 }
 
 class _BookingScreenState extends ConsumerState<BookingScreen> {
+  final _applicantFormKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _emailController;
+  final _companyController = TextEditingController();
+
   bool _acceptedTerms = false;
+  bool _forBusiness = false;
+  String? _businessType;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(authControllerProvider).user;
+    _nameController = TextEditingController(text: user?.fullName ?? '');
+    _phoneController = TextEditingController(text: user?.phone ?? '');
+    _emailController = TextEditingController(text: user?.email ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _companyController.dispose();
+    super.dispose();
+  }
 
   Future<void> _confirm() async {
+    if (!(_applicantFormKey.currentState?.validate() ?? false)) {
+      // The details sit above the fold on a long quote. Saying only "check the
+      // form" would leave someone hunting for what is wrong.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Check your details above before confirming.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final result = await ref
         .read(bookingActionsProvider)
-        .createBooking(widget.unitId);
+        .createBooking(
+          widget.unitId,
+          applicant: BookingApplicant(
+            fullName: _nameController.text.trim(),
+            phoneNumber: _phoneController.text.trim(),
+            email: _emailController.text.trim(),
+            companyName: _forBusiness ? _companyController.text.trim() : null,
+            businessType: _forBusiness ? _businessType : null,
+          ),
+        );
 
     if (!mounted) return;
 
@@ -83,6 +138,21 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           quote: value,
           acceptedTerms: _acceptedTerms,
           onAcceptedChanged: (v) => setState(() => _acceptedTerms = v),
+          applicant: _ApplicantSection(
+            formKey: _applicantFormKey,
+            nameController: _nameController,
+            phoneController: _phoneController,
+            emailController: _emailController,
+            companyController: _companyController,
+            forBusiness: _forBusiness,
+            businessType: _businessType,
+            onForBusinessChanged: (value) => setState(() {
+              _forBusiness = value;
+              if (!value) _businessType = null;
+            }),
+            onBusinessTypeChanged: (value) =>
+                setState(() => _businessType = value),
+          ),
         ),
       },
       // AppBottomActionBar keeps the height factor this screen needs: a bottom
@@ -116,11 +186,16 @@ class _QuoteBody extends StatelessWidget {
     required this.quote,
     required this.acceptedTerms,
     required this.onAcceptedChanged,
+    required this.applicant,
   });
 
   final BookingQuote quote;
   final bool acceptedTerms;
   final ValueChanged<bool> onAcceptedChanged;
+
+  /// The applicant details, built by the stateful parent so the controllers
+  /// outlive a rebuild of the quote.
+  final Widget applicant;
 
   @override
   Widget build(BuildContext context) {
@@ -291,6 +366,9 @@ class _QuoteBody extends StatelessWidget {
               ),
             ],
 
+            Gap.h12,
+            applicant,
+
             Gap.h16,
             Card(
               color: acceptedTerms
@@ -373,3 +451,145 @@ const _bookingSteps = <AppStep>[
   AppStep(label: 'Confirm', icon: Icons.payments_outlined),
   AppStep(label: 'Complete', icon: Icons.check_circle_outline_rounded),
 ];
+
+/// Who the unit is being taken by.
+///
+/// Prefilled from the signed-in account and still editable, because the two
+/// are not always the same person. The business half only appears once someone
+/// says the letting is for a business — asking a sole trader for a company
+/// registration they do not have is how a form loses somebody.
+class _ApplicantSection extends StatelessWidget {
+  const _ApplicantSection({
+    required this.formKey,
+    required this.nameController,
+    required this.phoneController,
+    required this.emailController,
+    required this.companyController,
+    required this.forBusiness,
+    required this.businessType,
+    required this.onForBusinessChanged,
+    required this.onBusinessTypeChanged,
+  });
+
+  final GlobalKey<FormState> formKey;
+  final TextEditingController nameController;
+  final TextEditingController phoneController;
+  final TextEditingController emailController;
+  final TextEditingController companyController;
+  final bool forBusiness;
+  final String? businessType;
+  final ValueChanged<bool> onForBusinessChanged;
+  final ValueChanged<String?> onBusinessTypeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Form(
+      key: formKey,
+      child: SectionCard(
+        title: 'Who this booking is for',
+        children: [
+          Text(
+            'The landlord agrees the letting with the person named here.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          Gap.h16,
+          TextFormField(
+            controller: nameController,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Full name',
+              prefixIcon: Icon(Icons.person_outline_rounded),
+            ),
+            validator: (value) => (value?.trim().isEmpty ?? true)
+                ? 'Enter the name for the booking'
+                : null,
+          ),
+          Gap.h12,
+          TextFormField(
+            controller: phoneController,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              labelText: 'Phone number',
+              prefixIcon: Icon(Icons.phone_outlined),
+            ),
+            validator: (value) {
+              final text = value?.trim() ?? '';
+              if (text.isEmpty) return 'Enter a phone number';
+              // Deliberately loose. Numbers arrive with and without a country
+              // code and with spaces in them, and a stricter rule here would
+              // reject valid numbers the server accepts.
+              return text.replaceAll(RegExp(r'\D'), '').length < 9
+                  ? 'Enter a valid phone number'
+                  : null;
+            },
+          ),
+          Gap.h12,
+          TextFormField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Email address',
+              prefixIcon: Icon(Icons.mail_outline_rounded),
+            ),
+            validator: (value) {
+              final text = value?.trim() ?? '';
+              if (text.isEmpty) return 'Enter an email address';
+              return text.contains('@') && text.contains('.')
+                  ? null
+                  : 'Enter a valid email address';
+            },
+          ),
+          Gap.h8,
+          SwitchListTile(
+            value: forBusiness,
+            onChanged: onForBusinessChanged,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('This unit is for a business'),
+            subtitle: Text(
+              'Adds the trading name and what will trade from the unit.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
+          if (forBusiness) ...[
+            Gap.h8,
+            TextFormField(
+              controller: companyController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Trading name',
+                prefixIcon: Icon(Icons.storefront_outlined),
+              ),
+              validator: (value) =>
+                  forBusiness && (value?.trim().isEmpty ?? true)
+                  ? 'Enter the trading name'
+                  : null,
+            ),
+            Gap.h12,
+            DropdownButtonFormField<String>(
+              initialValue: businessType,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Type of business',
+                prefixIcon: Icon(Icons.category_outlined),
+              ),
+              items: [
+                for (final type in BookingApplicant.businessTypes)
+                  DropdownMenuItem(value: type, child: Text(type)),
+              ],
+              onChanged: onBusinessTypeChanged,
+              validator: (value) => forBusiness && (value == null)
+                  ? 'Choose what will trade from the unit'
+                  : null,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}

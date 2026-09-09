@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../navigation/routes.dart';
 import '../application/auth_controller.dart';
 import 'widgets/auth_controls.dart';
 import 'widgets/auth_page.dart';
@@ -46,7 +48,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         eyebrow: 'Next step',
         title: 'Check your inbox',
         subtitle:
-            'If an account exists for ${_email.text.trim()}, a secure reset link is on its way.',
+            'If an account exists for ${_email.text.trim()}, a reset code is on its way.',
         console: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -63,14 +65,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.mark_email_read_outlined,
+                      Icons.sms_outlined,
                       size: 30,
                       color: scheme.onPrimary,
                     ),
                   ),
                   Gap.h16,
                   Text(
-                    'The link expires for your security.',
+                    'The code expires for your security.',
                     textAlign: TextAlign.center,
                     style: Theme.of(
                       context,
@@ -78,16 +80,28 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   ),
                   Gap.h8,
                   const AuthNote(
-                    'Check your spam folder if it does not arrive within a few '
-                    'minutes.',
+                    'It should arrive within a few minutes.',
                     align: TextAlign.center,
                   ),
                 ],
               ),
             ),
             Gap.h24,
+            AuthPrimaryAction(
+              label: 'Enter the code',
+              icon: Icons.arrow_forward_rounded,
+              enabled: true,
+              // Carried through so the number does not have to be typed
+              // twice; the reset screen leaves it editable in case it was
+              // wrong the first time.
+              onPressed: () async => context.pushNamed(
+                Routes.resetPassword,
+                queryParameters: {'phone': _email.text.trim()},
+              ),
+            ),
+            Gap.h12,
             AuthGhostButton(
-              label: 'Use a different address',
+              label: 'Use a different number',
               icon: Icons.edit_outlined,
               onPressed: () => setState(() => _sent = false),
             ),
@@ -100,7 +114,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       eyebrow: 'Account recovery',
       title: 'Reset your password',
       subtitle:
-          'Enter your account email and we will send a secure reset link.',
+          'Enter the phone number on your account and we will send a reset '
+          'code.',
       failure: auth.failure,
       onDismissFailure: ref.read(authControllerProvider.notifier).clearFailure,
       console: AutofillGroup(
@@ -113,22 +128,26 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               AuthField(
                 controller: _email,
                 enabled: !auth.isBusy,
-                label: 'Email address',
-                icon: Icons.mail_outline_rounded,
-                keyboardType: TextInputType.emailAddress,
+                label: 'Phone number',
+                icon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.done,
-                autofillHints: const [AutofillHints.email],
+                autofillHints: const [AutofillHints.telephoneNumber],
                 autocorrect: false,
                 autofocus: true,
-                validator: (value) => (value?.trim().contains('@') ?? false)
-                    ? null
-                    : 'Enter a valid email address',
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (text.isEmpty) return 'Enter your phone number';
+                  return text.replaceAll(RegExp(r'\D'), '').length < 9
+                      ? 'Enter a valid phone number'
+                      : null;
+                },
                 onSubmitted: (_) => _submit(),
               ),
               Gap.h24,
               AuthPrimaryAction(
-                label: 'Send reset link',
-                loadingLabel: 'Sending reset link',
+                label: 'Send reset code',
+                loadingLabel: 'Sending reset code',
                 icon: Icons.arrow_forward_rounded,
                 enabled: !auth.isBusy,
                 onPressed: _submit,
@@ -145,7 +164,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                   Gap.w8,
                   const Flexible(
                     child: AuthNote(
-                      'We never disclose whether an email is registered.',
+                      'We never disclose whether a number is registered.',
                       align: TextAlign.center,
                     ),
                   ),

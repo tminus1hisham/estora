@@ -52,4 +52,13 @@ class IdempotencyKeys {
   /// Intent identifier for paying a booking fee (section 24).
   static String bookingFeePaymentIntent(String bookingId) =>
       'booking-fee-payment:$bookingId';
+
+  /// Intent identifier for recording a payment made outside the app.
+  ///
+  /// Keyed on the bank's own reference, because that is what makes two
+  /// submissions the same payment: the same transfer keyed twice after a
+  /// timeout is one payment, and two genuine transfers never share a
+  /// reference.
+  static String bankPaymentIntent(String paymentReference) =>
+      'bank-payment:${paymentReference.trim().toUpperCase()}';
 }

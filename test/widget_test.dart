@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mall/core/config/app_config.dart';
 import 'package:mall/components/amount_text.dart';
 import 'package:mall/components/countdown_timer.dart';
 import 'package:mall/components/status_chip.dart';
@@ -178,6 +179,9 @@ void main() {
         ProviderScope(
           overrides: [
             sharedPreferencesProvider.overrideWithValue(prefs),
+            // Pinned so the suite never reaches the network, whatever
+            // AppConfig.dataSource is set to.
+            dataSourceProvider.overrideWithValue(DataSource.mock),
             leaseAgreementProvider('lease-1').overrideWith(
               (ref) async => LeaseAgreement(
                 leaseId: 'lease-1',
@@ -212,6 +216,9 @@ void main() {
         ProviderScope(
           overrides: [
             sharedPreferencesProvider.overrideWithValue(prefs),
+            // Pinned so the suite never reaches the network, whatever
+            // AppConfig.dataSource is set to.
+            dataSourceProvider.overrideWithValue(DataSource.mock),
             leaseAgreementProvider('lease-1').overrideWith(
               (ref) async => LeaseAgreement(
                 leaseId: 'lease-1',

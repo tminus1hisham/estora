@@ -42,6 +42,21 @@ class OwnerMoneyScreen extends ConsumerWidget {
             onPressed: () => context.pushNamed(Routes.ownerPayouts),
             icon: const Icon(Icons.account_balance_wallet_outlined),
           ),
+          // What actually arrived, as opposed to what the ledger says is owed.
+          // Two different questions, so two entries rather than one.
+          PopupMenuButton<String>(
+            tooltip: 'Received',
+            icon: const Icon(Icons.inbox_outlined),
+            onSelected: (action) => context.pushNamed(
+              action == 'mpesa'
+                  ? Routes.mpesaTransactions
+                  : Routes.bankPayments,
+            ),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'mpesa', child: Text('M-Pesa payments')),
+              PopupMenuItem(value: 'bank', child: Text('Bank payments')),
+            ],
+          ),
           Gap.w8,
         ],
       ),
@@ -81,7 +96,9 @@ class _Money extends StatelessWidget {
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AppLayout.maxReadingWidth,
+          ),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),

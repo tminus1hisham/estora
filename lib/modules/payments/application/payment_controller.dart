@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/error/result.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../core/utils/money.dart';
 import '../../../domain/entities/billing.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
@@ -43,19 +44,25 @@ class PaymentActions {
 
   /// Section 39, steps 1 to 3.
   ///
-  /// Note what is not sent: an amount. The server charges what the invoice says
-  /// is outstanding (section 65). The idempotency key is scoped to the invoice
-  /// and persisted, so a retry after a timeout reuses it and cannot produce a
-  /// second charge (section 66).
+  /// [amount] is the invoice's outstanding balance exactly as the server last
+  /// stated it — read off the invoice, never derived here. The published
+  /// contract requires the figure on the request; the server still charges
+  /// what the invoice says, and rejects a stale figure rather than trusting
+  /// it (section 65).
+  ///
+  /// The idempotency key is scoped to the invoice and persisted, so a retry
+  /// after a timeout reuses it and cannot produce a second charge (section 66).
   ///
   /// The returned intent is *not* a result. It says a payment now exists and is
   /// in flight; the outcome comes from polling.
   Future<Result<PaymentIntent>> initiate({
     required String invoiceId,
     required PaymentMethod method,
+    required Money amount,
     String? phoneNumber,
   }) {
-    return _ref.read(idempotencyKeysProvider)
+    return _ref
+        .read(idempotencyKeysProvider)
         .forIntent(IdempotencyKeys.invoicePaymentIntent(invoiceId))
         .then(
           (idempotencyKey) => _ref
@@ -63,6 +70,7 @@ class PaymentActions {
               .initiatePayment(
                 invoiceId: invoiceId,
                 method: method,
+                amount: amount,
                 idempotencyKey: idempotencyKey,
                 phoneNumber: phoneNumber,
               ),

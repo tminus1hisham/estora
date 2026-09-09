@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../../../core/debug/debug_log.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../domain/entities/owner.dart';
@@ -177,10 +178,19 @@ class AuthController extends Notifier<AuthState> {
           .isBiometricEnabled();
 
       if (requiresBiometrics) {
+        DebugLog.write('auth', 'Stored session found; unlocking biometrically');
         final unlock = await ref
             .read(biometricUnlockProvider)
             .authenticate(reason: 'Unlock Tenant Portal to continue');
         if (!unlock.succeeded) {
+          // Invisible to the HTTP log, because nothing was ever sent. Without
+          // this line, a handset that keeps landing on the sign-in screen with
+          // a perfectly good stored session looks like a server problem.
+          DebugLog.write(
+            'auth',
+            'Biometric unlock refused '
+            '(${unlock.message ?? 'no reason given'}); staying signed out',
+          );
           state = AuthState(
             stage: AuthStage.unauthenticated,
             failure: ValidationFailure(
@@ -192,15 +202,23 @@ class AuthController extends Notifier<AuthState> {
         }
       }
 
+      DebugLog.write('auth', 'Session restored: ${_describeSession(value)}');
       state = AuthState(stage: AuthStage.authenticated, session: value);
       return;
     }
 
     state = switch (result) {
-      Ok() => const AuthState(stage: AuthStage.unauthenticated),
-      // A failure here is not worth an error screen — it just means the tenant
-      // signs in again.
-      Err() => const AuthState(stage: AuthStage.unauthenticated),
+      Ok() => () {
+        DebugLog.write('auth', 'Nothing stored; starting signed out');
+        return const AuthState(stage: AuthStage.unauthenticated);
+      }(),
+      Err(:final failure) => () {
+        // A failure here is not worth an error screen — it just means the
+        // tenant signs in again — but it is worth a line, because a rejected
+        // refresh token and an unreachable server look identical on screen.
+        DebugLog.write('auth', 'Could not restore a session: $failure');
+        return const AuthState(stage: AuthStage.unauthenticated);
+      }(),
     };
   }
 
@@ -213,6 +231,7 @@ class AuthController extends Notifier<AuthState> {
 
     return switch (result) {
       Ok(:final value) => () {
+        DebugLog.write('auth', 'OTP challenge $value issued; awaiting the code');
         state = state.copyWith(
           isBusy: false,
           pendingChallengeId: value,
@@ -221,7 +240,10 @@ class AuthController extends Notifier<AuthState> {
         return true;
       }(),
       Err(:final failure) => () {
-        state = state.copyWith(isBusy: false, failure: failure);
+        state = state.copyWith(
+          isBusy: false,
+          failure: _logFailure('OTP request', failure),
+        );
         return false;
       }(),
     };
@@ -230,6 +252,7 @@ class AuthController extends Notifier<AuthState> {
   Future<bool> verifyOtp(String code) async {
     final challengeId = state.pendingChallengeId;
     if (challengeId == null) {
+      DebugLog.write('auth', 'Code submitted with no challenge outstanding');
       state = state.copyWith(
         failure: const ValidationFailure('Request a new code to continue.'),
       );
@@ -243,29 +266,46 @@ class AuthController extends Notifier<AuthState> {
 
     return switch (result) {
       Ok(:final value) => () {
+        DebugLog.write(
+          'auth',
+          'Code accepted; signed in as ${_describeSession(value)}',
+        );
         state = AuthState(stage: AuthStage.authenticated, session: value);
         return true;
       }(),
       Err(:final failure) => () {
-        state = state.copyWith(isBusy: false, failure: failure);
+        state = state.copyWith(
+          isBusy: false,
+          failure: _logFailure('Code verification', failure),
+        );
         return false;
       }(),
     };
   }
 
-  Future<bool> loginWithPassword(String email, String password) async {
+  /// [identifier] is whatever was typed into the sign-in field — a phone
+  /// number against the published API, an email address against the mock's
+  /// demo accounts. It is passed through untouched; the server decides.
+  Future<bool> loginWithPassword(String identifier, String password) async {
     state = state.copyWith(isBusy: true, clearFailure: true);
     final result = await ref
         .read(authRepositoryProvider)
-        .loginWithPassword(email: email, password: password);
+        .loginWithPassword(identifier: identifier, password: password);
 
     return switch (result) {
       Ok(:final value) => () {
+        DebugLog.write(
+          'auth',
+          'Signed in with a password as ${_describeSession(value)}',
+        );
         state = AuthState(stage: AuthStage.authenticated, session: value);
         return true;
       }(),
       Err(:final failure) => () {
-        state = state.copyWith(isBusy: false, failure: failure);
+        state = state.copyWith(
+          isBusy: false,
+          failure: _logFailure('Password sign-in', failure),
+        );
         return false;
       }(),
     };
@@ -281,6 +321,7 @@ class AuthController extends Notifier<AuthState> {
     required String password,
     required TenantType tenantType,
   }) async {
+    DebugLog.write('auth', 'Creating a ${tenantType.name} tenant account');
     state = state.copyWith(isBusy: true, clearFailure: true);
     final result = await ref
         .read(authRepositoryProvider)
@@ -295,6 +336,10 @@ class AuthController extends Notifier<AuthState> {
 
     return switch (result) {
       Ok(:final value) => () {
+        DebugLog.write(
+          'auth',
+          'Registered a ${tenantType.name} tenant; OTP challenge $value issued',
+        );
         state = state.copyWith(
           isBusy: false,
           pendingChallengeId: value,
@@ -303,17 +348,20 @@ class AuthController extends Notifier<AuthState> {
         return true;
       }(),
       Err(:final failure) => () {
-        state = state.copyWith(isBusy: false, failure: failure);
+        state = state.copyWith(
+          isBusy: false,
+          failure: _logFailure('Registration', failure),
+        );
         return false;
       }(),
     };
   }
 
-  Future<bool> requestPasswordReset(String email) async {
+  Future<bool> requestPasswordReset(String identifier) async {
     state = state.copyWith(isBusy: true, clearFailure: true);
     final result = await ref
         .read(authRepositoryProvider)
-        .requestPasswordReset(email: email);
+        .requestPasswordReset(identifier: identifier);
     state = state.copyWith(
       isBusy: false,
       failure: result.failureOrNull,
@@ -323,6 +371,7 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> logout() async {
+    DebugLog.write('auth', 'Signing out; clearing tokens and tenant caches');
     await ref.read(authRepositoryProvider).logout();
     // The remote repository clears this too. Repeating the clear covers demo
     // sessions and ensures biometric opt-in cannot outlive its tokens.
@@ -334,6 +383,32 @@ class AuthController extends Notifier<AuthState> {
     // one behind would show the previous tenant's data to the next person to
     // sign in on this device (section 74).
     _invalidateTenantState();
+  }
+
+  /// What a session amounts to, in one line.
+  ///
+  /// The role and the two records decide which shell the account lands in, so
+  /// they are the first thing to check when someone is signed in and looking
+  /// at the wrong side of the platform. The id identifies the account without
+  /// putting a name, an email or a phone number in the log.
+  String _describeSession(AuthSession session) =>
+      'user ${session.user.id} (${session.user.role.name}, '
+      'tenant record: ${session.tenant != null}, '
+      'owner record: ${session.owner != null})';
+
+  /// Records a refused step and hands the failure straight back, so a call
+  /// site can log it and assign it in one breath.
+  ///
+  /// The tenant only ever sees `failure.message`. Kept here are the code and
+  /// the field errors, which are what separate a wrong password from a rate
+  /// limit from a handset with no signal.
+  Failure _logFailure(String step, Failure failure) {
+    DebugLog.write('auth', '$step refused: $failure');
+    if (failure case ValidationFailure(:final fieldErrors)
+        when fieldErrors.isNotEmpty) {
+      DebugLog.write('auth', '$step field errors', detail: fieldErrors);
+    }
+    return failure;
   }
 
   Future<void> _clearPersistedTenantIntents() async {

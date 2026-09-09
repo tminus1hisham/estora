@@ -67,21 +67,28 @@ class BookingActions {
 
   final Ref _ref;
 
-  /// Creates a booking for [unitId].
+  /// Creates a booking for [unitId] on behalf of [applicant].
   ///
-  /// Two things are deliberate here. The request carries the unit id and
-  /// nothing else — the server determines rent, deposit, fee, tax and expiry
-  /// (section 65). And the idempotency key is derived from the *intent* and
-  /// persisted, so a retry after a dropped connection reuses it and cannot
-  /// produce a second booking (section 66).
-  Future<Result<Booking>> createBooking(String unitId) async {
+  /// Two things are deliberate here. The request carries the unit and who is
+  /// asking, and no amounts — the server determines rent, deposit, fee, tax
+  /// and expiry (section 65). And the idempotency key is derived from the
+  /// *intent* and persisted, so a retry after a dropped connection reuses it
+  /// and cannot produce a second booking (section 66).
+  Future<Result<Booking>> createBooking(
+    String unitId, {
+    required BookingApplicant applicant,
+  }) async {
     final keys = _ref.read(idempotencyKeysProvider);
     final intent = IdempotencyKeys.bookingIntent(unitId);
     final idempotencyKey = await keys.forIntent(intent);
 
     final result = await _ref
         .read(bookingRepositoryProvider)
-        .createBooking(unitId: unitId, idempotencyKey: idempotencyKey);
+        .createBooking(
+          unitId: unitId,
+          applicant: applicant,
+          idempotencyKey: idempotencyKey,
+        );
 
     switch (result) {
       case Ok():

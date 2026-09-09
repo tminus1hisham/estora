@@ -105,10 +105,7 @@ void main() {
 
       // Sarit: 150,000 (SHOP-101) + 150,000 + 150,000 + 165,000 + 150,000
       // ABC:    86,400 (96 m²) + 108,000 (120 m²)
-      expect(
-        portfolio.monthlyContractedRent,
-        Money.fromMajor(959400, kes),
-      );
+      expect(portfolio.monthlyContractedRent, Money.fromMajor(959400, kes));
     });
 
     test('the platform fee is taken per property, not portfolio-wide', () {
@@ -226,10 +223,7 @@ void main() {
         hasLength(alerts.length),
         reason: 'one alert per tenant behind, not per invoice',
       );
-      expect(
-        alerts.any((alert) => alert.title == 'Tembo Electronics'),
-        isTrue,
-      );
+      expect(alerts.any((alert) => alert.title == 'Tembo Electronics'), isTrue);
     });
 
     test('a lease inside the notice period is surfaced', () {
@@ -417,9 +411,7 @@ void main() {
           .where(
             (entry) =>
                 entry.direction == 'OUT' &&
-                owned.contains(
-                  server.payments[entry.referenceId]?.propertyId,
-                ),
+                owned.contains(server.payments[entry.referenceId]?.propertyId),
           )
           .fold(Money.zero(kes), (sum, entry) => sum + entry.amount);
 
@@ -481,7 +473,9 @@ void main() {
       expect(ledger.collections, isNotEmpty);
       for (var i = 1; i < ledger.collections.length; i++) {
         expect(
-          ledger.collections[i].paidAt.isAfter(ledger.collections[i - 1].paidAt),
+          ledger.collections[i].paidAt.isAfter(
+            ledger.collections[i - 1].paidAt,
+          ),
           isFalse,
         );
       }

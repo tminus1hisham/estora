@@ -71,3 +71,64 @@ final invoiceDetailProvider = FutureProvider.family<Invoice, String>((
     Err(:final failure) => throw failure,
   };
 });
+
+/// One tenant's invoices, read by somebody who is not that tenant.
+///
+/// The landlord's counterpart to [invoiceListProvider]. Kept separate rather
+/// than parameterising that one, because the two answer different questions
+/// and are refreshed by different events.
+final tenantInvoicesProvider = FutureProvider.family<List<Invoice>, String>((
+  ref,
+  tenantId,
+) async {
+  final result = await ref
+      .read(invoiceRepositoryProvider)
+      .listInvoicesForTenant(tenantId);
+  return switch (result) {
+    Ok(:final value) => value.items,
+    Err(:final failure) => throw failure,
+  };
+});
+
+/// Writes against an invoice.
+final invoiceActionsProvider = Provider<InvoiceActions>(
+  (ref) => InvoiceActions(ref),
+);
+
+class InvoiceActions {
+  InvoiceActions(this._ref);
+
+  final Ref _ref;
+
+  /// Asks for payment to be postponed.
+  ///
+  /// The balance is untouched by this on purpose — deferral moves when, not
+  /// what. The list is still refreshed, because the invoice now shows that a
+  /// request is outstanding.
+  Future<Result<void>> deferInvoice({
+    required String invoiceId,
+    required String reason,
+  }) async {
+    final result = await _ref
+        .read(invoiceRepositoryProvider)
+        .deferInvoice(invoiceId: invoiceId, reason: reason);
+    if (result.isOk) _invalidate(invoiceId);
+    return result;
+  }
+
+  /// Closes an invoice against something other than a payment through the app.
+  ///
+  /// Landlord-side. Nothing on the tenant's side of the app calls this.
+  Future<Result<void>> settleInvoice(String invoiceId) async {
+    final result = await _ref
+        .read(invoiceRepositoryProvider)
+        .settleInvoice(invoiceId);
+    if (result.isOk) _invalidate(invoiceId);
+    return result;
+  }
+
+  void _invalidate(String invoiceId) {
+    _ref.invalidate(invoiceDetailProvider(invoiceId));
+    _ref.invalidate(invoiceListProvider);
+  }
+}

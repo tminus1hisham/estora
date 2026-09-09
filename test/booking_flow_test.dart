@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mall/core/error/failure.dart';
 import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/booking.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/services/mock/mock_records.dart';
 import 'package:mall/services/mock/mock_repositories.dart';
@@ -12,6 +13,26 @@ import 'package:mall/services/mock/mock_server.dart';
 /// being checked are server rules — availability, idempotency, expiry, terms
 /// capture. The mock is where they are implemented, so it is where they are
 /// asserted; when the real backend lands these become its contract tests.
+/// The applicant every booking in this file is made by.
+///
+/// The published contract wants the person on the request rather than read off
+/// the session. None of these cases turn on who is asking, so one stand-in
+/// serves them all and keeps the assertions about what they are about.
+const _applicant = BookingApplicant(
+  fullName: 'Amina Wanjiru',
+  phoneNumber: '254712345678',
+  email: 'amina@example.co.ke',
+);
+
+/// The amount passed to `initiatePayment`.
+///
+/// Deliberately not the invoice total. The contract requires a figure on the
+/// request, and the mock server ignores it and charges what the invoice says —
+/// which is the behaviour these tests exist to hold. If a change ever made the
+/// client's figure decide the charge, the assertions below would break, and
+/// that is the point.
+final _statedAmount = Money.fromMajor(1, 'KES');
+
 void main() {
   late MockServer server;
   late MockBookingRepository bookings;
@@ -35,6 +56,7 @@ void main() {
     test('an available unit can be booked', () async {
       final result = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
 
@@ -47,6 +69,7 @@ void main() {
       // SHOP-101 is let to the seeded demo tenant.
       final result = await bookings.createBooking(
         unitId: 'unt_shop_101',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
 
@@ -57,6 +80,7 @@ void main() {
     test('a unit under maintenance cannot be booked', () async {
       final result = await bookings.createBooking(
         unitId: 'unt_shop_105',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
 
@@ -66,6 +90,7 @@ void main() {
     test('a unit cannot be double-booked', () async {
       final first = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
       expect(first.isOk, isTrue);
@@ -74,6 +99,7 @@ void main() {
       // second booking attempt, not an idempotent replay.
       final second = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'key-2',
       );
 
@@ -87,6 +113,7 @@ void main() {
 
       await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
 
@@ -104,10 +131,12 @@ void main() {
       () async {
         final first = await bookings.createBooking(
           unitId: 'unt_shop_102',
+          applicant: _applicant,
           idempotencyKey: 'same-key',
         );
         final replay = await bookings.createBooking(
           unitId: 'unt_shop_102',
+          applicant: _applicant,
           idempotencyKey: 'same-key',
         );
 
@@ -121,6 +150,7 @@ void main() {
     test('replaying a payment key does not charge twice', () async {
       final booking = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'booking-key',
       );
       final invoiceId = booking.value.bookingFeeInvoiceId!;
@@ -129,11 +159,13 @@ void main() {
       final first = await payments.initiatePayment(
         invoiceId: invoiceId,
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'payment-key',
       );
       final replay = await payments.initiatePayment(
         invoiceId: invoiceId,
         method: PaymentMethod.mpesa,
+        amount: _statedAmount,
         idempotencyKey: 'payment-key',
       );
 
@@ -151,6 +183,7 @@ void main() {
     test('the booking stores the section 80 figures', () async {
       final booking = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
 
@@ -162,6 +195,7 @@ void main() {
     test('a later rent change does not alter an existing booking', () async {
       final booking = await bookings.createBooking(
         unitId: 'unt_shop_103',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
       final rentAtBooking = booking.value.monthlyRent;
@@ -198,6 +232,7 @@ void main() {
       () async {
         final booking = await bookings.createBooking(
           unitId: 'unt_shop_102',
+          applicant: _applicant,
           idempotencyKey: 'key-1',
         );
 
@@ -224,6 +259,7 @@ void main() {
 
       final booking = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
       await _payInvoice(server, booking.value.bookingFeeInvoiceId!);
@@ -249,6 +285,7 @@ void main() {
 
       final booking = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
       await _payInvoice(server, booking.value.bookingFeeInvoiceId!);
@@ -266,6 +303,7 @@ void main() {
       () async {
         final booking = await bookings.createBooking(
           unitId: 'unt_shop_102',
+          applicant: _applicant,
           idempotencyKey: 'key-1',
         );
 
@@ -284,6 +322,7 @@ void main() {
     test('the unit reads as reserved while the booking is active', () async {
       final booking = await bookings.createBooking(
         unitId: 'unt_shop_102',
+        applicant: _applicant,
         idempotencyKey: 'key-1',
       );
       await _payInvoice(server, booking.value.bookingFeeInvoiceId!);
@@ -330,6 +369,7 @@ Future<void> _payInvoice(MockServer server, String invoiceId) async {
   await payments.initiatePayment(
     invoiceId: invoiceId,
     method: PaymentMethod.mpesa,
+    amount: _statedAmount,
     idempotencyKey: 'pay-$invoiceId',
   );
   // The mock settles on a timer, mimicking a provider callback.

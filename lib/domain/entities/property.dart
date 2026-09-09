@@ -88,6 +88,12 @@ class Property {
 }
 
 /// Section 13. A wing or block within a property.
+///
+/// The contract calls this a `PropertyBlock` and gives it a lifecycle and a
+/// size of its own: a wing can be under construction while the mall around it
+/// trades, and it can be counted and measured separately. Those fields are
+/// nullable because the tenant-facing browse screens have always been able to
+/// render a block knowing only its name.
 class Building {
   const Building({
     required this.id,
@@ -95,6 +101,12 @@ class Building {
     required this.name,
     required this.code,
     this.description,
+    this.status = BlockStatus.active,
+    this.totalArea,
+    this.numberOfFloors,
+    this.totalUnits,
+    this.leasableUnits,
+    this.propertyName,
   });
 
   final String id;
@@ -102,6 +114,56 @@ class Building {
   final String name;
   final String code;
   final String? description;
+
+  final BlockStatus status;
+  final double? totalArea;
+  final int? numberOfFloors;
+  final int? totalUnits;
+  final int? leasableUnits;
+
+  /// Denormalised so a block can name its property in a list without a lookup.
+  final String? propertyName;
+
+  /// `4 floors · 32 units`, or as much of it as the server actually said.
+  String get shapeLabel => [
+    if (numberOfFloors != null)
+      '$numberOfFloors ${numberOfFloors == 1 ? 'floor' : 'floors'}',
+    if (totalUnits != null) '$totalUnits ${totalUnits == 1 ? 'unit' : 'units'}',
+  ].join(' · ');
+}
+
+/// What an owner submits to create or amend a block.
+class BuildingDraft {
+  const BuildingDraft({
+    required this.propertyId,
+    required this.name,
+    required this.status,
+    this.description,
+    this.totalArea,
+    this.numberOfFloors,
+    this.totalUnits,
+    this.leasableUnits,
+  });
+
+  /// Seeds the form from a block that already exists.
+  BuildingDraft.from(Building building)
+    : propertyId = building.propertyId,
+      name = building.name,
+      status = building.status,
+      description = building.description,
+      totalArea = building.totalArea,
+      numberOfFloors = building.numberOfFloors,
+      totalUnits = building.totalUnits,
+      leasableUnits = building.leasableUnits;
+
+  final String propertyId;
+  final String name;
+  final BlockStatus status;
+  final String? description;
+  final double? totalArea;
+  final int? numberOfFloors;
+  final int? totalUnits;
+  final int? leasableUnits;
 }
 
 /// Section 14.
