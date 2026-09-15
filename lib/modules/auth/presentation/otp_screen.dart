@@ -6,12 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/phone_number.dart';
-import '../../../services/mock/mock_server.dart';
 import '../application/auth_controller.dart';
 import 'widgets/auth_controls.dart';
 import 'widgets/auth_page.dart';
 import 'widgets/auth_stage.dart';
-import '../../../services/providers.dart';
 
 /// Verifies the six-digit code sent to the pending phone number.
 class OtpScreen extends ConsumerStatefulWidget {
@@ -143,10 +141,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     label: const Text('Send a new code'),
                   ),
           ),
-          if (ref.watch(isMockDataProvider)) ...[
-            Gap.h24,
-            _DemoHint(code: MockServer.demoOtp),
-          ],
         ],
       ),
     );
@@ -264,46 +258,6 @@ class _OtpInput extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Visible only against the mock data source, where no SMS gateway is present.
-class _DemoHint extends StatelessWidget {
-  const _DemoHint({required this.code});
-
-  final String code;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return AuthInsetCard(
-      padding: const EdgeInsets.all(AppSpace.md),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.science_outlined, size: 19, color: scheme.tertiary),
-          Gap.w12,
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  const TextSpan(text: 'Demo mode · use code '),
-                  TextSpan(
-                    text: code,
-                    style: const TextStyle(fontWeight: AppTypography.extraBold),
-                  ),
-                  const TextSpan(text: '.'),
-                ],
-              ),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: kAuthOnDark.withValues(alpha: 0.78),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -1,6 +1,6 @@
 {
-    "name": "Tenant Portal",
-    "short_name": "Tenant Portal",
+    "name": "Mall",
+    "short_name": "Mall",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0A1A30",

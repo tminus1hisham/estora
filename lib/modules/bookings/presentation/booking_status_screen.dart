@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -478,37 +478,59 @@ class _RequirementsCardState extends ConsumerState<_RequirementsCard> {
   Future<void> _submit(BookingRequirement requirement) async {
     setState(() => _uploadingId = requirement.id);
 
-    // A real build would open the platform file picker here. The mock records
-    // the metadata, which is all the requirement check needs, so the flow can
-    // be walked end to end without a picker dependency.
-    final fileName =
-        '${requirement.documentType?.api.toLowerCase() ?? 'document'}.pdf';
-    final bytes = Uint8List.fromList(
-      List<int>.filled(180 * 1024, 0, growable: false),
-    );
-
-    final result = await ref
-        .read(bookingActionsProvider)
-        .submitRequirement(
-          bookingId: widget.booking.id,
-          requirementId: requirement.id,
-          fileName: fileName,
-          bytes: bytes,
-          mimeType: 'application/pdf',
+    try {
+      final selection = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png'],
+        allowMultiple: false,
+        withData: true,
+      );
+      if (!mounted || selection == null || selection.files.isEmpty) return;
+      final file = selection.files.single;
+      final bytes = file.bytes;
+      if (bytes == null || bytes.isEmpty || bytes.length > 15 * 1024 * 1024) {
+        _showUploadMessage(
+          'Choose a non-empty PDF, JPG or PNG file up to 15 MB.',
         );
+        return;
+      }
+      final mimeType = switch (file.extension?.toLowerCase()) {
+        'pdf' => 'application/pdf',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        _ => null,
+      };
+      if (mimeType == null) {
+        _showUploadMessage('Choose a PDF, JPG or PNG file.');
+        return;
+      }
+      final result = await ref
+          .read(bookingActionsProvider)
+          .submitRequirement(
+            bookingId: widget.booking.id,
+            requirementId: requirement.id,
+            fileName: file.name,
+            bytes: bytes,
+            mimeType: mimeType,
+          );
+      if (!mounted) return;
+      _showUploadMessage(
+        result.isOk
+            ? '${requirement.name} submitted'
+            : result.failureOrNull!.message,
+      );
+    } catch (_) {
+      if (mounted) {
+        _showUploadMessage('The file could not be uploaded. Please try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingId = null);
+    }
+  }
 
-    if (!mounted) return;
-    setState(() => _uploadingId = null);
-
+  void _showUploadMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          result.isOk
-              ? '${requirement.name} submitted'
-              : result.failureOrNull!.message,
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 

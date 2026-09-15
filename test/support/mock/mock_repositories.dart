@@ -1,21 +1,20 @@
 import 'dart:async';
 
-import '../../core/config/app_config.dart';
-import '../../core/error/failure.dart';
-import '../../core/error/result.dart';
-import '../../core/utils/money.dart';
-import '../../domain/entities/access.dart';
-import '../../domain/entities/billing.dart';
-import '../../domain/entities/booking.dart';
-import '../../domain/entities/dashboard_summary.dart';
-import '../../domain/entities/lease.dart';
-import '../../domain/entities/owner.dart';
-import '../../domain/entities/property.dart';
-import '../../domain/entities/tenant.dart';
-import '../../domain/entities/treasury.dart';
-import '../../domain/entities/unit.dart';
-import '../../domain/enums/domain_enums.dart';
-import '../../domain/repositories/repositories.dart';
+import 'package:mall/core/error/failure.dart';
+import 'package:mall/core/error/result.dart';
+import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/access.dart';
+import 'package:mall/domain/entities/billing.dart';
+import 'package:mall/domain/entities/booking.dart';
+import 'package:mall/domain/entities/dashboard_summary.dart';
+import 'package:mall/domain/entities/lease.dart';
+import 'package:mall/domain/entities/owner.dart';
+import 'package:mall/domain/entities/property.dart';
+import 'package:mall/domain/entities/tenant.dart';
+import 'package:mall/domain/entities/treasury.dart';
+import 'package:mall/domain/entities/unit.dart';
+import 'package:mall/domain/enums/domain_enums.dart';
+import 'package:mall/domain/repositories/repositories.dart';
 import 'mock_back_office.dart';
 import 'mock_records.dart';
 import 'mock_server.dart';
@@ -30,7 +29,7 @@ mixin _MockLatency {
   /// Every call goes through here so loading and error states are actually
   /// exercised during development rather than only appearing in production.
   Future<Result<T>> guard<T>(T Function() action) async {
-    await Future<void>.delayed(AppConfig.mockLatency);
+    await Future<void>.delayed(const Duration(milliseconds: 350));
     try {
       return Ok(action());
     } on MockConflict catch (e) {

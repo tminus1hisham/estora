@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mall/core/utils/money.dart';
 import 'package:mall/domain/entities/owner.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/services/mock/mock_server.dart';
+import 'support/mock/mock_server.dart';
 
 /// Section 88's pricing rules.
 ///

@@ -2,10 +2,21 @@
 
 What the app needs that `api.md` (Property Manager API v1) does not serve yet.
 
-The app runs against the live API today. The nine areas below have no route, so
-they are still served by the in-memory mock — the screens work, but the data is
-invented. Each one is a single provider swap in `lib/services/providers.dart`
-(search `_untilPublished`) the moment its routes exist.
+All app repositories now use the live API. Missing routes return errors; no
+screen falls back to an in-memory server or fabricated records.
+
+Live verification on 2026-09-15 confirmed that Manager, Admin and Tenant login
+returns the expected account role. Manager and Admin can list properties.
+`/reports/owner-portfolio`, `/reports/tenant-dashboard` and `/tenants/me` return
+404. The Tenant account receives 403 from `/auth/get/account` and the property
+list route; backend permissions must be corrected for those tenant features.
+Login already includes the account, so initial tenant sign-in does not depend
+on `/auth/get/account`. Session restoration still requires that endpoint;
+tenants must sign in again until access is corrected. The refresh endpoint
+also rejected the valid tenant token pair with `Invalid tokens`.
+
+Owner, Manager, Admin and SuperAdmin share the manager view. Report endpoints
+must scope their responses to the authenticated account's actual permissions.
 
 Paths are relative to `/v1/api`. All routes are bearer-authenticated.
 

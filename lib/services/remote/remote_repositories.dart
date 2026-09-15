@@ -83,6 +83,10 @@ class AccountIdentity {
   }
 
   void forget() => _account = null;
+
+  /// Login includes the authoritative account even when /auth/get/account
+  /// is restricted for tenants.
+  void remember(Json account) => _account = account;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,16 +137,33 @@ class RemoteAuthRepository implements AuthRepository {
     // others. Where it does not, the account route is authoritative.
     final inline = payload['user'];
     if (inline is Json) {
-      return Ok(AuthSession(user: userFromJson(inline), tenant: null));
+      return _sessionFromAccount(inline);
     }
 
     final account = await _identity.load(refresh: true);
     return switch (account) {
-      Ok<Json>(:final value) => Ok(
-        AuthSession(user: userFromJson(value), tenant: null),
-      ),
-      Err<Json>() => Ok(AuthSession(user: userFromJson(payload), tenant: null)),
+      Ok<Json>(:final value) => await _sessionFromAccount(value),
+      Err<Json>(:final failure) => await _rejectSession(failure),
     };
+  }
+
+  Future<Result<AuthSession>> _rejectSession(Failure failure) async {
+    await _tokenStore.clear();
+    _identity.forget();
+    return Err(failure);
+  }
+
+  Future<Result<AuthSession>> _sessionFromAccount(Json account) async {
+    final user = userFromJson(account);
+    if (user.id.isEmpty || user.role == AccountRole.unknown) {
+      return _rejectSession(
+        const ValidationFailure(
+          'Your account does not have a supported role. Contact your administrator.',
+        ),
+      );
+    }
+    _identity.remember(account);
+    return Ok(AuthSession(user: user, tenant: null));
   }
 
   /// The contract publishes no "send me a sign-in code" route.
@@ -251,9 +272,7 @@ class RemoteAuthRepository implements AuthRepository {
     final result = await _identity.load(refresh: true);
 
     return switch (result) {
-      Ok<Json>(:final value) => Ok(
-        AuthSession(user: userFromJson(value), tenant: null),
-      ),
+      Ok<Json>(:final value) => await _sessionFromAccount(value),
       // An expired session is not an error worth showing; it just means the
       // tenant needs to sign in again.
       Err<Json>(failure: UnauthorizedFailure()) => const Ok(null),
@@ -627,16 +646,8 @@ class RemoteBookingRepository implements BookingRepository {
   final ApiClient _api;
 
   @override
-  Future<Result<BookingQuote>> getQuote(String unitId) async {
-    // The contract has no quote route. The unit itself states the terms, so
-    // the quote is read off it — the same figures the server would quote,
-    // asked for one call earlier.
-    final unit = await _api.get<Unit>(
-      Endpoints.unit(unitId),
-      parse: unitFromJson,
-    );
-    return unit.map(quoteFromUnit);
-  }
+  Future<Result<BookingQuote>> getQuote(String unitId) =>
+      _api.get(Endpoints.bookingQuote(unitId), parse: bookingQuoteFromJson);
 
   @override
   Future<Result<Booking>> createBooking({
@@ -664,11 +675,19 @@ class RemoteBookingRepository implements BookingRepository {
           applicant: applicant,
         ),
         idempotencyKey: idempotencyKey,
-        // The route answers with a message, not with the booking. What comes
-        // back is built from the unit that was just booked and the terms it
-        // carried, so the confirmation screen has something true to show
-        // until the booking list is next read.
-        parse: (json) => bookingFromCreation(json, found, applicant),
+        // Confirmation requires the actual API booking record. A success
+        // message alone must not become a fabricated booking.
+        parse: (json) {
+          if (json['id'] == null ||
+              json['status'] == null ||
+              json['monthlyRent'] == null) {
+            throw const FormatException(
+              'The booking request was received, but the API did not return '
+              'a booking record. Check your bookings before trying again.',
+            );
+          }
+          return bookingFromJson(json);
+        },
       ),
     };
   }
@@ -1421,12 +1440,23 @@ class RemoteOwnerRepository implements OwnerRepository {
       parse: (json) => listFromJson(json, propertyFromJson),
     );
 
-    return properties.map(
-      (all) => all.lastWhere(
-        (property) => property.name == draft.name,
-        orElse: () => all.last,
-      ),
-    );
+    return switch (properties) {
+      Err<List<Property>>(:final failure) => Err(failure),
+      Ok<List<Property>>(:final value) => () {
+        final matches = value
+            .where((property) => property.name == draft.name)
+            .toList();
+        if (matches.length != 1) {
+          return const Err<Property>(
+            NotFoundFailure(
+              'The request was received, but the created property could not be '
+              'identified. Refresh the property list before trying again.',
+            ),
+          );
+        }
+        return Ok(matches.single);
+      }(),
+    };
   }
 
   @override

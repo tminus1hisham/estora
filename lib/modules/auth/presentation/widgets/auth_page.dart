@@ -30,7 +30,7 @@ class AuthPage extends StatelessWidget {
   const AuthPage({
     required this.title,
     required this.console,
-    this.eyebrow = 'Tenant Portal',
+    this.eyebrow = 'Mall',
     this.subtitle,
     this.footer,
     this.trustPoints = const <AuthTrustPoint>[],

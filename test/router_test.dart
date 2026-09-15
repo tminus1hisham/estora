@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mall/core/config/app_config.dart';
+import 'support/repository_overrides.dart';
 import 'package:mall/app.dart';
+import 'package:mall/domain/entities/tenant.dart';
+import 'package:mall/domain/enums/domain_enums.dart';
+import 'package:mall/modules/auth/application/auth_controller.dart';
+import 'package:mall/modules/account/presentation/security_screen.dart';
 import 'package:mall/modules/auth/presentation/login_screen.dart';
 import 'package:mall/modules/auth/presentation/splash_screen.dart';
 import 'package:mall/modules/home/presentation/home_screen.dart';
@@ -22,6 +26,42 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  for (final role in [
+    AccountRole.owner,
+    AccountRole.manager,
+    AccountRole.admin,
+    AccountRole.superadmin,
+  ]) {
+    testWidgets('${role.name} uses manager routes and shared security', (
+      tester,
+    ) async {
+      final prefs = await SharedPreferences.getInstance();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            ...mockRepositoryOverrides,
+            authControllerProvider.overrideWith(() => _RoleAuth(role)),
+          ],
+          child: const MallApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ManagerShell), findsOneWidget);
+      final router = GoRouter.of(tester.element(find.byType(ManagerShell)));
+      router.go(Routes.homePath);
+      await tester.pumpAndSettle();
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        Routes.ownerPortfolioPath,
+      );
+      router.pushNamed(Routes.security);
+      await tester.pumpAndSettle();
+      expect(find.byType(SecurityScreen), findsOneWidget);
+      expect(find.byType(HomeScreen), findsNothing);
+    });
+  }
+
   Future<Widget> buildApp() async {
     final prefs = await SharedPreferences.getInstance();
     return ProviderScope(
@@ -29,7 +69,7 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(prefs),
         // Pinned so the suite never reaches the network, whatever
         // AppConfig.dataSource is set to.
-        dataSourceProvider.overrideWithValue(DataSource.mock),
+        ...mockRepositoryOverrides,
       ],
       child: const MallApp(),
     );
@@ -220,24 +260,22 @@ void main() {
     expect(find.byType(OwnerShell), findsNothing);
   });
 
-  testWidgets('the demo picker opens each account in its own shell', (
-    tester,
-  ) async {
+  testWidgets('owner credentials open the manager view', (tester) async {
     // How a demo moves between the two sides: by changing account, since the
     // role lives on the session and nothing overrides it.
     await tester.pumpWidget(await buildApp());
     await tester.pumpAndSettle();
 
-    await _tapDemoAccount(tester, 'Karuna Holdings');
+    await _signInWithEmail(tester, 'owner@karunaholdings.co.ke');
     expect(find.byType(OwnerShell), findsOneWidget);
     expect(find.byType(HomeScreen), findsNothing);
   });
 
-  testWidgets('the tenant demo account opens the tenant shell', (tester) async {
+  testWidgets('tenant credentials open the tenant view', (tester) async {
     await tester.pumpWidget(await buildApp());
     await tester.pumpAndSettle();
 
-    await _tapDemoAccount(tester, 'Amina Wanjiru');
+    await _signInWithEmail(tester, 'amina@example.co.ke');
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.byType(OwnerShell), findsNothing);
   });
@@ -260,18 +298,23 @@ void main() {
   });
 }
 
-/// Taps a tile in the login screen's demo account picker.
-///
-/// The picker sits below the form, so on a default test viewport it has to be
-/// scrolled to before it can be hit.
-Future<void> _tapDemoAccount(WidgetTester tester, String name) async {
-  final tile = find.text(name);
-  // ensureVisible rather than scrollUntilVisible: the auth page has more than
-  // one Scrollable, and scrollUntilVisible cannot tell which to drive.
-  await tester.ensureVisible(tile);
-  await tester.pumpAndSettle();
-  await tester.tap(tile);
-  await tester.pumpAndSettle();
+class _RoleAuth extends AuthController {
+  _RoleAuth(this.role);
+  final AccountRole role;
+  @override
+  AuthState build() => AuthState(
+    stage: AuthStage.authenticated,
+    session: AuthSession(
+      user: AppUser(
+        id: 'test-user',
+        firstName: 'Test',
+        lastName: 'Account',
+        status: 'ACTIVE',
+        role: role,
+      ),
+      tenant: null,
+    ),
+  );
 }
 
 /// Signs in through the mock's email and password path.

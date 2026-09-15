@@ -9,7 +9,6 @@ import '../../../components/section_card.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../navigation/routes.dart';
 import '../../auth/application/auth_controller.dart';
-import '../../../services/providers.dart';
 
 /// Section 88. The owner's account, and the way back to the tenant side.
 class OwnerAccountScreen extends ConsumerWidget {
@@ -23,12 +22,12 @@ class OwnerAccountScreen extends ConsumerWidget {
 
     final sections = <Widget>[
       PageHeader(
-        eyebrow: 'Owner',
+        eyebrow: 'Manager',
         title: owner?.displayName ?? user?.fullName ?? 'Account',
         subtitle: owner?.legalName,
       ),
       SectionCard(
-        title: 'Business',
+        title: 'Account details',
         children: [
           if (owner?.registrationNumber != null)
             DetailRow(
@@ -86,12 +85,6 @@ class OwnerAccountScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.logout_rounded),
             title: const Text('Sign out'),
-            subtitle: ref.watch(isMockDataProvider)
-                // There is no view-as toggle by design: an owner account has
-                // no tenancy to show. The login screen offers both demo
-                // accounts, so switching sides is a sign-out away.
-                ? const Text('Pick the tenant demo account to see that side.')
-                : null,
             onTap: () => ref.read(authControllerProvider.notifier).logout(),
           ),
         ],

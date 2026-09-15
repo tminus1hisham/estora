@@ -11,9 +11,7 @@
 /// * **Unpublished** — a screen the app has that the contract does not serve
 ///   yet (documents, notifications, receipts, the tenant dashboard, the owner
 ///   reports). Those are grouped at the bottom and marked, so nobody mistakes
-///   them for something the backend answers today. They resolve against the
-///   mock data source; against the live API they would 404, which is the
-///   honest outcome until the contract covers them.
+///   them for something the backend answers today. They use HTTP and report an error until the backend supports them.
 library;
 
 class Endpoints {
@@ -125,9 +123,8 @@ class Endpoints {
 
   // -- Not in the published contract ---------------------------------------
   //
-  // Screens the app ships that the API does not answer yet. Served by the mock
-  // data source; listed here so the gap is visible in one place rather than
-  // discovered one 404 at a time.
+  // Screens whose endpoints are still missing. These use HTTP too; failures
+  // are shown to the user without substituting fabricated records.
   static const String leases = '/leases';
   static String lease(String id) => '/leases/$id';
   static String leaseAgreement(String id) => '/leases/$id/agreement';

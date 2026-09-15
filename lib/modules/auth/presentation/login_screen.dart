@@ -11,8 +11,6 @@ import 'widgets/auth_controls.dart';
 import 'widgets/auth_method_switch.dart';
 import 'widgets/auth_page.dart';
 import 'widgets/auth_stage.dart';
-import 'widgets/demo_accounts.dart';
-import '../../../services/providers.dart';
 
 /// The first thing anyone sees of this app.
 ///
@@ -52,9 +50,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Country _country = Countries.fallback;
   bool _obscurePassword = true;
 
-  /// Which demo account is signing in, so its tile can say so.
-  String? _pendingDemoEmail;
-
   @override
   void dispose() {
     _phoneController.dispose();
@@ -92,23 +87,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _method = _LoginMethod.values[index]);
   }
 
-  /// Signs in as one of the seeded accounts.
-  ///
-  /// Goes through the same password path a real sign-in uses rather than
-  /// reaching into the mock, so the account that ends up signed in is decided
-  /// by the server exactly as it would be otherwise. The router then takes it
-  /// to whichever shell the role belongs to.
-  Future<void> _useDemoAccount(DemoAccount account) async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _pendingDemoEmail = account.email);
-    await ref
-        .read(authControllerProvider.notifier)
-        .loginWithPassword(account.email, 'demo-password');
-    // On success the router replaces this screen, so the state is only worth
-    // clearing when the sign-in came back and we are still here.
-    if (mounted) setState(() => _pendingDemoEmail = null);
-  }
-
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
@@ -124,7 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       trustPoints: const [
         AuthTrustPoint(
           icon: Icons.verified_user_outlined,
-          label: 'Secure tenant access, protected end to end',
+          label: 'Secure account access, protected end to end',
         ),
         AuthTrustPoint(
           icon: Icons.receipt_long_outlined,
@@ -320,17 +298,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // The demo's front door. An account carries one role and the router
-        // sends it to the matching shell, so this is how you move between the
-        // tenant and the owner experience — there is nothing to toggle.
-        if (ref.watch(isMockDataProvider)) ...[
-          DemoAccounts(
-            enabled: !auth.isBusy,
-            pendingEmail: _pendingDemoEmail,
-            onSelected: _useDemoAccount,
-          ),
-          Gap.h32,
-        ],
         Row(
           children: [
             // The rules take a single share each and the label takes five.
@@ -343,7 +310,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
                 child: Text(
-                  'NEW TO TENANT PORTAL?',
+                  'NEW TO Mall?',
                   textAlign: TextAlign.center,
                   style: textTheme.labelSmall?.copyWith(
                     color: kAuthOnDark.withValues(alpha: 0.55),

@@ -1,10 +1,10 @@
-import '../../core/utils/money.dart';
-import '../../domain/entities/lease.dart';
-import '../../domain/entities/owner.dart';
-import '../../domain/entities/property.dart';
-import '../../domain/entities/tenant.dart';
-import '../../domain/entities/unit.dart';
-import '../../domain/enums/domain_enums.dart';
+import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/lease.dart';
+import 'package:mall/domain/entities/owner.dart';
+import 'package:mall/domain/entities/property.dart';
+import 'package:mall/domain/entities/tenant.dart';
+import 'package:mall/domain/entities/unit.dart';
+import 'package:mall/domain/enums/domain_enums.dart';
 import 'mock_records.dart';
 import 'mock_server.dart';
 

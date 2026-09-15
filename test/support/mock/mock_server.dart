@@ -3,17 +3,17 @@ import 'dart:math';
 
 import 'package:uuid/uuid.dart';
 
-import '../../core/utils/money.dart';
-import '../../core/utils/phone_number.dart';
-import '../../domain/entities/billing.dart';
-import '../../domain/entities/booking.dart';
-import '../../domain/entities/dashboard_summary.dart';
-import '../../domain/entities/lease.dart';
-import '../../domain/entities/owner.dart';
-import '../../domain/entities/property.dart';
-import '../../domain/entities/tenant.dart';
-import '../../domain/entities/unit.dart';
-import '../../domain/enums/domain_enums.dart';
+import 'package:mall/core/utils/money.dart';
+import 'package:mall/core/utils/phone_number.dart';
+import 'package:mall/domain/entities/billing.dart';
+import 'package:mall/domain/entities/booking.dart';
+import 'package:mall/domain/entities/dashboard_summary.dart';
+import 'package:mall/domain/entities/lease.dart';
+import 'package:mall/domain/entities/owner.dart';
+import 'package:mall/domain/entities/property.dart';
+import 'package:mall/domain/entities/tenant.dart';
+import 'package:mall/domain/entities/unit.dart';
+import 'package:mall/domain/enums/domain_enums.dart';
 import 'agreement_template.dart';
 import 'mock_back_office.dart';
 import 'mock_records.dart';

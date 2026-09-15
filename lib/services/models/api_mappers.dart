@@ -394,84 +394,32 @@ Booking bookingFromJson(Json json) {
   );
 }
 
-/// Reads the terms of a booking off the unit being booked.
-///
-/// The contract publishes no quote route, and the unit already states every
-/// figure one would contain: the rent, the deposit, the service charge. This
-/// reads them rather than computing them — the one exception being a deposit
-/// stated as a number of months, where the multiplication is the server's own
-/// rule applied to the server's own figures, and is shown to the tenant before
-/// anything is committed.
-BookingQuote quoteFromUnit(Unit unit) {
-  final rent = unit.baseRent;
-  final deposit =
-      unit.depositAmount ??
-      (unit.depositMonths == null ? rent : rent * unit.depositMonths!);
-  final bookingFee = unit.bookingFee ?? Money.zero(rent.currency);
-
-  return BookingQuote(
-    unitId: unit.id,
-    monthlyRent: rent,
-    depositAmount: deposit,
-    bookingFee: bookingFee,
-    total: bookingFee.isZero ? deposit : bookingFee,
-    currency: rent.currency,
-    depositMonths: unit.depositMonths,
-    // The contract sets an expiry date on the booking it creates rather than
-    // publishing the window in advance. Two days is what the app has always
-    // shown; the booking itself carries the real date once it exists.
-    expiryHours: 48,
-    requirements: const <UnitRequirementSummary>[],
-  );
-}
-
-/// Builds the booking a create request just made.
-///
-/// The route answers with a message, not with the record. Rather than show a
-/// blank confirmation, the booking is assembled from the unit that was booked
-/// and the terms it carried — every figure server-supplied, none of it
-/// invented — and marked as awaiting payment, which is the state the contract
-/// says a new booking is in.
-Booking bookingFromCreation(Json json, Unit unit, BookingApplicant applicant) {
-  final quote = quoteFromUnit(unit);
-  final id = _str(json['id'], _str(json['bookingId']));
-
-  return Booking(
-    id: id,
-    unitId: unit.id,
-    tenantId: _str(json['tenantId']),
-    bookingReference: id.isEmpty ? unit.unitNumber : id,
-    monthlyRent: quote.monthlyRent,
-    depositAmount: quote.depositAmount,
-    bookingFee: quote.bookingFee,
-    status: BookingStatus.pendingPayment,
-    createdAt: DateTime.now(),
-    propertyId: unit.propertyId,
-    propertyName: unit.propertyName,
-    unitNumber: unit.unitNumber,
-  );
-}
-
 /// Builds the payment intent an M-Pesa request just started.
 ///
-/// The route answers with the tenant's invoices rather than with a payment, so
-/// there is no payment id to poll — the outcome arrives as a notification when
-/// the callback reconciles. The intent says what was asked for and carries the
-/// instruction the tenant needs to act on, and nothing here claims the payment
-/// succeeded (section 39).
+/// Polling requires an API-issued payment reference. A response containing
+/// only invoices must not produce an invented payment id or claim settlement.
 PaymentIntent paymentIntentFromRequest(
   Json json,
   String invoiceId,
   Money amount,
-) => PaymentIntent(
-  paymentId: _str(json['paymentId'], 'invoice-$invoiceId'),
-  status: PaymentStatus.pending,
-  amount: amount,
-  providerReference: _strOrNull(json['transactionId']),
-  instruction:
-      'Check your phone for the M-Pesa prompt and enter your PIN to '
-      'authorise the payment.',
-);
+) {
+  final paymentId = _strOrNull(json['paymentId']);
+  if (paymentId == null || paymentId.isEmpty) {
+    throw const FormatException(
+      'The payment request was received, but no payment reference was returned. '
+      'Check your invoice status before trying again.',
+    );
+  }
+  return PaymentIntent(
+    paymentId: paymentId,
+    status: PaymentStatus.pending,
+    amount: amount,
+    providerReference: _strOrNull(json['transactionId']),
+    instruction:
+        'Check your phone for the M-Pesa prompt and enter your PIN to '
+        'authorise the payment.',
+  );
+}
 
 Json bookingRequestToJson({
   required String unitId,

@@ -34,6 +34,30 @@ class OwnerPropertyScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(performance.value?.propertyName ?? 'Property'),
         backgroundColor: Colors.transparent,
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Manage property',
+            onSelected: (route) => context.pushNamed(
+              route,
+              pathParameters: {'propertyId': propertyId},
+            ),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: Routes.blocks, child: Text('Blocks')),
+              PopupMenuItem(
+                value: Routes.unitCreate,
+                child: Text('Add a unit'),
+              ),
+              PopupMenuItem(
+                value: Routes.propertyEdit,
+                child: Text('Edit this property'),
+              ),
+              PopupMenuItem(
+                value: Routes.ownerPreview,
+                child: Text('View listing'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: switch (performance) {
         AsyncLoading() when !performance.hasValue => const AppSkeletonDetail(),

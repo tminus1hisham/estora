@@ -1,4 +1,4 @@
-import '../../core/utils/date_format.dart';
+import 'package:mall/core/utils/date_format.dart';
 import 'mock_records.dart';
 import 'mock_server.dart';
 

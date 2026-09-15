@@ -17,8 +17,8 @@ import '../core/theme/app_theme.dart';
 /// on navy correct, with no `onDark` flag threaded through any of them. Getting
 /// this wrong — a bespoke dark variant per component — was the alternative, and
 /// it would have meant maintaining two of everything forever.
-class OwnerShell extends StatelessWidget {
-  const OwnerShell({required this.navigationShell, super.key});
+class ManagerShell extends StatelessWidget {
+  const ManagerShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
@@ -29,7 +29,7 @@ class OwnerShell extends StatelessWidget {
     NavigationDestination(
       icon: Icon(Icons.donut_small_outlined),
       selectedIcon: Icon(Icons.donut_small_rounded),
-      label: 'Portfolio',
+      label: 'Manager',
     ),
     NavigationDestination(
       icon: Icon(Icons.apartment_outlined),
@@ -110,3 +110,6 @@ class OwnerShell extends StatelessWidget {
     );
   }
 }
+
+/// Compatibility name for existing route consumers.
+typedef OwnerShell = ManagerShell;

@@ -8,8 +8,8 @@ import 'package:mall/domain/entities/treasury.dart';
 import 'package:mall/domain/entities/unit.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/domain/repositories/repositories.dart';
-import 'package:mall/services/mock/mock_repositories.dart';
-import 'package:mall/services/mock/mock_server.dart';
+import 'support/mock/mock_repositories.dart';
+import 'support/mock/mock_server.dart';
 
 /// The parts of the published contract the app had no home for until now:
 /// blocks, single units, invoice deferral, the treasury, and access control.

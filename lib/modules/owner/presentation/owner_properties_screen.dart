@@ -7,10 +7,10 @@ import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../domain/entities/owner.dart';
+import '../../../domain/entities/property.dart';
 import '../../../navigation/routes.dart';
-import '../application/owner_controller.dart';
-import 'widgets/owner_property_card.dart';
+import '../../properties/application/property_controller.dart';
+import '../../../components/app_media.dart';
 
 /// Section 88. The owner's buildings.
 class OwnerPropertiesScreen extends ConsumerWidget {
@@ -18,7 +18,7 @@ class OwnerPropertiesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final portfolio = ref.watch(ownerPortfolioProvider);
+    final portfolio = ref.watch(propertyListProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -38,11 +38,11 @@ class OwnerPropertiesScreen extends ConsumerWidget {
         AsyncLoading() when !portfolio.hasValue => const AppSkeletonMediaList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.read(ownerPortfolioProvider.notifier).refresh(),
+          onRetry: () => ref.read(propertyListProvider.notifier).refresh(),
         ),
         _ => _Properties(
-          properties: portfolio.requireValue.properties,
-          onRefresh: () => ref.read(ownerPortfolioProvider.notifier).refresh(),
+          properties: portfolio.requireValue,
+          onRefresh: () => ref.read(propertyListProvider.notifier).refresh(),
         ),
       },
     );
@@ -52,7 +52,7 @@ class OwnerPropertiesScreen extends ConsumerWidget {
 class _Properties extends StatelessWidget {
   const _Properties({required this.properties, required this.onRefresh});
 
-  final List<PropertyPerformance> properties;
+  final List<Property> properties;
   final Future<void> Function() onRefresh;
 
   @override
@@ -68,7 +68,8 @@ class _Properties extends StatelessWidget {
               child: EmptyState(
                 icon: Icons.apartment_outlined,
                 title: 'No properties yet',
-                message: 'Properties you own will be listed here.',
+                message:
+                    'Properties available to your account will be listed here.',
               ),
             ),
           ],
@@ -90,11 +91,24 @@ class _Properties extends StatelessWidget {
             separatorBuilder: (_, _) => Gap.h16,
             itemBuilder: (context, index) => AppReveal(
               index: index,
-              child: OwnerPropertyCard(
-                performance: properties[index],
-                onTap: () => context.pushNamed(
-                  Routes.ownerProperty,
-                  pathParameters: {'propertyId': properties[index].propertyId},
+              child: Card(
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => context.pushNamed(
+                    Routes.ownerProperty,
+                    pathParameters: {'propertyId': properties[index].id},
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppMedia(source: properties[index].imageUrl),
+                      ListTile(
+                        title: Text(properties[index].name),
+                        subtitle: Text(properties[index].city),
+                        trailing: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

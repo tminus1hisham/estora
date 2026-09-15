@@ -83,7 +83,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ));
   void syncAuthState() {
     final auth = ref.read(authControllerProvider);
-    authState.value = (auth.stage, auth.isOwner);
+    authState.value = (auth.stage, auth.isManager);
   }
 
   ref.listen(authControllerProvider, (_, _) => syncAuthState());
@@ -127,17 +127,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // owner screens that have no owner record to read and an owner in front
       // of a tenant app with no tenancy — both render nothing. Changing role
       // means changing account.
-      final isOwner = ref.read(authControllerProvider).isOwner;
+      final isManager = ref.read(authControllerProvider).isManager;
       final inOwnerSpace = location.startsWith(Routes.ownerRootPath);
 
       // Keep them out of the auth screens, landing each side on its own root.
       if (isAuthRoute) {
-        return isOwner ? Routes.ownerPortfolioPath : Routes.homePath;
+        return isManager ? Routes.ownerPortfolioPath : Routes.homePath;
       }
       // `/owner` on its own is not a screen; it is the space the tabs live in.
       if (location == Routes.ownerRootPath) return Routes.ownerPortfolioPath;
-      if (isOwner && !inOwnerSpace) return Routes.ownerPortfolioPath;
-      if (!isOwner && inOwnerSpace) return Routes.homePath;
+      final isSharedAccountRoute =
+          location == '/profile/security' ||
+          location.startsWith('/profile/security/');
+      if (isSharedAccountRoute) return null;
+      if (isManager && !inOwnerSpace) return Routes.ownerPortfolioPath;
+      if (!isManager && inOwnerSpace) return Routes.homePath;
       return null;
     },
     routes: [
@@ -185,6 +189,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
+      // Declared before the bare `security` route for the same
+      // reason the invoices branch orders its routes: a shorter
+      // pattern earlier would swallow the longer ones.
+      GoRoute(
+        path: '/profile/${Routes.changePasswordPath}',
+        name: Routes.changePassword,
+        pageBuilder: (_, state) =>
+            lateralPage(state: state, child: const ChangePasswordScreen()),
+      ),
+      GoRoute(
+        path: '/profile/${Routes.verifyContactPath}',
+        name: Routes.verifyContact,
+        pageBuilder: (_, state) => lateralPage(
+          state: state,
+          child: VerifyContactScreen(
+            channel: VerificationChannel.fromPath(
+              state.pathParameters['channel'],
+            ),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/profile/${Routes.securityPath}',
+        name: Routes.security,
+        pageBuilder: (_, state) =>
+            lateralPage(state: state, child: const SecurityScreen()),
+      ),
       // -- Main shell (section 45) ------------------------------------------
       StatefulShellRoute.indexedStack(
         builder: (_, _, navigationShell) =>
@@ -465,37 +496,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       child: const SettingsScreen(),
                     ),
                   ),
-                  // Declared before the bare `security` route for the same
-                  // reason the invoices branch orders its routes: a shorter
-                  // pattern earlier would swallow the longer ones.
-                  GoRoute(
-                    path: Routes.changePasswordPath,
-                    name: Routes.changePassword,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: const ChangePasswordScreen(),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.verifyContactPath,
-                    name: Routes.verifyContact,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: VerifyContactScreen(
-                        channel: VerificationChannel.fromPath(
-                          state.pathParameters['channel'],
-                        ),
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.securityPath,
-                    name: Routes.security,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: const SecurityScreen(),
-                    ),
-                  ),
                 ],
               ),
             ],
@@ -510,7 +510,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // so there is no state where both bottom bars could be reachable.
       StatefulShellRoute.indexedStack(
         builder: (_, _, navigationShell) =>
-            OwnerShell(navigationShell: navigationShell),
+            ManagerShell(navigationShell: navigationShell),
         branches: [
           // Portfolio
           StatefulShellBranch(

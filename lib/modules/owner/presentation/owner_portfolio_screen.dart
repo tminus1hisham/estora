@@ -32,7 +32,7 @@ class OwnerPortfolioScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Portfolio'),
+        title: const Text('Manager'),
         backgroundColor: Colors.transparent,
       ),
       body: switch (portfolio) {

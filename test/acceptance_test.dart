@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/config/app_config.dart';
+import 'support/repository_overrides.dart';
 import 'package:mall/app.dart';
 import 'package:mall/core/utils/money.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
@@ -12,7 +12,7 @@ import 'package:mall/modules/properties/presentation/properties_screen.dart';
 import 'package:mall/modules/properties/presentation/property_detail_screen.dart';
 import 'package:mall/modules/units/presentation/available_units_screen.dart';
 import 'package:mall/modules/units/presentation/unit_detail_screen.dart';
-import 'package:mall/services/mock/mock_server.dart';
+import 'support/mock/mock_server.dart';
 import 'package:mall/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,7 +54,7 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(prefs),
         // Pinned so the suite never reaches the network, whatever
         // AppConfig.dataSource is set to.
-        dataSourceProvider.overrideWithValue(DataSource.mock),
+        ...mockRepositoryOverrides,
         // Shared with the test body, so assertions can read server state.
         mockServerProvider.overrideWithValue(server),
       ],

@@ -1,4 +1,4 @@
-# Tenant Portal brand mark
+# Mall brand mark
 
 Three piers, two arches: the colonnade every retail arcade is built from.
 

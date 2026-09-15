@@ -1064,11 +1064,17 @@ enum TenantType {
 enum AccountRole {
   tenant,
   owner,
+  manager,
+  admin,
+  superadmin,
   unknown;
 
   String get api => switch (this) {
     AccountRole.tenant => 'TENANT',
     AccountRole.owner => 'OWNER',
+    AccountRole.manager => 'MANAGER',
+    AccountRole.admin => 'ADMIN',
+    AccountRole.superadmin => 'SUPERADMIN',
     AccountRole.unknown => 'UNKNOWN',
   };
 
@@ -1084,22 +1090,34 @@ enum AccountRole {
   String get roleName => switch (this) {
     AccountRole.tenant => 'Tenant',
     AccountRole.owner => 'Owner',
+    AccountRole.manager => 'Manager',
+    AccountRole.admin => 'Admin',
+    AccountRole.superadmin => 'SuperAdmin',
     AccountRole.unknown => 'Unknown',
   };
 
   String get label => switch (this) {
     AccountRole.tenant => 'Tenant',
     AccountRole.owner => 'Owner',
+    AccountRole.manager => 'Manager',
+    AccountRole.admin => 'Admin',
+    AccountRole.superadmin => 'SuperAdmin',
     AccountRole.unknown => 'Unknown',
   };
 
-  /// An unrecognised role is treated as a tenant rather than locked out. A
-  /// server that grows a third role should not strand an account on a version
-  /// of the app that predates it.
   bool get isOwner => this == AccountRole.owner;
 
-  static AccountRole fromApi(String? raw) =>
-      _parse(raw, values, (v) => v.api, AccountRole.unknown);
+  bool get isManager => switch (this) {
+    owner || manager || admin || superadmin => true,
+    tenant || unknown => false,
+  };
+
+  static AccountRole fromApi(String? raw) => _parse(
+    raw?.replaceAll(RegExp(r'[\s_-]'), ''),
+    values,
+    (v) => v.api,
+    AccountRole.unknown,
+  );
 }
 
 // ---------------------------------------------------------------------------

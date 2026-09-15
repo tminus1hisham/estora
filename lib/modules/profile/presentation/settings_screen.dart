@@ -227,17 +227,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               onTap: _updateBusy ? null : _checkForUpdate,
             ),
-          if (ref.watch(isMockDataProvider))
-            ListTile(
-              leading: Icon(Icons.science_outlined, color: scheme.tertiary),
-              title: const Text('Demo data'),
-              subtitle: Text(
-                'This build runs against an in-memory mock of the platform '
-                'API. No real bookings or payments are made.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-
           const Divider(),
           Padding(
             padding: const EdgeInsets.all(Gap.lg),

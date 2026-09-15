@@ -99,6 +99,13 @@ void main() {
         expect(tokens, isNotNull, reason: 'sign-in stored no token');
         expect(tokens!.accessToken, isNotEmpty);
 
+        const expectedRole = String.fromEnvironment('PROBE_ROLE');
+        if (expectedRole.isNotEmpty) {
+          expect(
+            session.user.role.api.toLowerCase(),
+            expectedRole.toLowerCase(),
+          );
+        }
         printOnFailure('signed in as ${session.user.id}');
       });
 

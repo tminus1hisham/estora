@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 
-/// The Tenant Portal brand mark, drawn in code so it stays crisp at every
+/// The Mall brand mark, drawn in code so it stays crisp at every
 /// display density and does not delay first paint.
 ///
 /// Three piers and two arches — the colonnade every retail arcade is built
@@ -18,7 +18,7 @@ class AppBrandMark extends StatelessWidget {
   const AppBrandMark({
     this.size = 56,
     this.withShadow = false,
-    this.semanticLabel = 'Tenant Portal',
+    this.semanticLabel = 'Mall',
     super.key,
   });
 

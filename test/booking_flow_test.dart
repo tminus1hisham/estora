@@ -3,9 +3,9 @@ import 'package:mall/core/error/failure.dart';
 import 'package:mall/core/utils/money.dart';
 import 'package:mall/domain/entities/booking.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/services/mock/mock_records.dart';
-import 'package:mall/services/mock/mock_repositories.dart';
-import 'package:mall/services/mock/mock_server.dart';
+import 'support/mock/mock_records.dart';
+import 'support/mock/mock_repositories.dart';
+import 'support/mock/mock_server.dart';
 
 /// Section 93's booking cases.
 ///

@@ -13,10 +13,10 @@
 /// would reject.
 library;
 
-import '../../core/utils/money.dart';
-import '../../domain/entities/access.dart';
-import '../../domain/entities/treasury.dart';
-import '../../domain/enums/domain_enums.dart';
+import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/access.dart';
+import 'package:mall/domain/entities/treasury.dart';
+import 'package:mall/domain/enums/domain_enums.dart';
 import 'mock_server.dart';
 
 class MockBackOffice {

@@ -8,6 +8,11 @@ import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/tenant.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
+import '../../owner/application/owner_controller.dart';
+import '../../access/application/access_controller.dart';
+import '../../treasury/application/treasury_controller.dart';
+import '../../structure/application/structure_controller.dart';
+import '../../account/application/account_controller.dart';
 import '../../bookings/application/booking_controller.dart';
 import '../../documents/application/document_controller.dart';
 import '../../home/application/dashboard_controller.dart';
@@ -131,6 +136,7 @@ class AuthState {
   /// Which shell this account belongs in. Read by the router's redirect, which
   /// is the only place the distinction is enforced.
   bool get isOwner => user?.role.isOwner ?? false;
+  bool get isManager => user?.role.isManager ?? false;
 
   AuthState copyWith({
     AuthStage? stage,
@@ -181,7 +187,7 @@ class AuthController extends Notifier<AuthState> {
         DebugLog.write('auth', 'Stored session found; unlocking biometrically');
         final unlock = await ref
             .read(biometricUnlockProvider)
-            .authenticate(reason: 'Unlock Tenant Portal to continue');
+            .authenticate(reason: 'Unlock Mall to continue');
         if (!unlock.succeeded) {
           // Invisible to the HTTP log, because nothing was ever sent. Without
           // this line, a handset that keeps landing on the sign-in screen with
@@ -189,7 +195,7 @@ class AuthController extends Notifier<AuthState> {
           DebugLog.write(
             'auth',
             'Biometric unlock refused '
-            '(${unlock.message ?? 'no reason given'}); staying signed out',
+                '(${unlock.message ?? 'no reason given'}); staying signed out',
           );
           state = AuthState(
             stage: AuthStage.unauthenticated,
@@ -231,7 +237,10 @@ class AuthController extends Notifier<AuthState> {
 
     return switch (result) {
       Ok(:final value) => () {
-        DebugLog.write('auth', 'OTP challenge $value issued; awaiting the code');
+        DebugLog.write(
+          'auth',
+          'OTP challenge $value issued; awaiting the code',
+        );
         state = state.copyWith(
           isBusy: false,
           pendingChallengeId: value,
@@ -404,8 +413,9 @@ class AuthController extends Notifier<AuthState> {
   /// limit from a handset with no signal.
   Failure _logFailure(String step, Failure failure) {
     DebugLog.write('auth', '$step refused: $failure');
-    if (failure case ValidationFailure(:final fieldErrors)
-        when fieldErrors.isNotEmpty) {
+    if (failure case ValidationFailure(
+      :final fieldErrors,
+    ) when fieldErrors.isNotEmpty) {
       DebugLog.write('auth', '$step field errors', detail: fieldErrors);
     }
     return failure;
@@ -422,6 +432,27 @@ class AuthController extends Notifier<AuthState> {
   }
 
   void _invalidateTenantState() {
+    ref.invalidate(ownerPortfolioProvider);
+    ref.invalidate(propertyPerformanceProvider);
+    ref.invalidate(repricingImpactProvider);
+    ref.invalidate(rentRollProvider);
+    ref.invalidate(ownerTenanciesProvider);
+    ref.invalidate(ownerTenancyProvider);
+    ref.invalidate(ownerLedgerProvider);
+    ref.invalidate(platformUsersProvider);
+    ref.invalidate(accessRolesProvider);
+    ref.invalidate(userRolesProvider);
+    ref.invalidate(userClaimsProvider);
+    ref.invalidate(roleClaimsProvider);
+    ref.invalidate(mpesaTransactionsProvider);
+    ref.invalidate(mpesaSearchProvider);
+    ref.invalidate(mpesaSearchResultProvider);
+    ref.invalidate(bankPaymentsProvider);
+    ref.invalidate(propertyBlocksProvider);
+    ref.invalidate(blockProvider);
+    ref.invalidate(blockUnitsProvider);
+    ref.invalidate(myAccountProvider);
+
     ref.invalidate(dashboardControllerProvider);
 
     ref.invalidate(propertyListProvider);

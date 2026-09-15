@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mall/core/config/app_config.dart';
+import 'support/repository_overrides.dart';
 import 'package:mall/app.dart';
 import 'package:mall/components/collection_columns.dart';
 import 'package:mall/components/unit_status_strip.dart';
@@ -33,7 +33,7 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(prefs),
         // Pinned so the suite never reaches the network, whatever
         // AppConfig.dataSource is set to.
-        dataSourceProvider.overrideWithValue(DataSource.mock),
+        ...mockRepositoryOverrides,
       ],
       child: const MallApp(),
     );

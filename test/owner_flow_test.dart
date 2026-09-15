@@ -4,8 +4,8 @@ import 'package:mall/core/utils/money.dart';
 import 'package:mall/domain/entities/owner.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/domain/repositories/repositories.dart';
-import 'package:mall/services/mock/mock_repositories.dart';
-import 'package:mall/services/mock/mock_server.dart';
+import 'support/mock/mock_repositories.dart';
+import 'support/mock/mock_server.dart';
 
 /// Section 88, end to end: an owner registers a property and a tenant can book
 /// a unit in it.
