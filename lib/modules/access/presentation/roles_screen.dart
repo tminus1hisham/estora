@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
@@ -60,11 +61,15 @@ class RolesScreen extends ConsumerWidget {
         AsyncLoading() when !roles.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(accessRolesProvider),
+          onRetry: () async {
+            await ref.refresh(accessRolesProvider.future).then<void>((_) {});
+          },
         ),
         _ => _RoleList(
           roles: roles.requireValue,
-          onRefresh: () async => ref.invalidate(accessRolesProvider),
+          onRefresh: () async {
+            await ref.refresh(accessRolesProvider.future).then<void>((_) {});
+          },
         ),
       },
     );
@@ -80,7 +85,7 @@ class _RoleList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (roles.isEmpty) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -100,7 +105,7 @@ class _RoleList extends StatelessWidget {
       );
     }
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

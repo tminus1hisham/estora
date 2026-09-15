@@ -1,0 +1,178 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../components/app_refresh_indicator.dart';
+import '../../../components/record_group.dart';
+import '../../../components/app_media.dart';
+import 'widgets/premium_home.dart';
+import '../../../core/error/failure.dart';
+import '../../../core/error/result.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../domain/entities/property.dart';
+import '../../../navigation/routes.dart';
+import '../../../services/providers.dart';
+import '../../auth/application/auth_controller.dart';
+import '../../invoices/application/invoice_controller.dart';
+import '../../invoices/presentation/widgets/invoice_list.dart';
+
+// Separate from the browse search so a search never filters the home page.
+final homePropertiesProvider = FutureProvider.autoDispose<List<Property>>((
+  ref,
+) async {
+  ref.watch(authControllerProvider.select((state) => state.user?.id));
+  final result = await ref.watch(propertyRepositoryProvider).listProperties();
+  return switch (result) {
+    Ok(:final value) => value.items,
+    Err(:final failure) => throw failure,
+  };
+}, retry: (_, _) => null);
+
+/// Home content supported by the published property and invoice operations.
+/// A section failure leaves the greeting and navigation usable.
+class AvailableHome extends ConsumerWidget {
+  const AvailableHome({required this.manager, super.key});
+
+  final bool manager;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final name = ref.watch(authControllerProvider).user?.firstName;
+    return AppRefreshIndicator(
+      onRefresh: () async {
+        if (manager) {
+          await ref
+              .refresh(homePropertiesProvider.future)
+              .then<void>((_) {}, onError: (Object _) {});
+        } else {
+          await ref.read(invoiceListProvider.notifier).refresh();
+        }
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        children: [
+          PremiumHomeHero(manager: manager, name: name),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.maxReadingWidth,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Transform.translate(
+                      offset: const Offset(0, -28),
+                      child: HomeActionPanel(manager: manager),
+                    ),
+                    Text(
+                      manager ? 'Your properties' : 'Recent invoices',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    Gap.h4,
+                    Text(
+                      manager
+                          ? 'A place for every part of your portfolio.'
+                          : 'The details that keep your day running smoothly.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Gap.h16,
+                    if (manager)
+                      ref
+                          .watch(homePropertiesProvider)
+                          .when(
+                            loading: () => const HomeLoadingCard(),
+                            error: (error, _) => _sectionError(
+                              error,
+                              () => ref.invalidate(homePropertiesProvider),
+                            ),
+                            data: (properties) => properties.isEmpty
+                                ? HomeWelcomeCard(manager: true)
+                                : Column(
+                                    children: [
+                                      for (final property in properties) ...[
+                                        Card(
+                                          margin: EdgeInsets.zero,
+                                          clipBehavior: Clip.antiAlias,
+                                          child: InkWell(
+                                            onTap: () => context.pushNamed(
+                                              Routes.ownerProperty,
+                                              pathParameters: {
+                                                'propertyId': property.id,
+                                              },
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                AppMedia(
+                                                  source: property.imageUrl,
+                                                  height: 150,
+                                                  semanticLabel: property.name,
+                                                ),
+                                                ListTile(
+                                                  title: Text(property.name),
+                                                  subtitle: Text(property.city),
+                                                  trailing: const Icon(
+                                                    Icons.arrow_forward_rounded,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        Gap.h16,
+                                      ],
+                                    ],
+                                  ),
+                          )
+                    else
+                      ref
+                          .watch(invoiceListProvider)
+                          .when(
+                            loading: () => const HomeLoadingCard(),
+                            error: (error, _) => _sectionError(
+                              error,
+                              () => ref
+                                  .read(invoiceListProvider.notifier)
+                                  .refresh(),
+                            ),
+                            data: (invoices) {
+                              if (invoices.isEmpty) {
+                                return const HomeWelcomeCard(manager: false);
+                              }
+                              final recent = [...invoices]
+                                ..sort(
+                                  (a, b) =>
+                                      b.invoiceDate.compareTo(a.invoiceDate),
+                                );
+                              return RecordGroup(
+                                children: [
+                                  for (final invoice in recent.take(5))
+                                    InvoiceRow(invoice: invoice),
+                                ],
+                              );
+                            },
+                          ),
+                    Gap.h24,
+                    const HomeFooter(),
+                    Gap.h24,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionError(Object error, VoidCallback onRetry) => HomeSectionError(
+    failure: error is Failure ? error : UnknownFailure(error.toString()),
+    onRetry: onRetry,
+  );
+}

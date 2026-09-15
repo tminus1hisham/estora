@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
@@ -61,12 +62,16 @@ class SecurityScreen extends ConsumerWidget {
         AsyncLoading() when !account.hasValue => const LoadingView(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(myAccountProvider),
+          onRetry: () async {
+            await ref.refresh(myAccountProvider.future).then<void>((_) {});
+          },
         ),
         _ => _Body(
           account: account.requireValue,
           onEnableTwoFactor: () => _enableTwoFactor(context, ref),
-          onRefresh: () async => ref.invalidate(myAccountProvider),
+          onRefresh: () async {
+            await ref.refresh(myAccountProvider.future).then<void>((_) {});
+          },
         ),
       },
     );
@@ -88,7 +93,7 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

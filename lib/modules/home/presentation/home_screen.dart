@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
@@ -12,6 +13,7 @@ import '../../../navigation/routes.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../notifications/application/notification_controller.dart';
 import '../application/dashboard_controller.dart';
+import 'available_home.dart';
 import 'widgets/attention_banner.dart';
 import 'widgets/balance_card.dart';
 import 'widgets/home_cards.dart';
@@ -87,13 +89,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refresh() async {
-    await ref.read(dashboardControllerProvider.notifier).refresh();
-    ref.invalidate(unreadNotificationCountProvider);
+    await Future.wait([
+      ref.read(dashboardControllerProvider.notifier).refresh(),
+      ref.refresh(unreadNotificationCountProvider.future),
+    ]);
   }
 
   @override
   Widget build(BuildContext context) {
     final summaryAsync = ref.watch(dashboardControllerProvider);
+    if (summaryAsync.error is UnsupportedFeatureFailure) {
+      return Scaffold(body: const AvailableHome(manager: false));
+    }
     final user = ref.watch(authControllerProvider).user;
     final unread = ref.watch(unreadNotificationCountProvider).value ?? 0;
     final topInset = MediaQuery.paddingOf(context).top;
@@ -123,7 +130,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          RefreshIndicator(
+          AppRefreshIndicator(
             onRefresh: _refresh,
             // Drops the spinner clear of the floating bar.
             edgeOffset: topInset + HomeTopBar.height,

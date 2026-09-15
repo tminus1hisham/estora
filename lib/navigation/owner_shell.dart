@@ -4,27 +4,20 @@ import 'package:go_router/go_router.dart';
 import '../components/ambient_glow.dart';
 import '../core/theme/app_theme.dart';
 
-/// The owner tier's five-tab shell.
+/// The owner tier's four-tab shell.
 ///
 /// Structurally the same as [AppShell] — an indexed stack under a bottom bar —
 /// and deliberately so: an owner who has used the tenant app should not have to
 /// learn a second way to move around.
 ///
-/// What differs is the ground. The whole subtree is wrapped in
-/// [AppTheme.ownerStage], which is the reason this file is short. Every shared
-/// component reads its colours from the scheme, so `RecordGroup`, `RecordRow`,
-/// `AppSurfaceCard`, `StatusChip`, the skeletons and the state views all arrive
-/// on navy correct, with no `onDark` flag threaded through any of them. Getting
-/// this wrong — a bespoke dark variant per component — was the alternative, and
-/// it would have meant maintaining two of everything forever.
+/// Follows the app's appearance choice, using [AppTheme.ownerStage] for the
+/// manager's navy and brass palette when the resolved theme is dark.
 class ManagerShell extends StatelessWidget {
   const ManagerShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
-  /// Positional, and coupled to the branch order in `app_router.dart`. There is
-  /// no key linking the two — adding a destination means adding a branch at the
-  /// same index.
+  /// Visible destinations map to router branches through [_branchIndices].
   static const _destinations = <NavigationDestination>[
     NavigationDestination(
       icon: Icon(Icons.donut_small_outlined),
@@ -35,11 +28,6 @@ class ManagerShell extends StatelessWidget {
       icon: Icon(Icons.apartment_outlined),
       selectedIcon: Icon(Icons.apartment_rounded),
       label: 'Properties',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.handshake_outlined),
-      selectedIcon: Icon(Icons.handshake_rounded),
-      label: 'Tenancies',
     ),
     NavigationDestination(
       icon: Icon(Icons.account_balance_outlined),
@@ -53,16 +41,23 @@ class ManagerShell extends StatelessWidget {
     ),
   ];
 
+  // Keep the hidden Tenancies branch available for existing detail links.
+  static const _branchIndices = [0, 1, 3, 4];
+
   void _onDestinationSelected(int index) {
+    final branch = _branchIndices[index];
     navigationShell.goBranch(
-      index,
-      initialLocation: index == navigationShell.currentIndex,
+      branch,
+      initialLocation: branch == navigationShell.currentIndex,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = AppTheme.ownerStage;
+    final inheritedTheme = Theme.of(context);
+    final theme = inheritedTheme.brightness == Brightness.dark
+        ? AppTheme.ownerStage
+        : inheritedTheme;
     final scheme = theme.colorScheme;
 
     return Theme(
@@ -101,7 +96,9 @@ class ManagerShell extends StatelessWidget {
             ),
           ),
           child: NavigationBar(
-            selectedIndex: navigationShell.currentIndex,
+            selectedIndex: _branchIndices.contains(navigationShell.currentIndex)
+                ? _branchIndices.indexOf(navigationShell.currentIndex)
+                : 1,
             onDestinationSelected: _onDestinationSelected,
             destinations: _destinations,
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
@@ -53,7 +54,10 @@ class _PaymentList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (payments.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
+        onRefresh: () async {
+          await ref.read(paymentHistoryProvider.notifier).refresh();
+        },
         icon: Icons.payments_outlined,
         title: 'No payments yet',
         message: 'Payments you make will be listed here with their receipts.',
@@ -62,7 +66,7 @@ class _PaymentList extends ConsumerWidget {
 
     final months = _groupByMonth(payments);
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: () => ref.read(paymentHistoryProvider.notifier).refresh(),
       child: Center(
         child: ConstrainedBox(

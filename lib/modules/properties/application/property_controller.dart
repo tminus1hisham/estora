@@ -11,34 +11,13 @@ final propertyListProvider =
     );
 
 class PropertyListController extends AsyncNotifier<List<Property>> {
-  String _query = '';
-  int _searchGeneration = 0;
-
   @override
   Future<List<Property>> build() async {
-    final result = await ref
-        .read(propertyRepositoryProvider)
-        .listProperties(query: _query.isEmpty ? null : _query);
+    final result = await ref.read(propertyRepositoryProvider).listProperties();
     return switch (result) {
       Ok(:final value) => value.items,
       Err(:final failure) => throw failure,
     };
-  }
-
-  Future<void> search(String query) async {
-    _query = query.trim();
-    final generation = ++_searchGeneration;
-
-    // Search feels immediate without sending a remote request for every
-    // keystroke. The generation guard also prevents an older, slower response
-    // from replacing newer results.
-    if (_query.isNotEmpty) {
-      await Future<void>.delayed(const Duration(milliseconds: 320));
-    }
-    if (generation != _searchGeneration) return;
-
-    final next = await AsyncValue.guard(build);
-    if (generation == _searchGeneration) state = next;
   }
 
   Future<void> refresh() async {
@@ -73,7 +52,7 @@ final propertyDetailProvider = FutureProvider.family<PropertyDetail, String>((
         buildings[i].id: floorLists[i].valueOrNull ?? const <Floor>[],
     },
   );
-});
+}, retry: (_, _) => null);
 
 class PropertyDetail {
   const PropertyDetail({

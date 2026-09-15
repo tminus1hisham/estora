@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_media.dart';
 import '../../../components/app_surface_card.dart';
@@ -15,34 +16,77 @@ import '../application/property_controller.dart';
 
 /// A photography-led overview of a property and its available inventory.
 class PropertyDetailScreen extends ConsumerWidget {
-  const PropertyDetailScreen({required this.propertyId, super.key});
+  const PropertyDetailScreen({
+    required this.propertyId,
+    this.manager = false,
+    super.key,
+  });
 
   final String propertyId;
+  final bool manager;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(propertyDetailProvider(propertyId));
 
     return Scaffold(
-      appBar: AppBar(title: Text(detail.value?.property.name ?? 'Property')),
-      body: switch (detail) {
-        AsyncLoading() when !detail.hasValue => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(propertyDetailProvider(propertyId)),
-        ),
-        _ => _Body(detail: detail.requireValue),
-      },
+      appBar: AppBar(
+        title: Text(detail.value?.property.name ?? 'Property'),
+        actions: [
+          if (manager)
+            PopupMenuButton<String>(
+              tooltip: 'Manage property',
+              onSelected: (route) => context.pushNamed(
+                route,
+                pathParameters: {'propertyId': propertyId},
+              ),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: Routes.blocks, child: Text('Blocks')),
+                PopupMenuItem(
+                  value: Routes.unitCreate,
+                  child: Text('Add a unit'),
+                ),
+                PopupMenuItem(
+                  value: Routes.propertyEdit,
+                  child: Text('Edit this property'),
+                ),
+              ],
+            ),
+        ],
+      ),
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .refresh(propertyDetailProvider(propertyId).future)
+              .then<void>((_) {});
+        },
+        child: switch (detail) {
+          AsyncLoading() when !detail.hasValue => const LoadingView(),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () async {
+              await ref
+                  .refresh(propertyDetailProvider(propertyId).future)
+                  .then<void>((_) {});
+            },
+          ),
+          _ => _Body(detail: detail.requireValue),
+        },
+      ),
       bottomNavigationBar: detail.hasValue
           ? AppBottomActionBar(
               child: FilledButton.icon(
                 onPressed: () => context.pushNamed(
-                  Routes.availableUnits,
+                  manager ? Routes.blocks : Routes.availableUnits,
                   pathParameters: {'propertyId': propertyId},
                 ),
                 icon: const Icon(Icons.meeting_room_outlined),
                 label: Text(
-                  detail.requireValue.property.hasAvailability
+                  manager
+                      ? 'View blocks and units'
+                      : detail.requireValue.property.hasAvailability
                       ? 'View ${detail.requireValue.property.availableUnits} '
                             'available units'
                       : 'View all units',
@@ -127,7 +171,7 @@ class _Body extends StatelessWidget {
             Expanded(
               child: _MetricTile(
                 icon: Icons.meeting_room_outlined,
-                value: '${property.availableUnits ?? 0}',
+                value: property.availableUnits?.toString() ?? '—',
                 label: 'Available',
                 highlighted: true,
               ),
@@ -136,7 +180,7 @@ class _Body extends StatelessWidget {
             Expanded(
               child: _MetricTile(
                 icon: Icons.domain_outlined,
-                value: '${property.totalUnits ?? 0}',
+                value: property.totalUnits?.toString() ?? '—',
                 label: 'Total units',
               ),
             ),
@@ -146,7 +190,7 @@ class _Body extends StatelessWidget {
                 child: _MetricTile(
                   icon: Icons.square_foot_rounded,
                   value: property.totalArea!.toStringAsFixed(0),
-                  label: 'Square metres',
+                  label: 'Square feet',
                 ),
               ),
             ],
@@ -157,7 +201,10 @@ class _Body extends StatelessWidget {
           title: 'Property details',
           children: [
             DetailRow(label: 'Type', value: property.propertyType.label),
-            DetailRow(label: 'Property code', value: property.code),
+            if (property.code.isNotEmpty)
+              DetailRow(label: 'Property code', value: property.code),
+            if (property.county != null)
+              DetailRow(label: 'County', value: property.county!),
           ],
         ),
         if (detail.buildings.isNotEmpty) ...[

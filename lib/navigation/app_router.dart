@@ -40,7 +40,6 @@ import '../modules/owner/presentation/owner_properties_screen.dart';
 import '../modules/owner/presentation/owner_property_rate_screen.dart';
 import '../modules/owner/presentation/owner_property_screen.dart';
 import '../modules/owner/presentation/owner_rent_roll_screen.dart';
-import '../modules/owner/presentation/owner_tenancies_screen.dart';
 import '../modules/owner/presentation/owner_tenancy_screen.dart';
 import '../modules/owner/presentation/tenant_invoices_screen.dart';
 import '../modules/payments/presentation/bank_transfer_screen.dart';
@@ -684,7 +683,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.ownerTenanciesPath,
                 name: Routes.ownerTenancies,
-                builder: (_, _) => const OwnerTenanciesScreen(),
+                builder: (_, _) => const SizedBox.shrink(),
+                redirect: (_, state) =>
+                    state.uri.path == Routes.ownerTenanciesPath
+                    ? Routes.ownerPropertiesPath
+                    : null,
                 routes: [
                   // Two segments, so it cannot be swallowed by `:leaseId` —
                   // declared first regardless, since the ordering rule here is

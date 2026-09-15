@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
@@ -38,11 +39,15 @@ class OwnerPayoutsScreen extends ConsumerWidget {
         AsyncLoading() when !ledger.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(ownerLedgerProvider),
+          onRetry: () async {
+            await ref.refresh(ownerLedgerProvider.future).then<void>((_) {});
+          },
         ),
         _ => _Payouts(
           ledger: ledger.requireValue,
-          onRefresh: () async => ref.invalidate(ownerLedgerProvider),
+          onRefresh: () async {
+            await ref.refresh(ownerLedgerProvider.future).then<void>((_) {});
+          },
         ),
       },
     );
@@ -64,7 +69,7 @@ class _Payouts extends StatelessWidget {
         .toList(growable: false);
 
     if (months.isEmpty) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -84,7 +89,7 @@ class _Payouts extends StatelessWidget {
       );
     }
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
@@ -10,6 +11,7 @@ import '../../../components/money_count_up.dart';
 import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
+import '../../../components/page_empty_state.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/status_palette.dart';
@@ -64,13 +66,27 @@ class OwnerMoneyScreen extends ConsumerWidget {
         AsyncLoading() when !ledger.hasValue => const AppSkeletonList(
           header: true,
         ),
+        AsyncError(error: UnsupportedFeatureFailure()) => PageEmptyState(
+          onRefresh: () async {
+            await ref.refresh(ownerLedgerProvider.future).then<void>((_) {});
+          },
+          icon: Icons.account_balance_wallet_outlined,
+          caption: 'Your money overview',
+          title: 'Money overview is on its way',
+          message:
+              'Collections, outstanding balances and payouts will appear here when money tracking is available.',
+        ),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(ownerLedgerProvider),
+          onRetry: () async {
+            await ref.refresh(ownerLedgerProvider.future).then<void>((_) {});
+          },
         ),
         _ => _Money(
           ledger: ledger.requireValue,
-          onRefresh: () async => ref.invalidate(ownerLedgerProvider),
+          onRefresh: () async {
+            await ref.refresh(ownerLedgerProvider.future).then<void>((_) {});
+          },
         ),
       },
     );
@@ -85,6 +101,23 @@ class _Money extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (ledger.collectedThisMonth.isZero &&
+        ledger.platformFeeThisMonth.isZero &&
+        ledger.netThisMonth.isZero &&
+        ledger.totalOutstanding.isZero &&
+        !ledger.hasArrears &&
+        ledger.collections.isEmpty &&
+        ledger.history.isEmpty &&
+        ledger.payouts.isEmpty) {
+      return PageEmptyState(
+        icon: Icons.account_balance_wallet_outlined,
+        caption: 'Your money overview',
+        title: 'No money activity yet',
+        message:
+            'Once payments arrive, you can follow collections, outstanding balances and payouts here.',
+        onRefresh: onRefresh,
+      );
+    }
     final sections = <Widget>[
       _CollectedCard(ledger: ledger),
       if (ledger.hasArrears) _Ageing(buckets: ledger.ageing),
@@ -92,7 +125,7 @@ class _Money extends StatelessWidget {
         _Collections(collections: ledger.collections),
     ];
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

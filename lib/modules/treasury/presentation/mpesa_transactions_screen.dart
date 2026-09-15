@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
@@ -98,14 +99,22 @@ class _MpesaTransactionsScreenState
                     failure: error is Failure
                         ? error
                         : UnknownFailure(error.toString()),
-                    onRetry: () => ref.invalidate(mpesaTransactionsProvider),
+                    onRetry: () async {
+                      await ref
+                          .refresh(mpesaTransactionsProvider.future)
+                          .then<void>((_) {});
+                    },
                   ),
                   _ => _TransactionList(
                     transactions: rows.requireValue,
                     searching: searching,
                     onRefresh: () async {
-                      ref.invalidate(mpesaTransactionsProvider);
-                      ref.invalidate(mpesaSearchResultProvider);
+                      await ref
+                          .refresh(mpesaTransactionsProvider.future)
+                          .then<void>((_) {});
+                      await ref
+                          .refresh(mpesaSearchResultProvider.future)
+                          .then<void>((_) {});
                     },
                   ),
                 },
@@ -132,7 +141,7 @@ class _TransactionList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (transactions.isEmpty) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -163,7 +172,7 @@ class _TransactionList extends ConsumerWidget {
     final unprocessed = transactions.where((row) => !row.processed).toList();
     final processed = transactions.where((row) => row.processed).toList();
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.xxl),

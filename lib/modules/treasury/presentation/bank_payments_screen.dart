@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
@@ -37,11 +38,15 @@ class BankPaymentsScreen extends ConsumerWidget {
         AsyncLoading() when !payments.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(bankPaymentsProvider),
+          onRetry: () async {
+            await ref.refresh(bankPaymentsProvider.future).then<void>((_) {});
+          },
         ),
         _ => _PaymentList(
           payments: payments.requireValue,
-          onRefresh: () async => ref.invalidate(bankPaymentsProvider),
+          onRefresh: () async {
+            await ref.refresh(bankPaymentsProvider.future).then<void>((_) {});
+          },
         ),
       },
     );
@@ -57,7 +62,7 @@ class _PaymentList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (payments.isEmpty) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -80,7 +85,7 @@ class _PaymentList extends StatelessWidget {
     final pending = payments.where((row) => !row.isProcessed).toList();
     final reconciled = payments.where((row) => row.isProcessed).toList();
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

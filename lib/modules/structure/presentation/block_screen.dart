@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
@@ -109,7 +110,9 @@ class BlockScreen extends ConsumerWidget {
         AsyncLoading() when !block.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(blockProvider(blockId)),
+          onRetry: () async {
+            await ref.refresh(blockProvider(blockId).future).then<void>((_) {});
+          },
         ),
         _ => _BlockBody(block: block.requireValue),
       },
@@ -126,10 +129,12 @@ class _BlockBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final units = ref.watch(blockUnitsProvider(block.id));
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(blockProvider(block.id));
-        ref.invalidate(blockUnitsProvider(block.id));
+        await ref.refresh(blockProvider(block.id).future).then<void>((_) {});
+        await ref
+            .refresh(blockUnitsProvider(block.id).future)
+            .then<void>((_) {});
       },
       child: Center(
         child: ConstrainedBox(
@@ -178,7 +183,11 @@ class _BlockBody extends ConsumerWidget {
                   failure: error is Failure
                       ? error
                       : UnknownFailure(error.toString()),
-                  onRetry: () => ref.invalidate(blockUnitsProvider(block.id)),
+                  onRetry: () async {
+                    await ref
+                        .refresh(blockUnitsProvider(block.id).future)
+                        .then<void>((_) {});
+                  },
                 ),
                 _ => _UnitList(units: units.requireValue),
               },

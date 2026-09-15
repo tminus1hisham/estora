@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mall/core/error/result.dart';
+import 'package:mall/core/error/failure.dart';
 import 'package:mall/domain/entities/tenant.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/services/providers.dart';
@@ -25,7 +26,7 @@ class _Tokens implements TokenStore {
 }
 
 void main() {
-  test('every production repository uses HTTP', () {
+  test('every production repository uses the API implementation', () {
     final container = ProviderContainer(
       overrides: [tokenStoreProvider.overrideWithValue(_Tokens())],
     );
@@ -164,7 +165,7 @@ void main() {
   });
 
   test(
-    'missing reports and booking quotes return errors, never seeded data',
+    'unsupported reports and quotes return errors without HTTP requests',
     () async {
       final dio = Dio(
         BaseOptions(
@@ -194,11 +195,31 @@ void main() {
         (await RemoteBookingRepository(api).getQuote('unit-id')).isOk,
         isFalse,
       );
-      expect(paths, [
-        Endpoints.dashboard,
-        Endpoints.ownerPortfolio,
-        Endpoints.bookingQuote('unit-id'),
-      ]);
+      final unsupported = [
+        await RemoteLeaseRepository(api).listLeases(),
+        await RemoteLeaseRepository(api).getAgreement('lease-id'),
+        await RemoteBookingRepository(api).cancelBooking('booking-id'),
+        await RemotePaymentRepository(api).listPayments(),
+        await RemotePaymentRepository(api).getPayment('payment-id'),
+        await RemoteReceiptRepository(api).listReceipts(),
+        await RemoteDocumentRepository(api).listDocuments(),
+        await RemoteDocumentRepository(api).upload(
+          fileName: 'test.pdf',
+          bytes: [1],
+          mimeType: 'application/pdf',
+          type: DocumentType.other,
+        ),
+        await RemoteNotificationRepository(api).unreadCount(),
+        await RemoteNotificationRepository(api).markAllRead(),
+        await RemoteTenantRepository(api).getCurrentTenant(),
+        await RemoteOwnerRepository(api).getOwner(),
+        await RemoteOwnerRepository(api).getLedger(),
+        await RemoteOwnerRepository(api).setUnitRent(unitId: 'unit-id'),
+      ];
+      for (final result in unsupported) {
+        expect(result.failureOrNull, isA<UnsupportedFeatureFailure>());
+      }
+      expect(paths, isEmpty);
       dio.close();
     },
   );

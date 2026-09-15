@@ -26,10 +26,8 @@ import 'endpoints.dart';
 ///
 /// **The contract does not cover everything the app shows.** Leases,
 /// documents, notifications, receipts and the two report dashboards have no
-/// published route. Those repositories still point at the paths the app was
-/// designed around, grouped at the bottom of `Endpoints` and marked; against
-/// the live API they will 404 until the contract catches up. Faking them here
-/// would hide the gap rather than close it.
+/// published route. Unsupported operations return a local unavailable result
+/// without sending a request.
 ///
 /// **The contract does not paginate.** List routes return a whole array. The
 /// [Page] wrapper is kept because the presentation layer is built on it, and
@@ -646,8 +644,7 @@ class RemoteBookingRepository implements BookingRepository {
   final ApiClient _api;
 
   @override
-  Future<Result<BookingQuote>> getQuote(String unitId) =>
-      _api.get(Endpoints.bookingQuote(unitId), parse: bookingQuoteFromJson);
+  Future<Result<BookingQuote>> getQuote(String unitId) => _unavailable();
 
   @override
   Future<Result<Booking>> createBooking({
@@ -696,19 +693,13 @@ class RemoteBookingRepository implements BookingRepository {
   Future<Result<Page<Booking>>> listBookings({
     BookingStatus? status,
     int page = 1,
-  }) => _api.get(
-    Endpoints.bookings,
-    query: {'page': page, if (status != null) 'status': status.api},
-    parse: (json) => pageFromJson(json, bookingFromJson),
-  );
+  }) => _unavailable();
 
   @override
-  Future<Result<Booking>> getBooking(String bookingId) =>
-      _api.get(Endpoints.booking(bookingId), parse: bookingFromJson);
+  Future<Result<Booking>> getBooking(String bookingId) => _unavailable();
 
   @override
-  Future<Result<Booking>> cancelBooking(String bookingId) =>
-      _api.post(Endpoints.bookingCancel(bookingId), parse: bookingFromJson);
+  Future<Result<Booking>> cancelBooking(String bookingId) => _unavailable();
 
   @override
   Future<Result<BookingRequirement>> submitRequirement({
@@ -717,13 +708,7 @@ class RemoteBookingRepository implements BookingRepository {
     required String fileName,
     required List<int> bytes,
     required String mimeType,
-  }) => _api.upload(
-    Endpoints.bookingRequirement(bookingId, requirementId),
-    fileName: fileName,
-    bytes: bytes,
-    mimeType: mimeType,
-    parse: bookingRequirementFromJson,
-  );
+  }) => _unavailable();
 }
 
 // ---------------------------------------------------------------------------
@@ -731,27 +716,17 @@ class RemoteBookingRepository implements BookingRepository {
 // ---------------------------------------------------------------------------
 
 class RemoteLeaseRepository implements LeaseRepository {
-  RemoteLeaseRepository(this._api);
-
-  final ApiClient _api;
+  RemoteLeaseRepository(ApiClient api);
 
   @override
   Future<Result<Page<Lease>>> listLeases({LeaseStatus? status, int page = 1}) =>
-      _api.get(
-        Endpoints.leases,
-        query: {'page': page, if (status != null) 'status': status.api},
-        parse: (json) => pageFromJson(json, leaseFromJson),
-      );
+      _unavailable();
 
   @override
-  Future<Result<Lease>> getLease(String leaseId) =>
-      _api.get(Endpoints.lease(leaseId), parse: leaseFromJson);
+  Future<Result<Lease>> getLease(String leaseId) => _unavailable();
 
   @override
-  Future<Result<LeaseAgreement>> getAgreement(String leaseId) => _api.get(
-    Endpoints.leaseAgreement(leaseId),
-    parse: leaseAgreementFromJson,
-  );
+  Future<Result<LeaseAgreement>> getAgreement(String leaseId) => _unavailable();
 
   @override
   Future<Result<Lease>> signLease({
@@ -760,37 +735,7 @@ class RemoteLeaseRepository implements LeaseRepository {
     required List<int> signatureData,
     required String documentHash,
     required String idempotencyKey,
-  }) => _api.post(
-    Endpoints.leaseSign(leaseId),
-    body: {
-      'signatureType': signatureType.api,
-      'signatureData': _base64(signatureData),
-      // Section 29: binds the signature to the exact version reviewed. If the
-      // agreement has since been regenerated, the server rejects this.
-      'documentHash': documentHash,
-    },
-    idempotencyKey: idempotencyKey,
-    parse: leaseFromJson,
-  );
-}
-
-String _base64(List<int> bytes) {
-  const chars =
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  final buffer = StringBuffer();
-  for (var i = 0; i < bytes.length; i += 3) {
-    final b0 = bytes[i];
-    final b1 = i + 1 < bytes.length ? bytes[i + 1] : null;
-    final b2 = i + 2 < bytes.length ? bytes[i + 2] : null;
-
-    buffer.write(chars[b0 >> 2]);
-    buffer.write(chars[((b0 & 0x03) << 4) | ((b1 ?? 0) >> 4)]);
-    buffer.write(
-      b1 == null ? '=' : chars[((b1 & 0x0F) << 2) | ((b2 ?? 0) >> 6)],
-    );
-    buffer.write(b2 == null ? '=' : chars[b2 & 0x3F]);
-  }
-  return buffer.toString();
+  }) => _unavailable();
 }
 
 // ---------------------------------------------------------------------------
@@ -936,15 +881,10 @@ class RemotePaymentRepository implements PaymentRepository {
   }
 
   @override
-  Future<Result<Payment>> getPayment(String paymentId) =>
-      _api.get(Endpoints.payment(paymentId), parse: paymentFromJson);
+  Future<Result<Payment>> getPayment(String paymentId) => _unavailable();
 
   @override
-  Future<Result<Page<Payment>>> listPayments({int page = 1}) => _api.get(
-    Endpoints.payments,
-    query: {'page': page},
-    parse: (json) => pageFromJson(json, paymentFromJson),
-  );
+  Future<Result<Page<Payment>>> listPayments({int page = 1}) => _unavailable();
 }
 
 // ---------------------------------------------------------------------------
@@ -1218,50 +1158,32 @@ class RemoteAccessRepository implements AccessRepository {
 // ---------------------------------------------------------------------------
 
 class RemoteReceiptRepository implements ReceiptRepository {
-  RemoteReceiptRepository(this._api);
-
-  final ApiClient _api;
+  RemoteReceiptRepository(ApiClient api);
 
   @override
-  Future<Result<Receipt>> getReceipt(String receiptId) =>
-      _api.get(Endpoints.receipt(receiptId), parse: receiptFromJson);
+  Future<Result<Receipt>> getReceipt(String receiptId) => _unavailable();
 
   @override
   Future<Result<Receipt>> getReceiptForPayment(String paymentId) =>
-      _api.get(Endpoints.receiptForPayment(paymentId), parse: receiptFromJson);
+      _unavailable();
 
   @override
-  Future<Result<Page<Receipt>>> listReceipts({int page = 1}) => _api.get(
-    Endpoints.receipts,
-    query: {'page': page},
-    parse: (json) => pageFromJson(json, receiptFromJson),
-  );
+  Future<Result<Page<Receipt>>> listReceipts({int page = 1}) => _unavailable();
 }
 
 // ---------------------------------------------------------------------------
 
 class RemoteDocumentRepository implements DocumentRepository {
-  RemoteDocumentRepository(this._api);
-
-  final ApiClient _api;
+  RemoteDocumentRepository(ApiClient api);
 
   @override
   Future<Result<Page<Document>>> listDocuments({
     DocumentType? type,
     int page = 1,
-  }) => _api.get(
-    Endpoints.documents,
-    query: {'page': page, if (type != null) 'documentType': type.api},
-    parse: (json) => pageFromJson(json, documentFromJson),
-  );
+  }) => _unavailable();
 
   @override
-  Future<Result<String>> getDownloadUrl(String documentId) => _api.get(
-    // Section 75: the server hands back a short-lived signed URL rather than
-    // the file itself or a permanent public link.
-    Endpoints.documentDownload(documentId),
-    parse: (json) => json['url'].toString(),
-  );
+  Future<Result<String>> getDownloadUrl(String documentId) => _unavailable();
 
   @override
   Future<Result<Document>> upload({
@@ -1269,98 +1191,57 @@ class RemoteDocumentRepository implements DocumentRepository {
     required String fileName,
     required List<int> bytes,
     required String mimeType,
-  }) => _api.upload(
-    Endpoints.documents,
-    fileName: fileName,
-    bytes: bytes,
-    mimeType: mimeType,
-    fields: {'documentType': type.api},
-    parse: documentFromJson,
-  );
+  }) => _unavailable();
 }
 
 // ---------------------------------------------------------------------------
 
 class RemoteNotificationRepository implements NotificationRepository {
-  RemoteNotificationRepository(this._api);
-
-  final ApiClient _api;
+  RemoteNotificationRepository(ApiClient api);
 
   @override
   Future<Result<Page<NotificationItem>>> listNotifications({int page = 1}) =>
-      _api.get(
-        Endpoints.notifications,
-        query: {'page': page},
-        parse: (json) => pageFromJson(json, notificationFromJson),
-      );
+      _unavailable();
 
   @override
-  Future<Result<int>> unreadCount() => _api.get(
-    Endpoints.notificationsUnread,
-    parse: (json) => int.tryParse(json['count'].toString()) ?? 0,
-  );
+  Future<Result<int>> unreadCount() => _unavailable();
 
   @override
-  Future<Result<void>> markRead(String notificationId) =>
-      _api.command(Endpoints.notificationRead(notificationId));
+  Future<Result<void>> markRead(String notificationId) => _unavailable();
 
   @override
-  Future<Result<void>> markAllRead() =>
-      _api.command(Endpoints.notificationsReadAll);
+  Future<Result<void>> markAllRead() => _unavailable();
 
   @override
-  Future<Result<Set<NotificationChannel>>> getChannelPreferences() => _api.get(
-    Endpoints.notificationPreferences,
-    parse: (json) {
-      final channels = json['channels'];
-      if (channels is! List) return <NotificationChannel>{};
-      return channels
-          .map((c) => NotificationChannel.fromApi(c.toString()))
-          .where((c) => c != NotificationChannel.unknown)
-          .toSet();
-    },
-  );
+  Future<Result<Set<NotificationChannel>>> getChannelPreferences() =>
+      _unavailable();
 
   @override
   Future<Result<void>> setChannelPreferences(
     Set<NotificationChannel> channels,
-  ) => _api.command(
-    Endpoints.notificationPreferences,
-    method: 'PUT',
-    body: {'channels': channels.map((c) => c.api).toList()},
-  );
+  ) => _unavailable();
 }
 
 // ---------------------------------------------------------------------------
 
 class RemoteTenantRepository implements TenantRepository {
-  RemoteTenantRepository(this._api);
-
-  final ApiClient _api;
+  RemoteTenantRepository(ApiClient api);
 
   @override
-  Future<Result<Tenant>> getCurrentTenant() =>
-      _api.get(Endpoints.currentTenant, parse: tenantFromJson);
+  Future<Result<Tenant>> getCurrentTenant() => _unavailable();
 
   @override
   Future<Result<TenantProfile>> updateProfile(TenantProfile profile) =>
-      _api.put(
-        Endpoints.tenantProfile,
-        body: tenantProfileToJson(profile),
-        parse: tenantProfileFromJson,
-      );
+      _unavailable();
 }
 
 // ---------------------------------------------------------------------------
 
 class RemoteDashboardRepository implements DashboardRepository {
-  RemoteDashboardRepository(this._api);
-
-  final ApiClient _api;
+  RemoteDashboardRepository(ApiClient api);
 
   @override
-  Future<Result<DashboardSummary>> getSummary() =>
-      _api.get(Endpoints.dashboard, parse: dashboardFromJson);
+  Future<Result<DashboardSummary>> getSummary() => _unavailable();
 }
 
 // ---------------------------------------------------------------------------
@@ -1373,50 +1254,33 @@ class RemoteOwnerRepository implements OwnerRepository {
   final ApiClient _api;
 
   @override
-  Future<Result<PropertyOwner>> getOwner() =>
-      _api.get(Endpoints.currentOwner, parse: ownerFromJson);
+  Future<Result<PropertyOwner>> getOwner() => _unavailable();
 
   @override
-  Future<Result<OwnerPortfolio>> getPortfolio() =>
-      _api.get(Endpoints.ownerPortfolio, parse: ownerPortfolioFromJson);
+  Future<Result<OwnerPortfolio>> getPortfolio() => _unavailable();
 
   @override
   Future<Result<PropertyPerformance>> getPropertyPerformance(
     String propertyId,
-  ) => _api.get(
-    Endpoints.ownerPropertyPerformance(propertyId),
-    parse: propertyPerformanceFromJson,
-  );
+  ) => _unavailable();
 
   @override
   Future<Result<RepricingImpact>> getRepricingImpact(String propertyId) =>
-      _api.get(
-        Endpoints.ownerRepricingImpact(propertyId),
-        parse: repricingImpactFromJson,
-      );
+      _unavailable();
 
   @override
   Future<Result<List<RentRollEntry>>> getRentRoll(String propertyId) =>
-      _api.get(
-        Endpoints.ownerRentRoll(propertyId),
-        parse: (json) => pageFromJson(json, rentRollEntryFromJson).items,
-      );
+      _unavailable();
 
   @override
   Future<Result<List<OwnerTenancy>>> getTenancies({String? propertyId}) =>
-      _api.get(
-        Endpoints.ownerTenancies,
-        query: {'propertyId': ?propertyId},
-        parse: (json) => pageFromJson(json, ownerTenancyFromJson).items,
-      );
+      _unavailable();
 
   @override
-  Future<Result<OwnerTenancy>> getTenancy(String leaseId) =>
-      _api.get(Endpoints.ownerTenancy(leaseId), parse: ownerTenancyFromJson);
+  Future<Result<OwnerTenancy>> getTenancy(String leaseId) => _unavailable();
 
   @override
-  Future<Result<OwnerLedger>> getLedger() =>
-      _api.get(Endpoints.ownerLedger, parse: ownerLedgerFromJson);
+  Future<Result<OwnerLedger>> getLedger() => _unavailable();
 
   /// The one owner write the contract does publish.
   ///
@@ -1489,25 +1353,13 @@ class RemoteOwnerRepository implements OwnerRepository {
     required String propertyId,
     required Money rate,
     required bool repriceExistingUnits,
-  }) => _api.put(
-    Endpoints.ownerPropertyRate(propertyId),
-    body: {
-      'rentRatePerSqm': rate.toJson(),
-      'currency': rate.currency,
-      'repriceExistingUnits': repriceExistingUnits,
-    },
-    parse: propertyFromJson,
-  );
+  }) => _unavailable();
 
   @override
   Future<Result<Unit>> setUnitRent({required String unitId, Money? override}) =>
-      _api.put(
-        Endpoints.ownerUnitRent(unitId),
-        body: {
-          // Null clears the override; the server re-derives from the rate.
-          'baseRent': override?.toJson(),
-          if (override != null) 'currency': override.currency,
-        },
-        parse: unitFromJson,
-      );
+      _unavailable();
 }
+
+/// No network request is made for capabilities absent from api.md.
+Future<Result<T>> _unavailable<T>() async =>
+    const Err(UnsupportedFeatureFailure());

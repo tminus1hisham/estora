@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
 import '../../../components/page_header.dart';
@@ -187,16 +188,32 @@ class _PropertyEditScreenState extends ConsumerState<PropertyEditScreen> {
     return switch (property) {
       AsyncError(:final error) => Scaffold(
         appBar: AppBar(title: const Text('Edit property')),
-        body: ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () =>
-              ref.invalidate(propertyDetailProvider(widget.propertyId)),
+        body: AppRefreshIndicator(
+          onRefresh: () async {
+            await ref
+                .refresh(propertyDetailProvider(widget.propertyId).future)
+                .then<void>((_) {});
+          },
+          child: ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () =>
+                ref.invalidate(propertyDetailProvider(widget.propertyId)),
+          ),
         ),
       ),
       AsyncData(:final value) => _form(value.property),
       _ => Scaffold(
         appBar: AppBar(title: const Text('Edit property')),
-        body: const LoadingView(),
+        body: AppRefreshIndicator(
+          onRefresh: () async {
+            await ref
+                .refresh(propertyDetailProvider(widget.propertyId).future)
+                .then<void>((_) {});
+          },
+          child: const LoadingView(),
+        ),
       ),
     };
   }
@@ -207,157 +224,166 @@ class _PropertyEditScreenState extends ConsumerState<PropertyEditScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Edit property')),
-      body: Form(
-        key: _formKey,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayout.maxReadingWidth,
-            ),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                Gap.lg,
-                Gap.sm,
-                Gap.lg,
-                Gap.xxl,
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .refresh(propertyDetailProvider(widget.propertyId).future)
+              .then<void>((_) {});
+        },
+        child: Form(
+          key: _formKey,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.maxReadingWidth,
               ),
-              children: [
-                PageHeader(
-                  title: property.name,
-                  subtitle: 'What this property is, and where.',
-                  compact: true,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.xxl,
                 ),
-                Gap.h16,
-                SectionCard(
-                  title: 'Identity',
-                  children: [
-                    OwnerField(
-                      label: 'Property name',
-                      controller: _nameController,
-                      textCapitalization: TextCapitalization.words,
-                      validator: (value) => (value?.trim().isEmpty ?? true)
-                          ? 'Give the property a name'
-                          : null,
-                    ),
-                    Gap.h12,
-                    DropdownButtonFormField<PropertyType>(
-                      initialValue: _type,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Type'),
-                      items: [
-                        for (final type in PropertyType.values)
-                          if (type != PropertyType.unknown)
-                            DropdownMenuItem(
-                              value: type,
-                              child: Text(type.label),
-                            ),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => _type = value ?? PropertyType.mall),
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'Description',
-                      controller: _descriptionController,
-                      maxLines: 3,
-                      helper: 'Optional.',
-                      validator: (_) => null,
-                    ),
-                  ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: 'Where it is',
-                  children: [
-                    OwnerField(
-                      label: 'Street address',
-                      controller: _addressController,
-                      textCapitalization: TextCapitalization.words,
-                      helper:
-                          'Held by this app. The published API records only '
-                          'the city and country.',
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'City',
-                      controller: _cityController,
-                      textCapitalization: TextCapitalization.words,
-                      validator: (value) => (value?.trim().isEmpty ?? true)
-                          ? 'Enter the city'
-                          : null,
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'County',
-                      controller: _countyController,
-                      textCapitalization: TextCapitalization.words,
-                      helper: 'Optional.',
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'Country',
-                      controller: _countryController,
-                      textCapitalization: TextCapitalization.words,
-                      validator: (value) => (value?.trim().isEmpty ?? true)
-                          ? 'Enter the country'
-                          : null,
-                    ),
-                  ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: 'Size and rate',
-                  children: [
-                    NumberField(
-                      label: 'Total area',
-                      controller: _areaController,
-                      suffix: 'sq ft',
-                      allowDecimal: true,
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    MoneyField(
-                      label: 'Asking rate',
-                      controller: _rateController,
-                      currency: _currency,
-                      suffix: 'per sq ft',
-                      helper:
-                          'New units take their rent from this. It never '
-                          'reaches a lease already signed.',
-                      validator: (_) => null,
-                    ),
-                  ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: archived ? 'Archived' : 'Archive',
-                  children: [
-                    Text(
-                      archived
-                          ? 'This property is not listed to tenants. Restoring '
-                                'it puts it back exactly as it was.'
-                          : 'Archiving takes the property off the listings '
-                                'without deleting anything.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                children: [
+                  PageHeader(
+                    title: property.name,
+                    subtitle: 'What this property is, and where.',
+                    compact: true,
+                  ),
+                  Gap.h16,
+                  SectionCard(
+                    title: 'Identity',
+                    children: [
+                      OwnerField(
+                        label: 'Property name',
+                        controller: _nameController,
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) => (value?.trim().isEmpty ?? true)
+                            ? 'Give the property a name'
+                            : null,
                       ),
-                    ),
-                    Gap.h12,
-                    AsyncButton(
-                      label: archived ? 'Restore property' : 'Archive property',
-                      icon: archived
-                          ? Icons.unarchive_outlined
-                          : Icons.archive_outlined,
-                      tonal: true,
-                      expand: true,
-                      onPressed: () =>
-                          _setArchived(property, archived: !archived),
-                    ),
-                  ],
-                ),
-              ],
+                      Gap.h12,
+                      DropdownButtonFormField<PropertyType>(
+                        initialValue: _type,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Type'),
+                        items: [
+                          for (final type in PropertyType.values)
+                            if (type != PropertyType.unknown)
+                              DropdownMenuItem(
+                                value: type,
+                                child: Text(type.label),
+                              ),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _type = value ?? PropertyType.mall),
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'Description',
+                        controller: _descriptionController,
+                        maxLines: 3,
+                        helper: 'Optional.',
+                        validator: (_) => null,
+                      ),
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: 'Where it is',
+                    children: [
+                      OwnerField(
+                        label: 'Street address',
+                        controller: _addressController,
+                        textCapitalization: TextCapitalization.words,
+                        helper:
+                            'Held by this app. The published API records only '
+                            'the city and country.',
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'City',
+                        controller: _cityController,
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) => (value?.trim().isEmpty ?? true)
+                            ? 'Enter the city'
+                            : null,
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'County',
+                        controller: _countyController,
+                        textCapitalization: TextCapitalization.words,
+                        helper: 'Optional.',
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'Country',
+                        controller: _countryController,
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) => (value?.trim().isEmpty ?? true)
+                            ? 'Enter the country'
+                            : null,
+                      ),
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: 'Size and rate',
+                    children: [
+                      NumberField(
+                        label: 'Total area',
+                        controller: _areaController,
+                        suffix: 'sq ft',
+                        allowDecimal: true,
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      MoneyField(
+                        label: 'Asking rate',
+                        controller: _rateController,
+                        currency: _currency,
+                        suffix: 'per sq ft',
+                        helper:
+                            'New units take their rent from this. It never '
+                            'reaches a lease already signed.',
+                        validator: (_) => null,
+                      ),
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: archived ? 'Archived' : 'Archive',
+                    children: [
+                      Text(
+                        archived
+                            ? 'This property is not listed to tenants. Restoring '
+                                  'it puts it back exactly as it was.'
+                            : 'Archiving takes the property off the listings '
+                                  'without deleting anything.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Gap.h12,
+                      AsyncButton(
+                        label: archived
+                            ? 'Restore property'
+                            : 'Archive property',
+                        icon: archived
+                            ? Icons.unarchive_outlined
+                            : Icons.archive_outlined,
+                        tonal: true,
+                        expand: true,
+                        onPressed: () =>
+                            _setArchived(property, archived: !archived),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

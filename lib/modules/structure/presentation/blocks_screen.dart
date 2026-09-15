@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
@@ -48,13 +49,20 @@ class BlocksScreen extends ConsumerWidget {
         AsyncLoading() when !blocks.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(propertyBlocksProvider(propertyId)),
+          onRetry: () async {
+            await ref
+                .refresh(propertyBlocksProvider(propertyId).future)
+                .then<void>((_) {});
+          },
         ),
         _ => _BlockList(
           blocks: blocks.requireValue,
           propertyId: propertyId,
-          onRefresh: () async =>
-              ref.invalidate(propertyBlocksProvider(propertyId)),
+          onRefresh: () async {
+            await ref
+                .refresh(propertyBlocksProvider(propertyId).future)
+                .then<void>((_) {});
+          },
         ),
       },
     );
@@ -75,7 +83,7 @@ class _BlockList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (blocks.isEmpty) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -95,7 +103,7 @@ class _BlockList extends StatelessWidget {
       );
     }
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

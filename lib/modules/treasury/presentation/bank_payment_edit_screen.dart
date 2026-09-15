@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
 import '../../../components/section_card.dart';
@@ -198,15 +199,29 @@ class _BankPaymentEditScreenState extends ConsumerState<BankPaymentEditScreen> {
     return switch (payments) {
       AsyncError(:final error) => Scaffold(
         appBar: AppBar(title: const Text('Bank payment')),
-        body: ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(bankPaymentsProvider),
+        body: AppRefreshIndicator(
+          onRefresh: () async {
+            await ref.refresh(bankPaymentsProvider.future).then<void>((_) {});
+          },
+          child: ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () async {
+              await ref.refresh(bankPaymentsProvider.future).then<void>((_) {});
+            },
+          ),
         ),
       ),
       AsyncData(:final value) => _resolve(value),
       _ => Scaffold(
         appBar: AppBar(title: const Text('Bank payment')),
-        body: const LoadingView(),
+        body: AppRefreshIndicator(
+          onRefresh: () async {
+            await ref.refresh(bankPaymentsProvider.future).then<void>((_) {});
+          },
+          child: const LoadingView(),
+        ),
       ),
     };
   }
@@ -217,10 +232,16 @@ class _BankPaymentEditScreenState extends ConsumerState<BankPaymentEditScreen> {
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Bank payment')),
-      body: const EmptyState(
-        icon: Icons.search_off_rounded,
-        title: 'That payment is no longer listed',
-        message: 'It may have been removed or reconciled from another device.',
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref.refresh(bankPaymentsProvider.future).then<void>((_) {});
+        },
+        child: const EmptyState(
+          icon: Icons.search_off_rounded,
+          title: 'That payment is no longer listed',
+          message:
+              'It may have been removed or reconciled from another device.',
+        ),
       ),
     );
   }
@@ -240,122 +261,130 @@ class _BankPaymentEditScreenState extends ConsumerState<BankPaymentEditScreen> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayout.maxReadingWidth,
-            ),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                Gap.lg,
-                Gap.sm,
-                Gap.lg,
-                Gap.xxl,
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref.refresh(bankPaymentsProvider.future).then<void>((_) {});
+        },
+        child: Form(
+          key: _formKey,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.maxReadingWidth,
               ),
-              children: [
-                SectionCard(
-                  title: 'The payment',
-                  children: [
-                    MoneyField(
-                      label: 'Amount',
-                      controller: _amountController,
-                      currency: currency,
-                    ),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.xxl,
+                ),
+                children: [
+                  SectionCard(
+                    title: 'The payment',
+                    children: [
+                      MoneyField(
+                        label: 'Amount',
+                        controller: _amountController,
+                        currency: currency,
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'Bank reference',
+                        controller: _referenceController,
+                        textCapitalization: TextCapitalization.characters,
+                        helper: 'What reconciliation matches on.',
+                        validator: (value) => (value?.trim().isEmpty ?? true)
+                            ? 'Enter the bank reference'
+                            : null,
+                      ),
+                      Gap.h12,
+                      DropdownButtonFormField<String>(
+                        initialValue: _method,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Method'),
+                        items: [
+                          for (final method in {
+                            ...BankPaymentDraft.methods,
+                            _method,
+                          })
+                            DropdownMenuItem(
+                              value: method,
+                              child: Text(method),
+                            ),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => _method = value ?? _method),
+                      ),
+                      Gap.h12,
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.event_outlined),
+                        title: const Text('Payment date'),
+                        subtitle: Text(AppDate.full(_paidAt ?? payment.paidAt)),
+                        trailing: TextButton(
+                          onPressed: _pickDate,
+                          child: const Text('Change'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: 'Who paid',
+                    children: [
+                      OwnerField(
+                        label: 'Paid by',
+                        controller: _paidByController,
+                        textCapitalization: TextCapitalization.words,
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'Purpose',
+                        controller: _purposeController,
+                        helper: 'What the payment is for.',
+                        validator: (_) => null,
+                      ),
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: 'Bank details',
+                    children: [
+                      OwnerField(
+                        label: 'Bank',
+                        controller: _bankController,
+                        textCapitalization: TextCapitalization.words,
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'Branch',
+                        controller: _branchController,
+                        textCapitalization: TextCapitalization.words,
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'Account number',
+                        controller: _accountController,
+                        validator: (_) => null,
+                      ),
+                    ],
+                  ),
+                  if (payment.createdByName != null) ...[
                     Gap.h12,
-                    OwnerField(
-                      label: 'Bank reference',
-                      controller: _referenceController,
-                      textCapitalization: TextCapitalization.characters,
-                      helper: 'What reconciliation matches on.',
-                      validator: (value) => (value?.trim().isEmpty ?? true)
-                          ? 'Enter the bank reference'
-                          : null,
-                    ),
-                    Gap.h12,
-                    DropdownButtonFormField<String>(
-                      initialValue: _method,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Method'),
-                      items: [
-                        for (final method in {
-                          ...BankPaymentDraft.methods,
-                          _method,
-                        })
-                          DropdownMenuItem(value: method, child: Text(method)),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => _method = value ?? _method),
-                    ),
-                    Gap.h12,
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.event_outlined),
-                      title: const Text('Payment date'),
-                      subtitle: Text(AppDate.full(_paidAt ?? payment.paidAt)),
-                      trailing: TextButton(
-                        onPressed: _pickDate,
-                        child: const Text('Change'),
+                    Text(
+                      'Recorded by ${payment.createdByName}'
+                      '${payment.createdAt == null ? '' : ' on ${AppDate.full(payment.createdAt!)}'}.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: 'Who paid',
-                  children: [
-                    OwnerField(
-                      label: 'Paid by',
-                      controller: _paidByController,
-                      textCapitalization: TextCapitalization.words,
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'Purpose',
-                      controller: _purposeController,
-                      helper: 'What the payment is for.',
-                      validator: (_) => null,
-                    ),
-                  ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: 'Bank details',
-                  children: [
-                    OwnerField(
-                      label: 'Bank',
-                      controller: _bankController,
-                      textCapitalization: TextCapitalization.words,
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'Branch',
-                      controller: _branchController,
-                      textCapitalization: TextCapitalization.words,
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'Account number',
-                      controller: _accountController,
-                      validator: (_) => null,
-                    ),
-                  ],
-                ),
-                if (payment.createdByName != null) ...[
-                  Gap.h12,
-                  Text(
-                    'Recorded by ${payment.createdByName}'
-                    '${payment.createdAt == null ? '' : ' on ${AppDate.full(payment.createdAt!)}'}.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
                 ],
-              ],
+              ),
             ),
           ),
         ),

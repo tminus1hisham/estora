@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
@@ -48,7 +49,11 @@ class TenantInvoicesScreen extends ConsumerWidget {
         AsyncLoading() when !invoices.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(tenantInvoicesProvider(tenantId)),
+          onRetry: () async {
+            await ref
+                .refresh(tenantInvoicesProvider(tenantId).future)
+                .then<void>((_) {});
+          },
         ),
         _ => _InvoiceList(
           invoices: invoices.requireValue,
@@ -122,6 +127,11 @@ class _InvoiceList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (invoices.isEmpty) {
       return EmptyState(
+        onRefresh: () async {
+          await ref
+              .refresh(tenantInvoicesProvider(tenantId).future)
+              .then<void>((_) {});
+        },
         icon: Icons.receipt_long_outlined,
         title: 'Nothing billed yet',
         message: '$tenantName has no invoices.',
@@ -131,8 +141,12 @@ class _InvoiceList extends ConsumerWidget {
     final outstanding = invoices.where((i) => i.status.isOutstanding).toList();
     final settled = invoices.where((i) => !i.status.isOutstanding).toList();
 
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(tenantInvoicesProvider(tenantId)),
+    return AppRefreshIndicator(
+      onRefresh: () async {
+        await ref
+            .refresh(tenantInvoicesProvider(tenantId).future)
+            .then<void>((_) {});
+      },
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(

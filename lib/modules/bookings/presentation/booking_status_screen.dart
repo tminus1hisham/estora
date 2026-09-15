@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_stepper.dart';
 import '../../../components/countdown_timer.dart';
@@ -38,7 +39,11 @@ class BookingStatusScreen extends ConsumerWidget {
         AsyncLoading() when !booking.hasValue => const LoadingView(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(bookingDetailProvider(bookingId)),
+          onRetry: () async {
+            await ref
+                .refresh(bookingDetailProvider(bookingId).future)
+                .then<void>((_) {});
+          },
         ),
         _ => _Body(booking: booking.requireValue),
       },
@@ -53,8 +58,12 @@ class _Body extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(bookingDetailProvider(booking.id)),
+    return AppRefreshIndicator(
+      onRefresh: () async {
+        await ref
+            .refresh(bookingDetailProvider(booking.id).future)
+            .then<void>((_) {});
+      },
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(

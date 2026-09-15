@@ -17,9 +17,9 @@ flutter run --dart-define=API_BASE_URL=https://your-api-host
 ```
 
 The default API is `https://property-manager-api.transfa.org/v1/api`.
-All production repositories use HTTP. There is no mock switch, seeded application data or demo login. A failed or missing API endpoint shows an error; an empty API result shows an empty state.
+Production repositories call only operations defined in `api.md`. There is no mock switch, seeded application data or demo login. Unsupported features return an unavailable result locally without HTTP requests; a failed API request shows an error; an empty API result shows an empty state.
 
-Some API endpoints remain unavailable. See [backend_requirement.md](backend_requirement.md) for outstanding backend work. The app does not invent report totals, booking quotes or booking confirmations to fill those gaps.
+Some screens need capabilities the API does not provide. See [backend_requirement.md](backend_requirement.md) for the current capability gaps. The app does not invent report totals, booking quotes or booking confirmations to fill those gaps.
 
 ## Validation
 

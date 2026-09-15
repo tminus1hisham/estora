@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
@@ -88,15 +89,24 @@ class _DeferInvoiceScreenState extends ConsumerState<DeferInvoiceScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Request more time')),
-      body: switch (invoice) {
-        AsyncLoading() when !invoice.hasValue => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () =>
-              ref.invalidate(invoiceDetailProvider(widget.invoiceId)),
-        ),
-        _ => _body(invoice.requireValue),
-      },
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .refresh(invoiceDetailProvider(widget.invoiceId).future)
+              .then<void>((_) {});
+        },
+        child: switch (invoice) {
+          AsyncLoading() when !invoice.hasValue => const LoadingView(),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () =>
+                ref.invalidate(invoiceDetailProvider(widget.invoiceId)),
+          ),
+          _ => _body(invoice.requireValue),
+        },
+      ),
       bottomNavigationBar: invoice.hasValue && !invoice.requireValue.isDeferred
           ? AppBottomActionBar(
               child: AsyncButton(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
@@ -46,14 +47,28 @@ class LeaseAgreementScreen extends ConsumerWidget {
           Gap.w8,
         ],
       ),
-      body: switch (agreement) {
-        AsyncLoading() => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(leaseAgreementProvider(leaseId)),
-        ),
-        AsyncData(:final value) => _AgreementBody(agreement: value),
-      },
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            ref.refresh(leaseAgreementProvider(leaseId).future),
+            ref.refresh(leaseDetailProvider(leaseId).future),
+          ]);
+        },
+        child: switch (agreement) {
+          AsyncLoading() => const LoadingView(),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () async {
+              await ref
+                  .refresh(leaseAgreementProvider(leaseId).future)
+                  .then<void>((_) {});
+            },
+          ),
+          AsyncData(:final value) => _AgreementBody(agreement: value),
+        },
+      ),
       bottomNavigationBar: (lease?.status.needsTenantSignature ?? false)
           ? AppBottomActionBar(
               child: FilledButton.icon(

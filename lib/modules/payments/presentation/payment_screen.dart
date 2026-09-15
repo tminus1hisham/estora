@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_stepper.dart';
@@ -106,15 +107,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Make a payment')),
-      body: switch (invoice) {
-        AsyncLoading() => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () =>
-              ref.invalidate(invoiceDetailProvider(widget.invoiceId)),
-        ),
-        AsyncData(:final value) => _buildForm(value),
-      },
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .refresh(invoiceDetailProvider(widget.invoiceId).future)
+              .then<void>((_) {});
+        },
+        child: switch (invoice) {
+          AsyncLoading() => const LoadingView(),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () =>
+                ref.invalidate(invoiceDetailProvider(widget.invoiceId)),
+          ),
+          AsyncData(:final value) => _buildForm(value),
+        },
+      ),
     );
   }
 

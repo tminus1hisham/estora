@@ -4,14 +4,7 @@
 /// Paths are relative; the host and the `/v1/api` prefix come from
 /// `AppConfig.apiRoot`, so a version bump is one edit rather than sixty.
 ///
-/// Two groups live here:
-///
-/// * **Published** — an operation the contract defines, named after its
-///   `operationId` so a path can be traced back to the spec.
-/// * **Unpublished** — a screen the app has that the contract does not serve
-///   yet (documents, notifications, receipts, the tenant dashboard, the owner
-///   reports). Those are grouped at the bottom and marked, so nobody mistakes
-///   them for something the backend answers today. They use HTTP and report an error until the backend supports them.
+/// Only operations defined in `api.md` belong here.
 library;
 
 class Endpoints {
@@ -120,60 +113,4 @@ class Endpoints {
   static const String addClaimToRole = '/roles/add/claim/to/role';
   static const String roleClaims = '/roles/get/claims/for/role';
   static const String removeClaimFromRole = '/roles/remove/claim/from/role';
-
-  // -- Not in the published contract ---------------------------------------
-  //
-  // Screens whose endpoints are still missing. These use HTTP too; failures
-  // are shown to the user without substituting fabricated records.
-  static const String leases = '/leases';
-  static String lease(String id) => '/leases/$id';
-  static String leaseAgreement(String id) => '/leases/$id/agreement';
-  static String leaseSign(String id) => '/leases/$id/signatures';
-
-  static const String bookings = '/bookings';
-  static String booking(String id) => '/bookings/$id';
-  static String bookingCancel(String id) => '/bookings/$id/cancel';
-  static String bookingQuote(String unitId) => '/bookings/quote/$unitId';
-  static String bookingRequirement(String bookingId, String requirementId) =>
-      '/bookings/$bookingId/requirements/$requirementId';
-
-  static const String payments = '/payments';
-  static String payment(String id) => '/payments/$id';
-
-  static const String receipts = '/receipts';
-  static String receipt(String id) => '/receipts/$id';
-  static String receiptForPayment(String paymentId) =>
-      '/receipts/by-payment/$paymentId';
-
-  static const String documents = '/documents';
-  static String documentDownload(String id) => '/documents/$id/download-url';
-
-  static const String notifications = '/notifications';
-  static const String notificationsUnread = '/notifications/unread-count';
-  static const String notificationsReadAll = '/notifications/read-all';
-  static String notificationRead(String id) => '/notifications/$id/read';
-  static const String notificationPreferences = '/notifications/preferences';
-
-  static const String currentTenant = '/tenants/me';
-  static const String tenantProfile = '/tenants/me/profile';
-  static const String dashboard = '/reports/tenant-dashboard';
-
-  static const String currentOwner = '/owners/me';
-  static const String ownerPortfolio = '/reports/owner-portfolio';
-  static String ownerPropertyPerformance(String propertyId) =>
-      '/reports/owner-property/$propertyId';
-  static String ownerRepricingImpact(String propertyId) =>
-      '/properties/$propertyId/rate/impact';
-  static String ownerPropertyRate(String propertyId) =>
-      '/properties/$propertyId/rate';
-  static String ownerUnitRent(String unitId) => '/units/$unitId/rent';
-  static String ownerRentRoll(String propertyId) =>
-      '/properties/$propertyId/rent-roll';
-  static const String ownerTenancies = '/owners/me/tenancies';
-  static String ownerTenancy(String leaseId) => '/owners/me/tenancies/$leaseId';
-  static const String ownerLedger = '/reports/owner-ledger';
-
-  static String unitPricing(String id) => '/units/$id/pricing';
-  static String propertyUnitTypes(String id) => '/properties/$id/unit-types';
-  static String buildingFloors(String id) => '/buildings/$id/floors';
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
@@ -37,11 +38,15 @@ class OwnerTenanciesScreen extends ConsumerWidget {
         AsyncLoading() when !tenancies.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(ownerTenanciesProvider),
+          onRetry: () async {
+            await ref.refresh(ownerTenanciesProvider.future).then<void>((_) {});
+          },
         ),
         _ => _Tenancies(
           tenancies: tenancies.requireValue,
-          onRefresh: () async => ref.invalidate(ownerTenanciesProvider),
+          onRefresh: () async {
+            await ref.refresh(ownerTenanciesProvider.future).then<void>((_) {});
+          },
         ),
       },
     );
@@ -57,7 +62,7 @@ class _Tenancies extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tenancies.isEmpty) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -93,7 +98,7 @@ class _Tenancies extends StatelessWidget {
       if (ended.isNotEmpty) _Group(heading: 'Ended', tenancies: ended),
     ];
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:signature/signature.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/async_button.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
@@ -164,14 +165,24 @@ class _SignAgreementScreenState extends ConsumerState<SignAgreementScreen> {
           ),
         ),
       ),
-      body: switch (agreement) {
-        AsyncLoading() => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(leaseAgreementProvider(widget.leaseId)),
-        ),
-        AsyncData(:final value) => _buildBody(value),
-      },
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .refresh(leaseAgreementProvider(widget.leaseId).future)
+              .then<void>((_) {});
+        },
+        child: switch (agreement) {
+          AsyncLoading() => const LoadingView(),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () =>
+                ref.invalidate(leaseAgreementProvider(widget.leaseId)),
+          ),
+          AsyncData(:final value) => _buildBody(value),
+        },
+      ),
     );
   }
 

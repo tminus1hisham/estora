@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/async_button.dart';
 import '../../../components/country_code_field.dart';
 import '../../../core/theme/app_theme.dart';
@@ -162,101 +163,108 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Edit profile')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.xxl),
-          children: [
-            if (isOrganisation) ...[
-              TextFormField(
-                controller: _legalName,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Legal name'),
-                validator: (v) =>
-                    (v?.trim().isEmpty ?? true) ? 'Required' : null,
-              ),
-              Gap.h12,
-              TextFormField(
-                controller: _registrationNumber,
-                decoration: const InputDecoration(
-                  labelText: 'Registration number',
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref.read(authControllerProvider.notifier).refreshProfile();
+        },
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.xxl),
+            children: [
+              if (isOrganisation) ...[
+                TextFormField(
+                  controller: _legalName,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Legal name'),
+                  validator: (v) =>
+                      (v?.trim().isEmpty ?? true) ? 'Required' : null,
                 ),
-              ),
-              Gap.h12,
-              TextFormField(
-                controller: _taxNumber,
-                decoration: const InputDecoration(labelText: 'Tax number'),
-              ),
-              Gap.h12,
-            ],
-
-            TextFormField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email address'),
-              validator: (v) {
-                final text = v?.trim() ?? '';
-                if (text.isEmpty) return null;
-                return text.contains('@') ? null : 'Enter a valid email';
-              },
-            ),
-            Gap.h12,
-            TextFormField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                labelText: 'Phone number',
-                hintText: _phoneCountry.example,
-                prefixIcon: CountryCodeField(
-                  value: _phoneCountry,
-                  onChanged: (country) =>
-                      setState(() => _phoneCountry = country),
+                Gap.h12,
+                TextFormField(
+                  controller: _registrationNumber,
+                  decoration: const InputDecoration(
+                    labelText: 'Registration number',
+                  ),
                 ),
-                prefixIconConstraints: CountryCodeField.constraints,
-              ),
-              validator: (value) =>
-                  _validateOptionalPhone(value, _phoneCountry),
-            ),
-            Gap.h12,
-            TextFormField(
-              controller: _address,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Postal address'),
-            ),
+                Gap.h12,
+                TextFormField(
+                  controller: _taxNumber,
+                  decoration: const InputDecoration(labelText: 'Tax number'),
+                ),
+                Gap.h12,
+              ],
 
-            if (isOrganisation) ...[
-              Gap.h12,
               TextFormField(
-                controller: _contactPerson,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Contact person'),
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email address'),
+                validator: (v) {
+                  final text = v?.trim() ?? '';
+                  if (text.isEmpty) return null;
+                  return text.contains('@') ? null : 'Enter a valid email';
+                },
               ),
               Gap.h12,
               TextFormField(
-                controller: _contactPersonPhone,
+                controller: _phone,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: 'Contact person phone',
-                  hintText: _contactPersonPhoneCountry.example,
+                  labelText: 'Phone number',
+                  hintText: _phoneCountry.example,
                   prefixIcon: CountryCodeField(
-                    value: _contactPersonPhoneCountry,
+                    value: _phoneCountry,
                     onChanged: (country) =>
-                        setState(() => _contactPersonPhoneCountry = country),
+                        setState(() => _phoneCountry = country),
                   ),
                   prefixIconConstraints: CountryCodeField.constraints,
                 ),
                 validator: (value) =>
-                    _validateOptionalPhone(value, _contactPersonPhoneCountry),
+                    _validateOptionalPhone(value, _phoneCountry),
+              ),
+              Gap.h12,
+              TextFormField(
+                controller: _address,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Postal address'),
+              ),
+
+              if (isOrganisation) ...[
+                Gap.h12,
+                TextFormField(
+                  controller: _contactPerson,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Contact person',
+                  ),
+                ),
+                Gap.h12,
+                TextFormField(
+                  controller: _contactPersonPhone,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Contact person phone',
+                    hintText: _contactPersonPhoneCountry.example,
+                    prefixIcon: CountryCodeField(
+                      value: _contactPersonPhoneCountry,
+                      onChanged: (country) =>
+                          setState(() => _contactPersonPhoneCountry = country),
+                    ),
+                    prefixIconConstraints: CountryCodeField.constraints,
+                  ),
+                  validator: (value) =>
+                      _validateOptionalPhone(value, _contactPersonPhoneCountry),
+                ),
+              ],
+
+              Gap.h24,
+              AsyncButton(
+                label: 'Save changes',
+                enabled: !_saving,
+                onPressed: _save,
               ),
             ],
-
-            Gap.h24,
-            AsyncButton(
-              label: 'Save changes',
-              enabled: !_saving,
-              onPressed: _save,
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_success_mark.dart';
@@ -54,18 +55,29 @@ class PaymentStatusScreen extends ConsumerWidget {
           title: const Text('Payment'),
           automaticallyImplyLeading: false,
         ),
-        body: switch (watch) {
-          AsyncLoading() when !watch.hasValue => const LoadingView(
-            message: 'Setting up your payment…',
-          ),
-          AsyncError(:final error) => ErrorView(
-            failure: error is Failure
-                ? error
-                : UnknownFailure(error.toString()),
-            onRetry: () => ref.invalidate(paymentStatusProvider(paymentId)),
-          ),
-          _ => _Body(watch: watch.requireValue, intent: intent),
-        },
+        body: AppRefreshIndicator(
+          onRefresh: () async {
+            await ref
+                .refresh(paymentStatusProvider(paymentId).future)
+                .then<void>((_) {});
+          },
+          child: switch (watch) {
+            AsyncLoading() when !watch.hasValue => const LoadingView(
+              message: 'Setting up your payment…',
+            ),
+            AsyncError(:final error) => ErrorView(
+              failure: error is Failure
+                  ? error
+                  : UnknownFailure(error.toString()),
+              onRetry: () async {
+                await ref
+                    .refresh(paymentStatusProvider(paymentId).future)
+                    .then<void>((_) {});
+              },
+            ),
+            _ => _Body(watch: watch.requireValue, intent: intent),
+          },
+        ),
       ),
     );
   }

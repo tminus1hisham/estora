@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
@@ -36,7 +37,11 @@ class LeaseDetailScreen extends ConsumerWidget {
         ),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(leaseDetailProvider(leaseId)),
+          onRetry: () async {
+            await ref
+                .refresh(leaseDetailProvider(leaseId).future)
+                .then<void>((_) {});
+          },
         ),
         _ => _Body(lease: lease.requireValue),
       },
@@ -101,8 +106,12 @@ class _Body extends ConsumerWidget {
       LeaseRecordCard(lease: lease),
     ];
 
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(leaseDetailProvider(lease.id)),
+    return AppRefreshIndicator(
+      onRefresh: () async {
+        await ref
+            .refresh(leaseDetailProvider(lease.id).future)
+            .then<void>((_) {});
+      },
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(

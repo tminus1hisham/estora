@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
+import '../../../components/page_empty_state.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/billing.dart';
@@ -82,12 +84,17 @@ class _Statement extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (all.isEmpty) {
-      return RefreshIndicator(
+      return PageEmptyState(
+        icon: Icons.receipt_long_outlined,
+        caption: 'Billing, in one place',
+        title: 'No invoices yet',
+        message:
+            'Your rent and service invoices will appear here when issued. Track what is due and keep a record of every payment.',
         onRefresh: onRefresh,
-        child: const _ScrollableEmptyState(
-          title: 'No invoices yet',
-          message:
-              'Invoices appear here once you have an active booking or lease.',
+        action: FilledButton.tonalIcon(
+          onPressed: () => context.pushNamed(Routes.paymentHistory),
+          icon: const Icon(Icons.history_rounded),
+          label: const Text('Payment history'),
         ),
       );
     }
@@ -95,7 +102,7 @@ class _Statement extends StatelessWidget {
     final months = groupInvoicesByMonth(visible);
     final barHeight = InvoiceFilterBar.heightOf(context);
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(
         // A tenant with two invoices still needs to be able to pull the screen
@@ -203,31 +210,6 @@ class _EmptyTab extends StatelessWidget {
         InvoiceTab.all =>
           'Invoices appear here once you have an active booking or lease.',
       },
-    );
-  }
-}
-
-/// An empty state that can still be pulled down to refresh.
-class _ScrollableEmptyState extends StatelessWidget {
-  const _ScrollableEmptyState({required this.title, required this.message});
-
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: EmptyState(
-            icon: Icons.receipt_long_outlined,
-            title: title,
-            message: message,
-          ),
-        ),
-      ],
     );
   }
 }

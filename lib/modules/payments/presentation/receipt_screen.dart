@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_success_mark.dart';
@@ -26,14 +27,27 @@ class ReceiptScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Receipt')),
-      body: switch (receipt) {
-        AsyncLoading() => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(receiptProvider(receiptId)),
-        ),
-        AsyncData(:final value) => _Body(receipt: value),
-      },
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .refresh(receiptProvider(receiptId).future)
+              .then<void>((_) {});
+        },
+        child: switch (receipt) {
+          AsyncLoading() => const LoadingView(),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () async {
+              await ref
+                  .refresh(receiptProvider(receiptId).future)
+                  .then<void>((_) {});
+            },
+          ),
+          AsyncData(:final value) => _Body(receipt: value),
+        },
+      ),
       bottomNavigationBar: receipt.value?.documentId != null
           ? AppBottomActionBar(
               child: FilledButton.icon(

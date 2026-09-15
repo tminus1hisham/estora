@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_media.dart';
@@ -29,14 +30,28 @@ class UnitDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(unitAsync.value?.unitNumber ?? 'Unit')),
-      body: switch (unitAsync) {
-        AsyncLoading() when !unitAsync.hasValue => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(unitDetailProvider(unitId)),
-        ),
-        _ => _Body(unit: unitAsync.requireValue),
-      },
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            ref.refresh(unitDetailProvider(unitId).future),
+            ref.refresh(unitPricingProvider(unitId).future),
+          ]);
+        },
+        child: switch (unitAsync) {
+          AsyncLoading() when !unitAsync.hasValue => const LoadingView(),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () async {
+              await ref
+                  .refresh(unitDetailProvider(unitId).future)
+                  .then<void>((_) {});
+            },
+          ),
+          _ => _Body(unit: unitAsync.requireValue),
+        },
+      ),
       bottomNavigationBar: unitAsync.hasValue
           ? _BookingBar(unit: unitAsync.requireValue)
           : null,

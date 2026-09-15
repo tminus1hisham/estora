@@ -7,6 +7,7 @@ import '../../../core/utils/money.dart';
 import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
 import '../../../services/providers.dart';
+import '../../properties/application/property_controller.dart';
 
 /// Section 88. The owner's position, fetched in one call.
 ///
@@ -16,6 +17,8 @@ import '../../../services/providers.dart';
 final ownerPortfolioProvider =
     AsyncNotifierProvider<OwnerPortfolioController, OwnerPortfolio>(
       OwnerPortfolioController.new,
+      // Keep errors stable; the screen offers an explicit refresh.
+      retry: (_, _) => null,
     );
 
 class OwnerPortfolioController extends AsyncNotifier<OwnerPortfolio> {
@@ -191,6 +194,7 @@ class OwnerActions {
   /// Anything that moves a rent moves the rent roll, so the portfolio and the
   /// property both have to be re-read rather than patched in place.
   void _invalidate({String? propertyId}) {
+    _ref.invalidate(propertyListProvider);
     _ref.invalidate(ownerPortfolioProvider);
     _ref.invalidate(ownerTenanciesProvider);
     _ref.invalidate(ownerLedgerProvider);

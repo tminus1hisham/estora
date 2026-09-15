@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../core/theme/app_theme.dart';
 import '../application/access_controller.dart';
 import 'widgets/claim_editor.dart';
@@ -25,8 +26,12 @@ class RoleClaimsScreen extends ConsumerWidget {
         title: Text(roleName),
         backgroundColor: Colors.transparent,
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(roleClaimsProvider(roleName)),
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .refresh(roleClaimsProvider(roleName).future)
+              .then<void>((_) {});
+        },
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(
@@ -60,7 +65,11 @@ class RoleClaimsScreen extends ConsumerWidget {
                         claimType: claim.type,
                         claimValue: claim.value,
                       ),
-                  onRetry: () => ref.invalidate(roleClaimsProvider(roleName)),
+                  onRetry: () async {
+                    await ref
+                        .refresh(roleClaimsProvider(roleName).future)
+                        .then<void>((_) {});
+                  },
                 ),
               ],
             ),

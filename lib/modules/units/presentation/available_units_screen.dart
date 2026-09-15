@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_media.dart';
 import '../../../components/app_reveal.dart';
@@ -72,7 +73,11 @@ class AvailableUnitsScreen extends ConsumerWidget {
                 failure: error is Failure
                     ? error
                     : UnknownFailure(error.toString()),
-                onRetry: () => ref.invalidate(unitListProvider(propertyId)),
+                onRetry: () async {
+                  await ref
+                      .refresh(unitListProvider(propertyId).future)
+                      .then<void>((_) {});
+                },
               ),
               _ => _UnitList(units: units.requireValue, propertyId: propertyId),
             },
@@ -133,6 +138,11 @@ class _UnitList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (units.isEmpty) {
       return EmptyState(
+        onRefresh: () async {
+          await ref
+              .refresh(unitListProvider(propertyId).future)
+              .then<void>((_) {});
+        },
         icon: Icons.meeting_room_outlined,
         title: 'No units match',
         message:
@@ -146,8 +156,12 @@ class _UnitList extends ConsumerWidget {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(unitListProvider(propertyId)),
+    return AppRefreshIndicator(
+      onRefresh: () async {
+        await ref
+            .refresh(unitListProvider(propertyId).future)
+            .then<void>((_) {});
+      },
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
         itemCount: units.length,

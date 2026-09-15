@@ -28,6 +28,8 @@ class InvoiceTabController extends Notifier<InvoiceTab> {
 final invoiceListProvider =
     AsyncNotifierProvider<InvoiceListController, List<Invoice>>(
       InvoiceListController.new,
+      // Keep errors stable; the screen offers an explicit refresh.
+      retry: (_, _) => null,
     );
 
 class InvoiceListController extends AsyncNotifier<List<Invoice>> {

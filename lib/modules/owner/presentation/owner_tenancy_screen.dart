@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
@@ -39,11 +40,19 @@ class OwnerTenancyScreen extends ConsumerWidget {
         AsyncLoading() when !tenancy.hasValue => const AppSkeletonDetail(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(ownerTenancyProvider(leaseId)),
+          onRetry: () async {
+            await ref
+                .refresh(ownerTenancyProvider(leaseId).future)
+                .then<void>((_) {});
+          },
         ),
         _ => _Tenancy(
           tenancy: tenancy.requireValue,
-          onRefresh: () async => ref.invalidate(ownerTenancyProvider(leaseId)),
+          onRefresh: () async {
+            await ref
+                .refresh(ownerTenancyProvider(leaseId).future)
+                .then<void>((_) {});
+          },
         ),
       },
     );
@@ -168,7 +177,7 @@ class _Tenancy extends StatelessWidget {
       ),
     ];
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

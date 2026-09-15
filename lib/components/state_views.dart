@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/error/failure.dart';
 import '../core/theme/app_theme.dart';
 import 'app_brand_mark.dart';
+import 'app_refresh_indicator.dart';
 
 /// Full-screen loading indicator.
 class LoadingView extends StatelessWidget {
@@ -72,7 +75,7 @@ class ErrorView extends StatelessWidget {
   const ErrorView({required this.failure, this.onRetry, super.key});
 
   final Failure failure;
-  final VoidCallback? onRetry;
+  final FutureOr<void> Function()? onRetry;
 
   bool get _isRetryable => switch (failure) {
     NetworkFailure() || ServerFailure() || UnknownFailure() => true,
@@ -84,6 +87,7 @@ class ErrorView extends StatelessWidget {
     UnauthorizedFailure() => Icons.lock_outline_rounded,
     ForbiddenFailure() => Icons.block_rounded,
     NotFoundFailure() => Icons.search_off_rounded,
+    UnsupportedFeatureFailure() => Icons.info_outline_rounded,
     ValidationFailure() => Icons.error_outline_rounded,
     ConflictFailure() => Icons.sync_problem_rounded,
     ServerFailure() || UnknownFailure() => Icons.cloud_off_rounded,
@@ -94,6 +98,7 @@ class ErrorView extends StatelessWidget {
     UnauthorizedFailure() => 'Sign-in required',
     ForbiddenFailure() => 'Access unavailable',
     NotFoundFailure() => 'Nothing found here',
+    UnsupportedFeatureFailure() => 'Feature unavailable',
     ValidationFailure() => 'Check the details',
     ConflictFailure() => 'Something changed',
     ServerFailure() || UnknownFailure() => 'We hit a snag',
@@ -103,7 +108,7 @@ class ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Center(
+    final content = Center(
       child: Padding(
         padding: const EdgeInsets.all(Gap.xl),
         child: Column(
@@ -135,7 +140,7 @@ class ErrorView extends StatelessWidget {
             if (onRetry != null && _isRetryable) ...[
               Gap.h24,
               FilledButton.tonalIcon(
-                onPressed: onRetry,
+                onPressed: () => AppRefreshIndicator.refresh(context, onRetry!),
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Try again'),
               ),
@@ -144,6 +149,17 @@ class ErrorView extends StatelessWidget {
         ),
       ),
     );
+    if (Scrollable.maybeOf(context) != null) return content;
+    if (AppRefreshIndicator.contains(context)) {
+      return RefreshPlaceholder(child: content);
+    }
+    if (onRetry != null) {
+      return AppRefreshIndicator(
+        onRefresh: onRetry!,
+        child: RefreshPlaceholder(child: content),
+      );
+    }
+    return content;
   }
 }
 
@@ -154,6 +170,7 @@ class EmptyState extends StatelessWidget {
     required this.title,
     this.message,
     this.action,
+    this.onRefresh,
     super.key,
   });
 
@@ -161,12 +178,13 @@ class EmptyState extends StatelessWidget {
   final String title;
   final String? message;
   final Widget? action;
+  final FutureOr<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Center(
+    final content = Center(
       child: Padding(
         padding: const EdgeInsets.all(Gap.xl),
         child: Column(
@@ -204,5 +222,16 @@ class EmptyState extends StatelessWidget {
         ),
       ),
     );
+    if (Scrollable.maybeOf(context) != null) return content;
+    if (AppRefreshIndicator.contains(context)) {
+      return RefreshPlaceholder(child: content);
+    }
+    if (onRefresh != null) {
+      return AppRefreshIndicator(
+        onRefresh: onRefresh!,
+        child: RefreshPlaceholder(child: content),
+      );
+    }
+    return content;
   }
 }

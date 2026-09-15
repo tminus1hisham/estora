@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
@@ -53,6 +54,9 @@ class _BookingList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (bookings.isEmpty) {
       return EmptyState(
+        onRefresh: () async {
+          await ref.read(bookingListProvider.notifier).refresh();
+        },
         icon: Icons.event_note_outlined,
         title: 'No bookings yet',
         message:
@@ -75,7 +79,7 @@ class _BookingList extends ConsumerWidget {
     final live = bookings.where((item) => !item.status.isTerminal).toList();
     final past = bookings.where((item) => item.status.isTerminal).toList();
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: () => ref.read(bookingListProvider.notifier).refresh(),
       child: Center(
         child: ConstrainedBox(

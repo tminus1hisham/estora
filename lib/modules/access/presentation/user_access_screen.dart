@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
@@ -43,9 +44,14 @@ class UserAccessScreen extends ConsumerWidget {
         AsyncLoading() when !users.hasValue => const LoadingView(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(platformUsersProvider),
+          onRetry: () async {
+            await ref.refresh(platformUsersProvider.future).then<void>((_) {});
+          },
         ),
-        _ when user == null => const EmptyState(
+        _ when user == null => EmptyState(
+          onRefresh: () async {
+            await ref.refresh(platformUsersProvider.future).then<void>((_) {});
+          },
           icon: Icons.person_off_outlined,
           title: 'That account is no longer listed',
           message: 'It may have been removed from another device.',
@@ -150,10 +156,14 @@ class _Body extends ConsumerWidget {
     final claims = ref.watch(userClaimsProvider(phone));
     final available = ref.watch(accessRolesProvider);
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(userRolesProvider(phone));
-        ref.invalidate(userClaimsProvider(phone));
+        await Future.wait([
+          ref.refresh(platformUsersProvider.future),
+          ref.refresh(accessRolesProvider.future),
+          ref.refresh(userRolesProvider(phone).future),
+          ref.refresh(userClaimsProvider(phone).future),
+        ]);
       },
       child: Center(
         child: ConstrainedBox(
@@ -215,7 +225,11 @@ class _Body extends ConsumerWidget {
                       claimType: claim.type,
                       claimValue: claim.value,
                     ),
-                onRetry: () => ref.invalidate(userClaimsProvider(phone)),
+                onRetry: () async {
+                  await ref
+                      .refresh(userClaimsProvider(phone).future)
+                      .then<void>((_) {});
+                },
               ),
               Gap.h12,
               SectionCard(

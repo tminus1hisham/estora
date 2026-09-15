@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_stepper.dart';
@@ -140,35 +141,48 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Confirm your booking')),
-      body: switch (quote) {
-        AsyncLoading() => const LoadingView(message: 'Preparing your quote…'),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(bookingQuoteProvider(widget.unitId)),
-        ),
-        AsyncData(:final value) => _QuoteBody(
-          quote: value,
-          acceptedTerms: _acceptedTerms,
-          onAcceptedChanged: (v) => setState(() => _acceptedTerms = v),
-          applicant: _ApplicantSection(
-            formKey: _applicantFormKey,
-            nameController: _nameController,
-            phoneController: _phoneController,
-            country: _country,
-            onCountryChanged: (country) => setState(() => _country = country),
-            emailController: _emailController,
-            companyController: _companyController,
-            forBusiness: _forBusiness,
-            businessType: _businessType,
-            onForBusinessChanged: (value) => setState(() {
-              _forBusiness = value;
-              if (!value) _businessType = null;
-            }),
-            onBusinessTypeChanged: (value) =>
-                setState(() => _businessType = value),
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .refresh(bookingQuoteProvider(widget.unitId).future)
+              .then<void>((_) {});
+        },
+        child: switch (quote) {
+          AsyncLoading() => const LoadingView(message: 'Preparing your quote…'),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () async {
+              await ref
+                  .refresh(bookingQuoteProvider(widget.unitId).future)
+                  .then<void>((_) {});
+            },
           ),
-        ),
-      },
+          AsyncData(:final value) => _QuoteBody(
+            quote: value,
+            acceptedTerms: _acceptedTerms,
+            onAcceptedChanged: (v) => setState(() => _acceptedTerms = v),
+            applicant: _ApplicantSection(
+              formKey: _applicantFormKey,
+              nameController: _nameController,
+              phoneController: _phoneController,
+              country: _country,
+              onCountryChanged: (country) => setState(() => _country = country),
+              emailController: _emailController,
+              companyController: _companyController,
+              forBusiness: _forBusiness,
+              businessType: _businessType,
+              onForBusinessChanged: (value) => setState(() {
+                _forBusiness = value;
+                if (!value) _businessType = null;
+              }),
+              onBusinessTypeChanged: (value) =>
+                  setState(() => _businessType = value),
+            ),
+          ),
+        },
+      ),
       // AppBottomActionBar keeps the height factor this screen needs: a bottom
       // navigation child receives the scaffold's full height as its upper
       // bound, and without one the bar expands to that bound and leaves almost

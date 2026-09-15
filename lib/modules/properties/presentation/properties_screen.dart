@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_media.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/page_header.dart';
@@ -35,6 +36,19 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
   @override
   Widget build(BuildContext context) {
     final properties = ref.watch(propertyListProvider);
+    // Search belongs to this screen. The shared list remains complete for
+    // manager pages and for a fresh visit to Browse.
+    final query = _searchController.text.trim().toLowerCase();
+    final visible = properties.whenData(
+      (items) => items
+          .where((property) {
+            return query.isEmpty ||
+                property.name.toLowerCase().contains(query) ||
+                property.city.toLowerCase().contains(query) ||
+                (property.description?.toLowerCase().contains(query) ?? false);
+          })
+          .toList(growable: false),
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Browse spaces')),
@@ -63,14 +77,12 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
                         icon: const Icon(Icons.close_rounded),
                         onPressed: () {
                           _searchController.clear();
-                          ref.read(propertyListProvider.notifier).search('');
                           setState(() {});
                         },
                       ),
               ),
               onChanged: (value) {
                 setState(() {});
-                ref.read(propertyListProvider.notifier).search(value);
               },
             ),
           ),
@@ -85,7 +97,10 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
                 onRetry: () =>
                     ref.read(propertyListProvider.notifier).refresh(),
               ),
-              _ => _PropertyList(properties: properties.requireValue),
+              _ => _PropertyList(
+                properties: visible.requireValue,
+                searching: query.isNotEmpty,
+              ),
             },
           ),
         ],
@@ -95,21 +110,27 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
 }
 
 class _PropertyList extends ConsumerWidget {
-  const _PropertyList({required this.properties});
+  const _PropertyList({required this.properties, required this.searching});
 
   final List<Property> properties;
+  final bool searching;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (properties.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
+        onRefresh: () async {
+          await ref.read(propertyListProvider.notifier).refresh();
+        },
         icon: Icons.location_city_outlined,
-        title: 'No properties found',
-        message: 'Try a different search term.',
+        title: searching ? 'No matching properties' : 'No properties available',
+        message: searching
+            ? 'Try a different search term or clear your search.'
+            : 'No properties were returned for your account. Pull down to check again.',
       );
     }
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: () => ref.read(propertyListProvider.notifier).refresh(),
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),

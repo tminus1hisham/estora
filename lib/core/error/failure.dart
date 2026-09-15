@@ -74,3 +74,10 @@ final class UnknownFailure extends Failure {
   const UnknownFailure([super.message = 'Something went wrong.'])
     : super(code: 'unknown');
 }
+
+/// The current API does not provide this capability.
+final class UnsupportedFeatureFailure extends Failure {
+  const UnsupportedFeatureFailure([
+    super.message = 'This feature is currently unavailable.',
+  ]) : super(code: 'unsupported_feature');
+}

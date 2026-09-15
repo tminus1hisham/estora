@@ -2,8 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/theme_mode_controller.dart';
+import '../../../components/theme_mode_control.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
 import '../../../services/update/app_update_service.dart';
@@ -153,137 +154,100 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: Gap.xxl),
-        children: [
-          _SectionHeader('Appearance'),
-          const _ThemeModeControl(),
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            ref.refresh(notificationChannelsProvider.future),
+            _loadBiometricState(),
+          ]);
+        },
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: Gap.xxl),
+          children: [
+            _SectionHeader('Appearance'),
+            const ThemeModeControl(),
 
-          const Divider(),
-          _SectionHeader('Notifications'),
-          // Section 49's channels.
-          for (final channel in const [
-            NotificationChannel.push,
-            NotificationChannel.sms,
-            NotificationChannel.email,
-          ])
-            SwitchListTile(
-              value: selected.contains(channel),
-              onChanged: channels.hasValue
-                  ? (value) => ref
-                        .read(notificationChannelsProvider.notifier)
-                        .toggle(channel, value)
-                  : null,
-              title: Text(channel.label),
-              subtitle: Text(switch (channel) {
-                NotificationChannel.push =>
-                  'Invoices, payments and booking reminders on this device',
-                NotificationChannel.sms => 'Text messages for urgent alerts',
-                NotificationChannel.email => 'Copies of invoices and receipts',
-                _ => '',
-              }, style: Theme.of(context).textTheme.bodySmall),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
-            child: Text(
-              'In-app notifications cannot be turned off — they are how we '
-              'record what we have told you.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ),
-
-          if (_biometricAvailable) ...[
             const Divider(),
-            _SectionHeader('Security'),
-            SwitchListTile(
-              value: _biometricEnabled,
-              onChanged: _biometricBusy ? null : _setBiometric,
-              title: const Text('Unlock with biometrics'),
-              subtitle: Text(
-                _biometricBusy
-                    ? 'Waiting for device authentication...'
-                    : 'Require your fingerprint or face before restoring your '
-                          'session',
-                style: Theme.of(context).textTheme.bodySmall,
+            _SectionHeader('Notifications'),
+            // Section 49's channels.
+            for (final channel in const [
+              NotificationChannel.push,
+              NotificationChannel.sms,
+              NotificationChannel.email,
+            ])
+              SwitchListTile(
+                value: selected.contains(channel),
+                onChanged: channels.hasValue
+                    ? (value) => ref
+                          .read(notificationChannelsProvider.notifier)
+                          .toggle(channel, value)
+                    : null,
+                title: Text(channel.label),
+                subtitle: Text(switch (channel) {
+                  NotificationChannel.push =>
+                    'Invoices, payments and booking reminders on this device',
+                  NotificationChannel.sms => 'Text messages for urgent alerts',
+                  NotificationChannel.email =>
+                    'Copies of invoices and receipts',
+                  _ => '',
+                }, style: Theme.of(context).textTheme.bodySmall),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
+              child: Text(
+                'In-app notifications cannot be turned off — they are how we '
+                'record what we have told you.',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
+
+            if (_biometricAvailable) ...[
+              const Divider(),
+              _SectionHeader('Security'),
+              SwitchListTile(
+                value: _biometricEnabled,
+                onChanged: _biometricBusy ? null : _setBiometric,
+                title: const Text('Unlock with biometrics'),
+                subtitle: Text(
+                  _biometricBusy
+                      ? 'Waiting for device authentication...'
+                      : 'Require your fingerprint or face before restoring your '
+                            'session',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+
+            const Divider(),
+            _SectionHeader('About'),
+            const ListTile(title: Text('Version'), trailing: Text('1.0.0')),
+            // The app asks Play on its own at launch. This is for the tenant who
+            // has been told a fix is out and wants to go and get it rather than
+            // wait to be offered it.
+            if (AppUpdateService.isSupported)
+              ListTile(
+                leading: const Icon(Icons.system_update_outlined),
+                title: const Text('Check for updates'),
+                subtitle: Text(
+                  _updateBusy ? 'Asking Google Play...' : 'Via Google Play',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                onTap: _updateBusy ? null : _checkForUpdate,
+              ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.all(Gap.lg),
+              child: OutlinedButton.icon(
+                onPressed: _confirmLogout,
+                style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Sign out'),
               ),
             ),
           ],
-
-          const Divider(),
-          _SectionHeader('About'),
-          const ListTile(title: Text('Version'), trailing: Text('1.0.0')),
-          // The app asks Play on its own at launch. This is for the tenant who
-          // has been told a fix is out and wants to go and get it rather than
-          // wait to be offered it.
-          if (AppUpdateService.isSupported)
-            ListTile(
-              leading: const Icon(Icons.system_update_outlined),
-              title: const Text('Check for updates'),
-              subtitle: Text(
-                _updateBusy ? 'Asking Google Play...' : 'Via Google Play',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              onTap: _updateBusy ? null : _checkForUpdate,
-            ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.all(Gap.lg),
-            child: OutlinedButton.icon(
-              onPressed: _confirmLogout,
-              style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Sign out'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// System, Light or Dark.
-///
-/// A segmented button rather than a single dark-mode switch: "System" is a
-/// real third choice, and a switch cannot express following the platform.
-class _ThemeModeControl extends ConsumerWidget {
-  const _ThemeModeControl();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(themeModeProvider);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SegmentedButton<ThemeMode>(
-            segments: [
-              for (final mode in ThemeMode.values)
-                ButtonSegment<ThemeMode>(
-                  value: mode,
-                  label: Text(mode.label),
-                  icon: Icon(mode.icon),
-                ),
-            ],
-            selected: {selected},
-            showSelectedIcon: false,
-            onSelectionChanged: (values) =>
-                ref.read(themeModeProvider.notifier).select(values.first),
-          ),
-          Gap.h8,
-          Text(
-            selected == ThemeMode.system
-                ? 'Following your device setting.'
-                : 'Staying ${selected.label.toLowerCase()} whatever your '
-                      'device is set to.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

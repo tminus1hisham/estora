@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/page_header.dart';
 import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
+import '../../../components/theme_mode_control.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../navigation/routes.dart';
 import '../../auth/application/auth_controller.dart';
@@ -70,6 +72,7 @@ class OwnerAccountScreen extends ConsumerWidget {
           ),
         ],
       ),
+      const RecordGroup(heading: 'Appearance', children: [ThemeModeControl()]),
       RecordGroup(
         heading: 'Session',
         rowInset: 56,
@@ -97,17 +100,27 @@ class OwnerAccountScreen extends ConsumerWidget {
         title: const Text('Account'),
         backgroundColor: Colors.transparent,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppLayout.maxReadingWidth,
-          ),
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),
-            itemCount: sections.length,
-            separatorBuilder: (_, _) => Gap.h16,
-            itemBuilder: (context, index) =>
-                AppReveal(index: index, child: sections[index]),
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref.read(authControllerProvider.notifier).refreshProfile();
+        },
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppLayout.maxReadingWidth,
+            ),
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(
+                Gap.lg,
+                Gap.xs,
+                Gap.lg,
+                Gap.xxl,
+              ),
+              itemCount: sections.length,
+              separatorBuilder: (_, _) => Gap.h16,
+              itemBuilder: (context, index) =>
+                  AppReveal(index: index, child: sections[index]),
+            ),
           ),
         ),
       ),

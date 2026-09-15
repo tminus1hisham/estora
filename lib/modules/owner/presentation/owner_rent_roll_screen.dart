@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
@@ -42,12 +43,20 @@ class OwnerRentRollScreen extends ConsumerWidget {
         AsyncLoading() when !roll.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(rentRollProvider(propertyId)),
+          onRetry: () async {
+            await ref
+                .refresh(rentRollProvider(propertyId).future)
+                .then<void>((_) {});
+          },
         ),
         _ => _Roll(
           entries: roll.requireValue,
           propertyId: propertyId,
-          onRefresh: () async => ref.invalidate(rentRollProvider(propertyId)),
+          onRefresh: () async {
+            await ref
+                .refresh(rentRollProvider(propertyId).future)
+                .then<void>((_) {});
+          },
         ),
       },
     );
@@ -68,7 +77,7 @@ class _Roll extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -107,7 +116,7 @@ class _Roll extends StatelessWidget {
         _Group(heading: 'Held', entries: other, propertyId: propertyId),
     ];
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

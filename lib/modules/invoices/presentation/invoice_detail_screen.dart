@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_reveal.dart';
@@ -65,7 +66,11 @@ class InvoiceDetailScreen extends ConsumerWidget {
         ),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(invoiceDetailProvider(invoiceId)),
+          onRetry: () async {
+            await ref
+                .refresh(invoiceDetailProvider(invoiceId).future)
+                .then<void>((_) {});
+          },
         ),
         _ => _Body(invoice: invoice.requireValue),
       },
@@ -89,8 +94,12 @@ class _Body extends ConsumerWidget {
       if (invoice.isOverdue) const InvoiceOverdueNotice(),
     ];
 
-    return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(invoiceDetailProvider(invoice.id)),
+    return AppRefreshIndicator(
+      onRefresh: () async {
+        await ref
+            .refresh(invoiceDetailProvider(invoice.id).future)
+            .then<void>((_) {});
+      },
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(

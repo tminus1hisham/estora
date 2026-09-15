@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
+import '../../../components/page_empty_state.dart';
 import '../../../components/surface_atoms.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
@@ -34,6 +36,16 @@ class LeasesScreen extends ConsumerWidget {
         AsyncLoading() when !leases.hasValue => const AppSkeletonDetail(
           heroHeight: 300,
         ),
+        AsyncError(error: UnsupportedFeatureFailure()) => PageEmptyState(
+          onRefresh: () async {
+            await ref.read(leaseListProvider.notifier).refresh();
+          },
+          icon: Icons.key_outlined,
+          caption: 'Your next chapter',
+          title: 'Your lease belongs here',
+          message:
+              'Lease management is on its way. This will be your place to review agreements and keep your lease details together.',
+        ),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
           onRetry: () => ref.read(leaseListProvider.notifier).refresh(),
@@ -54,26 +66,17 @@ class _LeaseBody extends ConsumerWidget {
     Future<void> refresh() => ref.read(leaseListProvider.notifier).refresh();
 
     if (leases.isEmpty) {
-      return RefreshIndicator(
+      return PageEmptyState(
+        icon: Icons.key_outlined,
+        caption: 'Your next chapter',
+        title: 'No lease yet',
+        message:
+            'Find a space for your business. Once your booking is ready, your lease will appear here to review and sign.',
         onRefresh: refresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: EmptyState(
-                icon: Icons.vpn_key_outlined,
-                title: 'No lease yet',
-                message:
-                    'Once you book a unit and complete the requirements, your '
-                    'lease will appear here to review and sign.',
-                action: FilledButton.tonal(
-                  onPressed: () => context.goNamed(Routes.browse),
-                  child: const Text('Browse available units'),
-                ),
-              ),
-            ),
-          ],
+        action: FilledButton.icon(
+          onPressed: () => context.goNamed(Routes.browse),
+          icon: const Icon(Icons.search_rounded),
+          label: const Text('Browse available units'),
         ),
       );
     }
@@ -96,7 +99,7 @@ class _LeaseBody extends ConsumerWidget {
         ),
     ];
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: refresh,
       child: Center(
         child: ConstrainedBox(

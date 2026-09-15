@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../components/surface_atoms.dart';
@@ -61,7 +62,10 @@ class _NotificationList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (items.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
+        onRefresh: () async {
+          await ref.read(notificationListProvider.notifier).refresh();
+        },
         icon: Icons.notifications_none_rounded,
         title: 'Nothing yet',
         message:
@@ -70,7 +74,7 @@ class _NotificationList extends ConsumerWidget {
       );
     }
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: () => ref.read(notificationListProvider.notifier).refresh(),
       child: ListView.separated(
         padding: const EdgeInsets.only(bottom: Gap.xxl),

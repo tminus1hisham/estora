@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
@@ -12,6 +13,7 @@ import '../../../core/theme/status_palette.dart';
 import '../../../domain/entities/owner.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
+import '../../home/presentation/available_home.dart';
 import '../application/owner_controller.dart';
 import 'widgets/owner_property_card.dart';
 import 'widgets/portfolio_position_card.dart';
@@ -28,6 +30,9 @@ class OwnerPortfolioScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final portfolio = ref.watch(ownerPortfolioProvider);
+    if (portfolio.error is UnsupportedFeatureFailure) {
+      return const Scaffold(body: AvailableHome(manager: true));
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -61,7 +66,7 @@ class _Portfolio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!portfolio.hasProperties) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -87,7 +92,7 @@ class _Portfolio extends StatelessWidget {
       _PropertyList(properties: portfolio.properties),
     ];
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

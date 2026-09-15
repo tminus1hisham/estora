@@ -486,5 +486,22 @@ class AuthController extends Notifier<AuthState> {
     ref.invalidate(notificationChannelsProvider);
   }
 
+  /// Reload account details without re-running biometric unlock or signing out
+  /// on a transient failure. Ignore a response if the session changed meanwhile.
+  Future<void> refreshProfile() async {
+    final session = state.session;
+    if (session == null) return;
+    final result = await ref.read(authRepositoryProvider).restoreSession();
+    if (!ref.mounted || !identical(state.session, session)) return;
+    switch (result) {
+      case Ok(:final value) when value != null:
+        state = state.copyWith(session: value);
+      case Err(:final failure):
+        throw failure;
+      case Ok():
+        throw const UnauthorizedFailure('Please sign in again.');
+    }
+  }
+
   void clearFailure() => state = state.copyWith(clearFailure: true);
 }

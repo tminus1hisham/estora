@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
 import '../../../components/page_header.dart';
@@ -99,24 +100,34 @@ class _OwnerPropertyRateScreenState
 
     return Scaffold(
       appBar: AppBar(title: const Text('Asking rate')),
-      body: switch (performance) {
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () =>
-              ref.invalidate(propertyPerformanceProvider(widget.propertyId)),
-        ),
-        AsyncData(:final value) => _Body(
-          performance: value,
-          impact: impact.value,
-          rateController: _rate,
-          currency: _currency,
-          parsed: _parsed,
-          reprice: _reprice,
-          onRateChanged: () => setState(() {}),
-          onRepriceChanged: (value) => setState(() => _reprice = value),
-        ),
-        _ => const Center(child: CircularProgressIndicator()),
-      },
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            ref.refresh(propertyPerformanceProvider(widget.propertyId).future),
+            ref.refresh(repricingImpactProvider(widget.propertyId).future),
+          ]);
+        },
+        child: switch (performance) {
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () =>
+                ref.invalidate(propertyPerformanceProvider(widget.propertyId)),
+          ),
+          AsyncData(:final value) => _Body(
+            performance: value,
+            impact: impact.value,
+            rateController: _rate,
+            currency: _currency,
+            parsed: _parsed,
+            reprice: _reprice,
+            onRateChanged: () => setState(() {}),
+            onRepriceChanged: (value) => setState(() => _reprice = value),
+          ),
+          _ => const Center(child: CircularProgressIndicator()),
+        },
+      ),
       bottomNavigationBar: AppBottomActionBar(
         child: AsyncButton(
           label: 'Update rate',

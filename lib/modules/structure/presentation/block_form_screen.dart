@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
 import '../../../components/page_header.dart';
@@ -134,11 +135,24 @@ class _BlockFormScreenState extends ConsumerState<BlockFormScreen> {
         case AsyncError(:final error):
           return Scaffold(
             appBar: AppBar(title: const Text('Edit block')),
-            body: ErrorView(
-              failure: error is Failure
-                  ? error
-                  : UnknownFailure(error.toString()),
-              onRetry: () => ref.invalidate(blockProvider(widget.blockId!)),
+            body: AppRefreshIndicator(
+              onRefresh: () async {
+                if (widget.blockId != null) {
+                  await ref
+                      .refresh(blockProvider(widget.blockId!).future)
+                      .then<void>((_) {});
+                }
+              },
+              child: ErrorView(
+                failure: error is Failure
+                    ? error
+                    : UnknownFailure(error.toString()),
+                onRetry: () async {
+                  await ref
+                      .refresh(blockProvider(widget.blockId!).future)
+                      .then<void>((_) {});
+                },
+              ),
             ),
           );
         case AsyncData(:final value):
@@ -146,127 +160,147 @@ class _BlockFormScreenState extends ConsumerState<BlockFormScreen> {
         default:
           return Scaffold(
             appBar: AppBar(title: const Text('Edit block')),
-            body: const LoadingView(),
+            body: AppRefreshIndicator(
+              onRefresh: () async {
+                if (widget.blockId != null) {
+                  await ref
+                      .refresh(blockProvider(widget.blockId!).future)
+                      .then<void>((_) {});
+                }
+              },
+              child: const LoadingView(),
+            ),
           );
       }
     }
 
     return Scaffold(
       appBar: AppBar(title: Text(_isEditing ? 'Edit block' : 'New block')),
-      body: Form(
-        key: _formKey,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayout.maxReadingWidth,
-            ),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                Gap.lg,
-                Gap.sm,
-                Gap.lg,
-                Gap.xxl,
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          if (widget.blockId != null) {
+            await ref
+                .refresh(blockProvider(widget.blockId!).future)
+                .then<void>((_) {});
+          }
+        },
+        child: Form(
+          key: _formKey,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.maxReadingWidth,
               ),
-              children: [
-                PageHeader(
-                  title: _isEditing ? 'Edit this block' : 'Add a block',
-                  subtitle:
-                      'A block is a wing or building within the property. Unit '
-                      'numbers are read against it.',
-                  compact: true,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.xxl,
                 ),
-                Gap.h16,
-                SectionCard(
-                  title: 'Identity',
-                  children: [
-                    OwnerField(
-                      label: 'Block name',
-                      controller: _nameController,
-                      hint: 'East Wing',
-                      textCapitalization: TextCapitalization.words,
-                      validator: (value) => (value?.trim().isEmpty ?? true)
-                          ? 'Give the block a name'
-                          : null,
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'Description',
-                      controller: _descriptionController,
-                      maxLines: 3,
-                      helper: 'Optional.',
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    DropdownButtonFormField<BlockStatus>(
-                      initialValue: _status,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Status'),
-                      items: [
-                        for (final status in BlockStatus.selectable)
-                          DropdownMenuItem(
-                            value: status,
-                            child: Text(status.label),
-                          ),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => _status = value ?? BlockStatus.active),
-                    ),
-                  ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: 'Size',
-                  children: [
-                    Text(
-                      'All optional. Leave a figure blank rather than guessing '
-                      'at it.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                children: [
+                  PageHeader(
+                    title: _isEditing ? 'Edit this block' : 'Add a block',
+                    subtitle:
+                        'A block is a wing or building within the property. Unit '
+                        'numbers are read against it.',
+                    compact: true,
+                  ),
+                  Gap.h16,
+                  SectionCard(
+                    title: 'Identity',
+                    children: [
+                      OwnerField(
+                        label: 'Block name',
+                        controller: _nameController,
+                        hint: 'East Wing',
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) => (value?.trim().isEmpty ?? true)
+                            ? 'Give the block a name'
+                            : null,
                       ),
-                    ),
-                    Gap.h16,
-                    NumberField(
-                      label: 'Total area',
-                      controller: _areaController,
-                      suffix: 'sq ft',
-                      allowDecimal: true,
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    NumberField(
-                      label: 'Number of floors',
-                      controller: _floorsController,
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    NumberField(
-                      label: 'Total units',
-                      controller: _totalUnitsController,
-                      validator: (_) => null,
-                    ),
-                    Gap.h12,
-                    NumberField(
-                      label: 'Leasable units',
-                      controller: _leasableUnitsController,
-                      helper: 'Units that can be let, excluding service space.',
-                      validator: (value) {
-                        final leasable = NumberField.parse(value ?? '');
-                        final total = NumberField.parse(
-                          _totalUnitsController.text,
-                        );
-                        // The one arithmetic check worth making here: more
-                        // lettable units than units at all is a typo, and it
-                        // is cheaper to catch now than in a rent roll.
-                        return (leasable != null &&
-                                total != null &&
-                                leasable > total)
-                            ? 'Cannot exceed the total unit count'
-                            : null;
-                      },
-                    ),
-                  ],
-                ),
-              ],
+                      Gap.h12,
+                      OwnerField(
+                        label: 'Description',
+                        controller: _descriptionController,
+                        maxLines: 3,
+                        helper: 'Optional.',
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      DropdownButtonFormField<BlockStatus>(
+                        initialValue: _status,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'Status'),
+                        items: [
+                          for (final status in BlockStatus.selectable)
+                            DropdownMenuItem(
+                              value: status,
+                              child: Text(status.label),
+                            ),
+                        ],
+                        onChanged: (value) => setState(
+                          () => _status = value ?? BlockStatus.active,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: 'Size',
+                    children: [
+                      Text(
+                        'All optional. Leave a figure blank rather than guessing '
+                        'at it.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Gap.h16,
+                      NumberField(
+                        label: 'Total area',
+                        controller: _areaController,
+                        suffix: 'sq ft',
+                        allowDecimal: true,
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      NumberField(
+                        label: 'Number of floors',
+                        controller: _floorsController,
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      NumberField(
+                        label: 'Total units',
+                        controller: _totalUnitsController,
+                        validator: (_) => null,
+                      ),
+                      Gap.h12,
+                      NumberField(
+                        label: 'Leasable units',
+                        controller: _leasableUnitsController,
+                        helper:
+                            'Units that can be let, excluding service space.',
+                        validator: (value) {
+                          final leasable = NumberField.parse(value ?? '');
+                          final total = NumberField.parse(
+                            _totalUnitsController.text,
+                          );
+                          // The one arithmetic check worth making here: more
+                          // lettable units than units at all is a typo, and it
+                          // is cheaper to catch now than in a rent roll.
+                          return (leasable != null &&
+                                  total != null &&
+                                  leasable > total)
+                              ? 'Cannot exceed the total unit count'
+                              : null;
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
@@ -43,11 +44,15 @@ class UsersScreen extends ConsumerWidget {
         AsyncLoading() when !users.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(platformUsersProvider),
+          onRetry: () async {
+            await ref.refresh(platformUsersProvider.future).then<void>((_) {});
+          },
         ),
         _ => _UserList(
           users: users.requireValue,
-          onRefresh: () async => ref.invalidate(platformUsersProvider),
+          onRefresh: () async {
+            await ref.refresh(platformUsersProvider.future).then<void>((_) {});
+          },
         ),
       },
     );
@@ -63,7 +68,7 @@ class _UserList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (users.isEmpty) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: onRefresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -84,7 +89,7 @@ class _UserList extends StatelessWidget {
     final active = users.where((user) => user.isActive).toList();
     final disabled = users.where((user) => !user.isActive).toList();
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: Center(
         child: ConstrainedBox(

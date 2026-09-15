@@ -217,9 +217,7 @@ class ApiClient {
         List list when list.length == 1 && list.first is Map<String, dynamic> =>
           <String, dynamic>{...list.first as Json, 'data': list},
         List list => <String, dynamic>{'data': list},
-        // Kept for the routes the contract does not yet cover, which were
-        // designed around an envelope: the payload under `data`, list metadata
-        // alongside it.
+        // Accept response envelopes as well as the published bare responses.
         Map<String, dynamic> map when map.containsKey('data') =>
           map['data'] is Map<String, dynamic>
               ? map['data'] as Json
@@ -268,7 +266,10 @@ class ApiClient {
   Future<AuthTokens?> _performRefresh() async {
     final tokens = await _tokenStore.read();
     if (tokens == null) {
-      DebugLog.write('auth', 'Nothing stored to refresh; no session to recover');
+      DebugLog.write(
+        'auth',
+        'Nothing stored to refresh; no session to recover',
+      );
       return null;
     }
 
@@ -329,8 +330,8 @@ class ApiClient {
       DebugLog.write(
         'auth',
         'Session refreshed; the refresh token '
-        '${refresh == null || refresh.isEmpty ? 'was not rotated' : 'rotated'}'
-        ', access expires ${updated.expiresAt.toIso8601String()}',
+            '${refresh == null || refresh.isEmpty ? 'was not rotated' : 'rotated'}'
+            ', access expires ${updated.expiresAt.toIso8601String()}',
       );
       return updated;
     } on DioException catch (e) {
@@ -339,7 +340,7 @@ class ApiClient {
       DebugLog.write(
         'auth',
         'Refresh could not reach the server (${e.type.name}); leaving the '
-        'stored session alone',
+            'stored session alone',
       );
       return null;
     }
@@ -425,9 +426,8 @@ class ApiClient {
   }
 
   Map<String, String> _fieldErrors(Json envelope) {
-    // `errors` is validation's map of field to messages; `fields` is the shape
-    // the unpublished routes were designed around. Neither is present on the
-    // auth routes, whose `errors` is a flat list handled in [_message].
+    // Accept field maps alongside ASP.NET validation errors. Auth errors
+    // can also be a flat list, handled in [_message].
     final fields = envelope['errors'] is Map
         ? envelope['errors']
         : envelope['fields'];

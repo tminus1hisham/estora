@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
 import '../../../components/page_header.dart';
@@ -112,14 +113,23 @@ class _VerifyContactScreenState extends ConsumerState<VerifyContactScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.channel.title)),
-      body: switch (account) {
-        AsyncLoading() when !account.hasValue => const LoadingView(),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.invalidate(myAccountProvider),
-        ),
-        _ => _form(account.requireValue),
-      },
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await ref.refresh(myAccountProvider.future).then<void>((_) {});
+        },
+        child: switch (account) {
+          AsyncLoading() when !account.hasValue => const LoadingView(),
+          AsyncError(:final error) => ErrorView(
+            failure: error is Failure
+                ? error
+                : UnknownFailure(error.toString()),
+            onRetry: () async {
+              await ref.refresh(myAccountProvider.future).then<void>((_) {});
+            },
+          ),
+          _ => _form(account.requireValue),
+        },
+      ),
       bottomNavigationBar: account.hasValue
           ? AppBottomActionBar(
               child: AsyncButton(

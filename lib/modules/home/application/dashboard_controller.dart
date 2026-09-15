@@ -13,6 +13,8 @@ import '../../../services/providers.dart';
 final dashboardControllerProvider =
     AsyncNotifierProvider<DashboardController, DashboardSummary>(
       DashboardController.new,
+      // Keep errors stable; the screen offers an explicit refresh.
+      retry: (_, _) => null,
     );
 
 class DashboardController extends AsyncNotifier<DashboardSummary> {

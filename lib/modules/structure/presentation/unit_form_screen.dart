@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
 import '../../../components/page_header.dart';
@@ -259,11 +260,21 @@ class _UnitFormScreenState extends ConsumerState<UnitFormScreen> {
         case AsyncError(:final error):
           return Scaffold(
             appBar: AppBar(title: const Text('Edit unit')),
-            body: ErrorView(
-              failure: error is Failure
-                  ? error
-                  : UnknownFailure(error.toString()),
-              onRetry: () => ref.invalidate(unitDetailProvider(widget.unitId!)),
+            body: AppRefreshIndicator(
+              onRefresh: () async {
+                await Future.wait([
+                  ref.refresh(propertyBlocksProvider(widget.propertyId).future),
+                  if (widget.unitId != null)
+                    ref.refresh(unitDetailProvider(widget.unitId!).future),
+                ]);
+              },
+              child: ErrorView(
+                failure: error is Failure
+                    ? error
+                    : UnknownFailure(error.toString()),
+                onRetry: () =>
+                    ref.invalidate(unitDetailProvider(widget.unitId!)),
+              ),
             ),
           );
         case AsyncData(:final value):
@@ -271,7 +282,16 @@ class _UnitFormScreenState extends ConsumerState<UnitFormScreen> {
         default:
           return Scaffold(
             appBar: AppBar(title: const Text('Edit unit')),
-            body: const LoadingView(),
+            body: AppRefreshIndicator(
+              onRefresh: () async {
+                await Future.wait([
+                  ref.refresh(propertyBlocksProvider(widget.propertyId).future),
+                  if (widget.unitId != null)
+                    ref.refresh(unitDetailProvider(widget.unitId!).future),
+                ]);
+              },
+              child: const LoadingView(),
+            ),
           );
       }
     }
@@ -288,222 +308,230 @@ class _UnitFormScreenState extends ConsumerState<UnitFormScreen> {
             ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayout.maxReadingWidth,
-            ),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                Gap.lg,
-                Gap.sm,
-                Gap.lg,
-                Gap.xxl,
+      body: AppRefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([
+            ref.refresh(propertyBlocksProvider(widget.propertyId).future),
+            if (widget.unitId != null)
+              ref.refresh(unitDetailProvider(widget.unitId!).future),
+          ]);
+        },
+        child: Form(
+          key: _formKey,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.maxReadingWidth,
               ),
-              children: [
-                PageHeader(
-                  title: _isEditing ? 'Edit this unit' : 'Add a unit',
-                  subtitle:
-                      'One unit at a time. To build a whole floor of identical '
-                      'shops, use the batch on the property screen.',
-                  compact: true,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.xxl,
                 ),
-                Gap.h16,
-                SectionCard(
-                  title: 'Identity',
-                  children: [
-                    OwnerField(
-                      label: 'Unit number',
-                      controller: _numberController,
-                      hint: 'SHOP-102',
-                      textCapitalization: TextCapitalization.characters,
-                      validator: (value) => (value?.trim().isEmpty ?? true)
-                          ? 'Give the unit a number'
-                          : null,
-                    ),
-                    Gap.h12,
-                    DropdownButtonFormField<UnitCategory>(
-                      initialValue: _category,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Type of space',
+                children: [
+                  PageHeader(
+                    title: _isEditing ? 'Edit this unit' : 'Add a unit',
+                    subtitle:
+                        'One unit at a time. To build a whole floor of identical '
+                        'shops, use the batch on the property screen.',
+                    compact: true,
+                  ),
+                  Gap.h16,
+                  SectionCard(
+                    title: 'Identity',
+                    children: [
+                      OwnerField(
+                        label: 'Unit number',
+                        controller: _numberController,
+                        hint: 'SHOP-102',
+                        textCapitalization: TextCapitalization.characters,
+                        validator: (value) => (value?.trim().isEmpty ?? true)
+                            ? 'Give the unit a number'
+                            : null,
                       ),
-                      items: [
-                        for (final category in UnitCategory.selectable)
-                          DropdownMenuItem(
-                            value: category,
-                            child: Text(category.label),
-                          ),
-                      ],
-                      onChanged: (value) => setState(
-                        () => _category = value ?? UnitCategory.shop,
-                      ),
-                    ),
-                    Gap.h12,
-                    _BlockPicker(
-                      blocks: blocks,
-                      selected: _blockId,
-                      onChanged: (value) => setState(() => _blockId = value),
-                    ),
-                    Gap.h12,
-                    OwnerField(
-                      label: 'Description',
-                      controller: _descriptionController,
-                      maxLines: 3,
-                      helper: 'Optional.',
-                      validator: (_) => null,
-                    ),
-                  ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: 'Where it is',
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OwnerField(
-                            label: 'Wing',
-                            controller: _wingController,
-                            textCapitalization: TextCapitalization.words,
-                            validator: (_) => null,
-                          ),
+                      Gap.h12,
+                      DropdownButtonFormField<UnitCategory>(
+                        initialValue: _category,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Type of space',
                         ),
-                        Gap.w12,
-                        Expanded(
-                          child: OwnerField(
-                            label: 'Section',
-                            controller: _sectionController,
-                            textCapitalization: TextCapitalization.words,
-                            validator: (_) => null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Gap.h12,
-                    NumberField(
-                      label: 'Floor number',
-                      controller: _floorController,
-                      helper: 'Ground floor is 0.',
-                      validator: (value) {
-                        final text = value?.trim() ?? '';
-                        if (text.isEmpty) return null;
-                        return int.tryParse(text) == null
-                            ? 'Enter a floor number'
-                            : null;
-                      },
-                    ),
-                  ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: 'Size',
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: NumberField(
-                            label: 'Length',
-                            controller: _lengthController,
-                            suffix: 'ft',
-                            allowDecimal: true,
-                            onChanged: (_) => _recomputeArea(),
-                            validator: (_) => null,
-                          ),
-                        ),
-                        Gap.w12,
-                        Expanded(
-                          child: NumberField(
-                            label: 'Width',
-                            controller: _widthController,
-                            suffix: 'ft',
-                            allowDecimal: true,
-                            onChanged: (_) => _recomputeArea(),
-                            validator: (_) => null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Gap.h12,
-                    NumberField(
-                      label: 'Area',
-                      controller: _areaController,
-                      suffix: 'sq ft',
-                      allowDecimal: true,
-                      helper:
-                          'Filled in from the dimensions, and editable — an '
-                          'irregular unit is not its bounding box.',
-                      validator: (_) => null,
-                    ),
-                  ],
-                ),
-                Gap.h12,
-                SectionCard(
-                  title: 'Money',
-                  children: [
-                    MoneyField(
-                      label: 'Monthly rent',
-                      controller: _rentController,
-                      currency: _currency,
-                      validator: (value) =>
-                          MoneyField.parse(value ?? '', _currency) == null
-                          ? 'Enter the monthly rent'
-                          : null,
-                    ),
-                    Gap.h12,
-                    MoneyField(
-                      label: 'Service charge',
-                      controller: _serviceChargeController,
-                      currency: _currency,
-                      helper: 'Optional, per month.',
-                      validator: (_) => null,
-                    ),
-                    Gap.h16,
-                    SwitchListTile(
-                      value: _depositAsPercentage,
-                      onChanged: (value) =>
-                          setState(() => _depositAsPercentage = value),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Set the deposit as a percentage'),
-                      subtitle: Text(
-                        'Otherwise it is a cash amount. Only the one you enter '
-                        'is sent.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                        items: [
+                          for (final category in UnitCategory.selectable)
+                            DropdownMenuItem(
+                              value: category,
+                              child: Text(category.label),
+                            ),
+                        ],
+                        onChanged: (value) => setState(
+                          () => _category = value ?? UnitCategory.shop,
                         ),
                       ),
-                    ),
-                    Gap.h8,
-                    if (_depositAsPercentage)
-                      NumberField(
-                        label: 'Deposit',
-                        controller: _depositPercentController,
-                        suffix: '% of rent',
-                        allowDecimal: true,
-                        validator: (_) => null,
-                      )
-                    else
-                      MoneyField(
-                        label: 'Deposit',
-                        controller: _depositController,
-                        currency: _currency,
+                      Gap.h12,
+                      _BlockPicker(
+                        blocks: blocks,
+                        selected: _blockId,
+                        onChanged: (value) => setState(() => _blockId = value),
+                      ),
+                      Gap.h12,
+                      OwnerField(
+                        label: 'Description',
+                        controller: _descriptionController,
+                        maxLines: 3,
                         helper: 'Optional.',
                         validator: (_) => null,
                       ),
-                    Gap.h12,
-                    NumberField(
-                      label: 'Booking fee',
-                      controller: _bookingFeePercentController,
-                      suffix: '% of rent',
-                      allowDecimal: true,
-                      helper: 'Optional.',
-                      validator: (_) => null,
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: 'Where it is',
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OwnerField(
+                              label: 'Wing',
+                              controller: _wingController,
+                              textCapitalization: TextCapitalization.words,
+                              validator: (_) => null,
+                            ),
+                          ),
+                          Gap.w12,
+                          Expanded(
+                            child: OwnerField(
+                              label: 'Section',
+                              controller: _sectionController,
+                              textCapitalization: TextCapitalization.words,
+                              validator: (_) => null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Gap.h12,
+                      NumberField(
+                        label: 'Floor number',
+                        controller: _floorController,
+                        helper: 'Ground floor is 0.',
+                        validator: (value) {
+                          final text = value?.trim() ?? '';
+                          if (text.isEmpty) return null;
+                          return int.tryParse(text) == null
+                              ? 'Enter a floor number'
+                              : null;
+                        },
+                      ),
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: 'Size',
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: NumberField(
+                              label: 'Length',
+                              controller: _lengthController,
+                              suffix: 'ft',
+                              allowDecimal: true,
+                              onChanged: (_) => _recomputeArea(),
+                              validator: (_) => null,
+                            ),
+                          ),
+                          Gap.w12,
+                          Expanded(
+                            child: NumberField(
+                              label: 'Width',
+                              controller: _widthController,
+                              suffix: 'ft',
+                              allowDecimal: true,
+                              onChanged: (_) => _recomputeArea(),
+                              validator: (_) => null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Gap.h12,
+                      NumberField(
+                        label: 'Area',
+                        controller: _areaController,
+                        suffix: 'sq ft',
+                        allowDecimal: true,
+                        helper:
+                            'Filled in from the dimensions, and editable — an '
+                            'irregular unit is not its bounding box.',
+                        validator: (_) => null,
+                      ),
+                    ],
+                  ),
+                  Gap.h12,
+                  SectionCard(
+                    title: 'Money',
+                    children: [
+                      MoneyField(
+                        label: 'Monthly rent',
+                        controller: _rentController,
+                        currency: _currency,
+                        validator: (value) =>
+                            MoneyField.parse(value ?? '', _currency) == null
+                            ? 'Enter the monthly rent'
+                            : null,
+                      ),
+                      Gap.h12,
+                      MoneyField(
+                        label: 'Service charge',
+                        controller: _serviceChargeController,
+                        currency: _currency,
+                        helper: 'Optional, per month.',
+                        validator: (_) => null,
+                      ),
+                      Gap.h16,
+                      SwitchListTile(
+                        value: _depositAsPercentage,
+                        onChanged: (value) =>
+                            setState(() => _depositAsPercentage = value),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Set the deposit as a percentage'),
+                        subtitle: Text(
+                          'Otherwise it is a cash amount. Only the one you enter '
+                          'is sent.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ),
+                      Gap.h8,
+                      if (_depositAsPercentage)
+                        NumberField(
+                          label: 'Deposit',
+                          controller: _depositPercentController,
+                          suffix: '% of rent',
+                          allowDecimal: true,
+                          validator: (_) => null,
+                        )
+                      else
+                        MoneyField(
+                          label: 'Deposit',
+                          controller: _depositController,
+                          currency: _currency,
+                          helper: 'Optional.',
+                          validator: (_) => null,
+                        ),
+                      Gap.h12,
+                      NumberField(
+                        label: 'Booking fee',
+                        controller: _bookingFeePercentController,
+                        suffix: '% of rent',
+                        allowDecimal: true,
+                        helper: 'Optional.',
+                        validator: (_) => null,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

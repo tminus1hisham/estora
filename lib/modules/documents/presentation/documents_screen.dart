@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../components/surface_atoms.dart';
@@ -225,7 +226,10 @@ class _DocumentList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (documents.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
+        onRefresh: () async {
+          await ref.read(documentListProvider.notifier).refresh();
+        },
         icon: Icons.folder_open_outlined,
         title: 'No documents',
         message:
@@ -234,7 +238,7 @@ class _DocumentList extends ConsumerWidget {
       );
     }
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: () => ref.read(documentListProvider.notifier).refresh(),
       child: ListView.separated(
         padding: const EdgeInsets.only(bottom: 96),
