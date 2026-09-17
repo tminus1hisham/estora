@@ -53,6 +53,12 @@ class Endpoints {
   // -- Payments ------------------------------------------------------------
   static const String bookUnit = '/payments/book/unit';
   static const String confirmBookedUnit = '/payments/confirm/booked/unit';
+
+  /// The bookings the caller may see. Whose they are is the server's call:
+  /// the route takes no parameter, and the app does not second-guess it.
+  static const String allBookings = '/payments/get/all/bookings';
+  static String unitBookings(String unitId) =>
+      '/payments/get/bookings/unit/$unitId';
   static String tenantInvoices(String tenantId) =>
       '/payments/get/invoices/$tenantId';
   static const String createPaymentRequest = '/payments/create/payment/request';

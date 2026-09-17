@@ -292,7 +292,7 @@ void main() {
   group('the deposit path (sections 22, 30 and 31)', () {
     test('paying the deposit generates a lease awaiting signature', () async {
       final booking = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'booking-key',
       );

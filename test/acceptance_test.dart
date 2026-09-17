@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'support/repository_overrides.dart';
 import 'package:mall/app.dart';
 import 'package:mall/core/utils/money.dart';
@@ -9,8 +10,8 @@ import 'package:mall/modules/bookings/presentation/booking_screen.dart';
 import 'package:mall/modules/bookings/presentation/booking_status_screen.dart';
 import 'package:mall/modules/home/presentation/home_screen.dart';
 import 'package:mall/modules/properties/presentation/properties_screen.dart';
-import 'package:mall/modules/properties/presentation/property_detail_screen.dart';
-import 'package:mall/modules/units/presentation/available_units_screen.dart';
+import 'package:mall/navigation/routes.dart';
+import 'package:mall/modules/units/presentation/property_spaces_screen.dart';
 import 'package:mall/modules/units/presentation/unit_detail_screen.dart';
 import 'support/mock/mock_server.dart';
 import 'package:mall/services/providers.dart';
@@ -106,7 +107,7 @@ void main() {
     expect(find.text('KES 150,000'), findsWidgets);
   });
 
-  testWidgets('a tenant can browse to an available unit', (tester) async {
+  testWidgets('a tenant can browse to a property\'s spaces', (tester) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(await buildApp());
     await signIn(tester);
@@ -115,19 +116,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(PropertiesScreen), findsOneWidget);
 
+    // Browse lists what the availability engine says can be booked, by
+    // property; a card opens that property's spaces, read off the same
+    // engine answer — blocks and sizes, not unit records.
     await tester.tap(find.text('Sarit Mall').first);
     await tester.pumpAndSettle();
-    expect(find.byType(PropertyDetailScreen), findsOneWidget);
+    expect(find.byType(PropertySpacesScreen), findsOneWidget);
 
-    await tester.tap(find.textContaining('available units'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AvailableUnitsScreen), findsOneWidget);
-
-    // SHOP-101 is let and SHOP-105 is under maintenance, so neither should be
-    // offered; section 48's availability engine decides this, not the client.
-    expect(find.text('SHOP-102'), findsOneWidget);
-    expect(find.text('SHOP-101'), findsNothing);
-    expect(find.text('SHOP-105'), findsNothing);
+    // SHOP-102, SHOP-103 and the kiosk are free in the main building,
+    // SHOP-104 in the east wing; SHOP-101 is let and SHOP-105 under
+    // maintenance. The engine counts the free ones by size and names none.
+    expect(find.text('MAIN BUILDING'), findsOneWidget);
+    expect(find.text('EAST WING'), findsOneWidget);
+    expect(find.text('5000 sq ft'), findsNWidgets(2));
+    expect(find.text('1000 sq ft'), findsOneWidget);
+    expect(find.text('2 units left'), findsOneWidget);
+    expect(find.text('1 unit left'), findsNWidgets(2));
+    expect(find.textContaining('SHOP-'), findsNothing);
   });
 
   testWidgets('a let unit is not bookable from its detail screen', (
@@ -137,22 +142,11 @@ void main() {
     await tester.pumpWidget(await buildApp());
     await signIn(tester);
 
-    await tester.tap(find.text('Browse'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sarit Mall').first);
-    await tester.pumpAndSettle();
-
-    // Show everything, including units that are not available.
-    await tester.tap(find.textContaining('available units'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.tune_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Show results'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('SHOP-101'));
+    // Browse no longer lists units — the engine names none — so the unit
+    // record is opened by its own route, as a link into it would.
+    GoRouter.of(
+      tester.element(find.byType(HomeScreen)),
+    ).goNamed(Routes.unitDetail, pathParameters: {'unitId': 'unt_shop_101'});
     await tester.pumpAndSettle();
 
     expect(find.byType(UnitDetailScreen), findsOneWidget);
@@ -168,95 +162,98 @@ void main() {
     await drainPendingRequests(tester);
   });
 
-  testWidgets('booking a unit shows a server quote and creates the booking', (
-    tester,
-  ) async {
-    usePhoneViewport(tester);
-    await tester.pumpWidget(await buildApp());
-    await signIn(tester);
+  testWidgets(
+    'booking a unit asks who is booking, not for money, and creates the booking',
+    (tester) async {
+      usePhoneViewport(tester);
+      await tester.pumpWidget(await buildApp());
+      await signIn(tester);
 
-    await tester.tap(find.text('Browse'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sarit Mall').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('available units'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Browse'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sarit Mall').first);
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('SHOP-102'));
-    await tester.pumpAndSettle();
-    expect(find.byType(UnitDetailScreen), findsOneWidget);
+      // The first Book is the main building's 5000 sq ft, of which two are
+      // free. No unit is chosen here; the server allocates one.
+      await tester.tap(find.widgetWithText(FilledButton, 'Book').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(BookingScreen), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Book this unit'));
-    await tester.pumpAndSettle();
-    expect(find.byType(BookingScreen), findsOneWidget);
+      // Nothing is asked for here: the screen opens on the space and who is
+      // booking it, and says so.
+      expect(find.textContaining('Nothing is paid now'), findsOneWidget);
+      expect(find.text('Main Building'), findsOneWidget);
+      expect(find.text('5000 sq ft'), findsOneWidget);
+      expect(find.text('2 units'), findsOneWidget);
 
-    // Section 80's figures, supplied by the server rather than computed here.
-    // The fee shows more than once: as the line item, as the card total, and in
-    // the payable-now bar. All three read the server's fields; none is summed
-    // on screen.
-    expect(find.text('KES 20,000'), findsWidgets);
-    expect(find.text('KES 750,000'), findsOneWidget); // deposit
-    expect(find.textContaining('48 hours'), findsWidgets);
+      // Confirm is gated on acknowledging the terms.
+      final confirmFinder = find.widgetWithText(
+        FilledButton,
+        'Confirm booking',
+      );
+      expect(tester.widget<FilledButton>(confirmFinder).onPressed, isNull);
 
-    // Confirm is gated on acknowledging the terms.
-    final confirmFinder = find.widgetWithText(FilledButton, 'Confirm booking');
-    expect(tester.widget<FilledButton>(confirmFinder).onPressed, isNull);
+      final list = find.byType(ListView).first;
+      await tester.scrollUntilVisible(
+        find.text('After you book'),
+        240,
+        // `.first` is the ListView's own scrollable. The applicant fields
+        // further down the page are text fields, and every text field carries a
+        // Scrollable of its own — so once they build, an unqualified descendant
+        // finder matches more than one.
+        scrollable: find
+            .descendant(of: list, matching: find.byType(Scrollable))
+            .first,
+      );
+      await tester.pumpAndSettle();
 
-    final list = find.byType(ListView).first;
-    await tester.scrollUntilVisible(
-      find.text('Your rent'),
-      240,
-      // `.first` is the ListView's own scrollable. The applicant fields
-      // further down the page are text fields, and every text field carries a
-      // Scrollable of its own — so once they build, an unqualified descendant
-      // finder matches more than one.
-      scrollable: find
-          .descendant(of: list, matching: find.byType(Scrollable))
-          .first,
-    );
-    await tester.pumpAndSettle();
+      // The engine prices nothing, and the screen does not guess: rent, fee
+      // and deposit are set on the booking by the server and read from it.
+      expect(find.text('Set on your booking'), findsNWidgets(3));
+      expect(find.text('KES 150,000'), findsNothing);
+      expect(find.text('KES 20,000'), findsNothing);
+      expect(find.text('KES 750,000'), findsNothing);
 
-    // The rent the booking will be held at (section 21).
-    expect(find.text('KES 150,000'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byType(CheckboxListTile),
+        240,
+        // `.first` is the ListView's own scrollable. The applicant fields
+        // further down the page are text fields, and every text field carries a
+        // Scrollable of its own — so once they build, an unqualified descendant
+        // finder matches more than one.
+        scrollable: find
+            .descendant(of: list, matching: find.byType(Scrollable))
+            .first,
+      );
+      await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.byType(CheckboxListTile),
-      240,
-      // `.first` is the ListView's own scrollable. The applicant fields
-      // further down the page are text fields, and every text field carries a
-      // Scrollable of its own — so once they build, an unqualified descendant
-      // finder matches more than one.
-      scrollable: find
-          .descendant(of: list, matching: find.byType(Scrollable))
-          .first,
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(CheckboxListTile));
-    await tester.pumpAndSettle();
+      await tester.tap(confirmFinder);
+      await tester.pumpAndSettle();
 
-    await tester.tap(confirmFinder);
-    await tester.pumpAndSettle();
+      // Landed on the status screen for a real booking.
+      expect(find.byType(BookingStatusScreen), findsOneWidget);
+      expect(find.textContaining('BKG-'), findsWidgets);
+      expect(find.text('Awaiting payment'), findsWidgets);
 
-    // Landed on the status screen for a real booking.
-    expect(find.byType(BookingStatusScreen), findsOneWidget);
-    expect(find.textContaining('BKG-'), findsWidgets);
-    expect(find.text('Awaiting payment'), findsWidgets);
+      // And the server captured the terms (section 21).
+      final booking = server.bookings.values.single;
+      expect(booking.unitId, 'unt_shop_102');
+      expect(booking.monthlyRent, Money.fromMajor(150000, 'KES'));
+      expect(booking.depositAmount, Money.fromMajor(750000, 'KES'));
+      expect(booking.bookingFee, Money.fromMajor(20000, 'KES'));
+      expect(booking.status, BookingStatus.pendingPayment);
 
-    // And the server captured the terms (section 21).
-    final booking = server.bookings.values.single;
-    expect(booking.unitId, 'unt_shop_102');
-    expect(booking.monthlyRent, Money.fromMajor(150000, 'KES'));
-    expect(booking.depositAmount, Money.fromMajor(750000, 'KES'));
-    expect(booking.bookingFee, Money.fromMajor(20000, 'KES'));
-    expect(booking.status, BookingStatus.pendingPayment);
+      // Section 31: the fee was raised as an invoice, not a flag.
+      expect(booking.bookingFeeInvoiceId, isNotNull);
 
-    // Section 31: the fee was raised as an invoice, not a flag.
-    expect(booking.bookingFeeInvoiceId, isNotNull);
+      // Section 23: no hold yet, because nothing has been paid.
+      expect(booking.expiresAt, isNull);
 
-    // Section 23: no hold yet, because nothing has been paid.
-    expect(booking.expiresAt, isNull);
-
-    await drainPendingRequests(tester);
-  });
+      await drainPendingRequests(tester);
+    },
+  );
 }

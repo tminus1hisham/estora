@@ -49,7 +49,7 @@ void main() {
   /// Walks a unit through to a lease sitting in PENDING_SIGNATURE.
   Future<String> leaseAwaitingSignature() async {
     final booking = await bookings.createBooking(
-      unitId: 'unt_shop_102',
+      target: const UnitTarget('unt_shop_102'),
       applicant: _applicant,
       idempotencyKey: 'booking-key',
     );

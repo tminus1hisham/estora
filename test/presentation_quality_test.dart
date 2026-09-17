@@ -12,14 +12,14 @@ import 'package:mall/components/status_chip.dart';
 import 'package:mall/core/theme/app_theme.dart';
 import 'package:mall/core/theme/status_palette.dart';
 import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/booking.dart';
+import 'package:mall/domain/entities/unit.dart';
 import 'package:mall/domain/entities/dashboard_summary.dart';
 import 'package:mall/domain/entities/property.dart';
 import 'package:mall/domain/entities/tenant.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/modules/auth/application/auth_controller.dart';
 import 'package:mall/modules/auth/presentation/login_screen.dart';
-import 'package:mall/modules/bookings/application/booking_controller.dart';
+import 'package:mall/modules/units/application/unit_controller.dart';
 import 'package:mall/modules/bookings/presentation/booking_screen.dart';
 import 'package:mall/modules/home/application/dashboard_controller.dart';
 import 'package:mall/modules/home/presentation/home_screen.dart';
@@ -29,7 +29,6 @@ import 'package:mall/modules/notifications/application/notification_controller.d
 import 'package:mall/modules/properties/application/property_controller.dart';
 import 'package:mall/navigation/routes.dart';
 
-const _unitId = 'unt_shop_102';
 
 const _user = AppUser(
   id: 'usr_presentation',
@@ -64,16 +63,21 @@ const _summary = DashboardSummary(
   leaseStatus: LeaseStatus.active,
 );
 
-const _bookingQuote = BookingQuote(
-  unitId: _unitId,
-  monthlyRent: Money(15000000, 'KES'),
-  depositAmount: Money(75000000, 'KES'),
-  bookingFee: Money(2000000, 'KES'),
-  total: Money(2000000, 'KES'),
-  currency: 'KES',
-  expiryHours: 48,
-  depositMonths: 5,
-);
+/// The availability engine's answer for the space the booking route opens on.
+const _availability = [
+  UnitAvailability(
+    propertyId: 'prp_sarit',
+    propertyName: 'Sarit Mall',
+    blockId: 'bld_sarit_main',
+    blockName: 'Main Building',
+    bySize: [UnitAvailabilitySize(size: 5000, count: 2)],
+  ),
+];
+
+class _StubAvailability extends AvailabilityController {
+  @override
+  Future<List<UnitAvailability>> build() async => _availability;
+}
 
 class _UnauthenticatedAuthController extends AuthController {
   @override
@@ -135,9 +139,7 @@ void main() {
         unreadNotificationCountProvider.overrideWith((ref) async => 3),
         if (includeTransactionStubs) ...[
           propertyListProvider.overrideWith(_EmptyPropertyListController.new),
-          bookingQuoteProvider(
-            _unitId,
-          ).overrideWith((ref) async => _bookingQuote),
+          availabilityProvider.overrideWith(_StubAvailability.new),
         ],
       ],
       child: const MallApp(),
@@ -368,9 +370,11 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
 
-    GoRouter.of(
-      tester.element(find.byType(HomeScreen)),
-    ).goNamed(Routes.booking, pathParameters: {'unitId': _unitId});
+    GoRouter.of(tester.element(find.byType(HomeScreen))).goNamed(
+      Routes.booking,
+      pathParameters: {'propertyId': 'prp_sarit', 'blockId': 'bld_sarit_main'},
+      queryParameters: {Routes.bookingSizeQuery: '5000'},
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(BookingScreen), findsOneWidget);

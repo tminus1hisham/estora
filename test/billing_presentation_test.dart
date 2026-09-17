@@ -304,7 +304,9 @@ void main() {
     // The overdue one, not the newest.
     expect(find.text('PAST DUE'), findsOneWidget);
     expect(find.text('INV-2026-0031'), findsWidgets);
-    expect(find.text('Pay now'), findsOneWidget);
+    // One on the focus card, and one under each of the two rows still owed;
+    // the paid one carries no action.
+    expect(find.text('Pay now'), findsNWidgets(3));
     expect(find.text('AUGUST 2026'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

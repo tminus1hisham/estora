@@ -163,14 +163,19 @@ class Routes {
   static const propertyDetail = 'property-detail';
   static const propertyDetailPath = 'property/:propertyId';
 
+  /// The spaces the availability engine lists for one property.
   static const availableUnits = 'available-units';
   static const availableUnitsPath = 'property/:propertyId/units';
 
   static const unitDetail = 'unit-detail';
   static const unitDetailPath = 'unit/:unitId';
 
+  /// Booking is keyed the way the contract keys it: a property and a block,
+  /// with the size wanted as `?size=`. There is no unit in the address
+  /// because the engine names none and the server allocates one.
   static const booking = 'booking';
-  static const bookingPath = 'unit/:unitId/book';
+  static const bookingPath = 'property/:propertyId/block/:blockId/book';
+  static const bookingSizeQuery = 'size';
 
   static const bookingStatus = 'booking-status';
   static const bookingStatusPath = 'booking/:bookingId';

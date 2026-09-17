@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../components/amount_text.dart';
 import '../../../../components/record_group.dart';
 import '../../../../components/surface_atoms.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
 import '../../../../core/utils/date_format.dart';
 import '../../../../domain/entities/billing.dart';
 import '../../../../domain/enums/domain_enums.dart';
 import '../../../../navigation/routes.dart';
+import 'pay_invoice.dart';
 
 /// A month of invoices, and the invoices in it, newest month first.
 typedef InvoiceMonth = ({DateTime month, List<Invoice> invoices});
@@ -55,13 +58,13 @@ class InvoiceMonthSection extends StatelessWidget {
 }
 
 /// One invoice, as a line of a statement.
-class InvoiceRow extends StatelessWidget {
+class InvoiceRow extends ConsumerWidget {
   const InvoiceRow({required this.invoice, super.key});
 
   final Invoice invoice;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final (caption, captionColor) = _caption(context);
 
@@ -77,6 +80,23 @@ class InvoiceRow extends StatelessWidget {
       ),
       caption: caption,
       captionColor: captionColor,
+      // Anything still owed can be paid from its line on the statement. The
+      // action is compact and sits under the row, so a month with nothing
+      // outstanding reads exactly as it did before.
+      footnote: invoice.isPayable
+          ? Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: FilledButton.tonalIcon(
+                onPressed: () => payInvoice(context, ref, invoice),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: Gap.md),
+                ),
+                icon: const Icon(Icons.phone_android_rounded, size: 18),
+                label: const Text('Pay now'),
+              ),
+            )
+          : null,
       onTap: () => context.pushNamed(
         Routes.invoiceDetail,
         pathParameters: {'invoiceId': invoice.id},

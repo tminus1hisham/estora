@@ -15,6 +15,7 @@ import '../../../domain/entities/billing.dart';
 import '../../../navigation/routes.dart';
 import '../application/invoice_controller.dart';
 import 'widgets/invoice_document.dart';
+import 'widgets/pay_invoice.dart';
 
 /// Section 77's Invoice Details screen.
 ///
@@ -119,13 +120,13 @@ class _Body extends ConsumerWidget {
 }
 
 /// The amount owed, and the way to settle it, held at the foot of the screen.
-class _PayBar extends StatelessWidget {
+class _PayBar extends ConsumerWidget {
   const _PayBar({required this.invoice});
 
   final Invoice invoice;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final stacked = prefersStacked(context);
@@ -151,15 +152,12 @@ class _PayBar extends StatelessWidget {
     );
 
     final pay = FilledButton.icon(
-      onPressed: () => context.pushNamed(
-        Routes.payment,
-        pathParameters: {'invoiceId': invoice.id},
-      ),
+      onPressed: () => payInvoice(context, ref, invoice),
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(AppLayout.controlHeight),
       ),
-      icon: const Icon(Icons.lock_outline_rounded),
-      label: const Text('Pay securely'),
+      icon: const Icon(Icons.phone_android_rounded),
+      label: const Text('Pay now'),
     );
 
     return AppBottomActionBar(

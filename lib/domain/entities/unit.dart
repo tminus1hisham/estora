@@ -186,6 +186,16 @@ class UnitAvailabilitySize {
 
   final double size;
   final int count;
+
+  /// "480 sq ft", in the unit the engine measures in. A zero size is a block
+  /// whose units carry no area, and is shown as a count alone.
+  String get label {
+    if (size == 0) return 'Any size';
+    final area = size == size.roundToDouble()
+        ? size.toInt().toString()
+        : size.toString();
+    return '$area sq ft';
+  }
 }
 
 /// Section 16. A template used for batch unit creation (section 17).

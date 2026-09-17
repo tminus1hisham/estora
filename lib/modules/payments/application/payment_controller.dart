@@ -88,6 +88,67 @@ class PaymentActions {
   Future<void> completeIntent(String invoiceId) => _ref
       .read(idempotencyKeysProvider)
       .release(IdempotencyKeys.invoicePaymentIntent(invoiceId));
+
+  /// Asks the server to prompt [phoneNumber] for [invoice]'s balance.
+  ///
+  /// The published route's counterpart to [initiate]: it answers with a
+  /// message rather than a payment to poll, so the outcome is read off the
+  /// invoice by [confirmInvoicePaid]. The same idempotency key as [initiate],
+  /// for the same reason — a retry over a bad connection is the same intent.
+  Future<Result<PaymentPrompt>> requestMpesaPrompt(
+    Invoice invoice, {
+    required String phoneNumber,
+  }) async {
+    final idempotencyKey = await _ref
+        .read(idempotencyKeysProvider)
+        .forIntent(IdempotencyKeys.invoicePaymentIntent(invoice.id));
+
+    return _ref
+        .read(paymentRepositoryProvider)
+        .requestMpesaPrompt(
+          invoiceId: invoice.id,
+          phoneNumber: phoneNumber,
+          // The balance as the server last stated it, off the invoice as
+          // displayed. Nothing is added to it here.
+          amount: invoice.amountDue,
+          idempotencyKey: idempotencyKey,
+        );
+  }
+
+  /// The tenant wants the prompt sent again: a new intent, a new key.
+  Future<void> restartPrompt(String invoiceId) => completeIntent(invoiceId);
+
+  /// Re-reads the invoice and answers whether the server now shows it paid.
+  ///
+  /// A `false` means "not yet": the prompt may still be open on the handset,
+  /// or the provider's callback may not have landed. It never means failed —
+  /// the app cannot know that, and does not claim to (section 39).
+  Future<Result<bool>> confirmInvoicePaid(String invoiceId) async {
+    final result = await _ref
+        .read(invoiceRepositoryProvider)
+        .getInvoice(invoiceId);
+
+    if (result case Ok(:final value) when !value.isPayable) {
+      await completeIntent(invoiceId);
+      // What a settled invoice cascades into — an activated booking, a
+      // satisfied deposit, a changed balance — is re-read rather than
+      // modelled.
+      _invalidateAfterSettlement(_ref, invoiceId);
+      return const Ok(true);
+    }
+
+    return result.map((invoice) => !invoice.isPayable);
+  }
+}
+
+/// Everything that shows an invoice's balance, re-read after it moved.
+void _invalidateAfterSettlement(Ref ref, String invoiceId) {
+  ref.invalidate(invoiceListProvider);
+  ref.invalidate(invoiceDetailProvider(invoiceId));
+  ref.invalidate(paymentHistoryProvider);
+  ref.invalidate(bookingListProvider);
+  ref.invalidate(leaseListProvider);
+  ref.read(dashboardControllerProvider.notifier).refresh();
 }
 
 /// A snapshot of a payment while the client is watching it.
@@ -180,14 +241,15 @@ Future<void> _onSettled(Ref ref, Payment payment) async {
 
   if (payment.status != PaymentStatus.success) return;
 
-  ref.invalidate(invoiceListProvider);
   if (payment.invoiceId != null) {
-    ref.invalidate(invoiceDetailProvider(payment.invoiceId!));
+    _invalidateAfterSettlement(ref, payment.invoiceId!);
+  } else {
+    ref.invalidate(invoiceListProvider);
+    ref.invalidate(paymentHistoryProvider);
+    ref.invalidate(bookingListProvider);
+    ref.invalidate(leaseListProvider);
+    ref.read(dashboardControllerProvider.notifier).refresh();
   }
-  ref.invalidate(paymentHistoryProvider);
-  ref.invalidate(bookingListProvider);
-  ref.invalidate(leaseListProvider);
-  ref.read(dashboardControllerProvider.notifier).refresh();
 }
 
 /// The receipt for a settled payment (section 40).

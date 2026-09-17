@@ -60,6 +60,7 @@ class AccountIdentity {
   /// memory-only; the app always supplies it.
   final SharedPreferences? _prefs;
   Json? _account;
+  String? _tenantId;
 
   static const _savedKey = 'auth.account';
 
@@ -76,25 +77,92 @@ class AccountIdentity {
   }
 
   /// The tenant record's id, which is what the invoice route is keyed on.
+  ///
+  /// The account is a `MallUsers` row and the tenant is a `Tenant` row. They
+  /// are different tables, joined by the account's `userId`, and the invoice
+  /// route takes the tenant's own integer id — which nothing on the account
+  /// names. The account's `id` is *not* it: that is the row number of a
+  /// different table, and reading it as a tenant id would ask the server for
+  /// somebody else's invoices.
+  ///
+  /// The one record a tenant's token can reach that does carry it is a
+  /// booking: the bookings route is scoped to the bearer and each booking
+  /// embeds its `tenant`. So the account's bookings are read, the tenant that
+  /// belongs to this account is picked out, and its id is kept for the
+  /// session. A [NotFoundFailure] means no such record — an account that has
+  /// never booked, or is not a tenant at all — and not a route that failed.
   Future<Result<String>> tenantId() async {
+    final cached = _tenantId;
+    if (cached != null) return Ok(cached);
+
     final account = await load();
     return switch (account) {
       Err<Json>(:final failure) => Err(failure),
-      Ok<Json>(:final value) => () {
-        final id = (value['tenantId'] ?? value['id'])?.toString();
-        return id == null || id.isEmpty
+      Ok<Json>(:final value) => await _resolveTenantId(value),
+    };
+  }
+
+  Future<Result<String>> _resolveTenantId(Json account) async {
+    // Honoured first, should the account route ever start naming it.
+    final stated = account['tenantId']?.toString();
+    if (stated != null && stated.isNotEmpty) return Ok(_tenantId = stated);
+
+    final bookings = await _api.get<List<Json>>(
+      Endpoints.allBookings,
+      parse: rawListFromJson,
+    );
+    return switch (bookings) {
+      Err<List<Json>>(:final failure) => Err(failure),
+      Ok<List<Json>>(:final value) => () {
+        final id = _tenantIdAmong(value, account);
+        return id == null
             ? const Err<String>(
                 NotFoundFailure('This account has no tenant record yet.'),
               )
-            : Ok<String>(id);
+            : Ok<String>(_tenantId = id);
       }(),
     };
+  }
+
+  /// The tenant embedded in one of [bookings] that is this account.
+  ///
+  /// Matched on the account link first, then on the phone number the account
+  /// signs in with. The booking's own contact number is deliberately not
+  /// consulted — it is whatever the applicant typed, not the tenant record —
+  /// and neither is "the only tenant in the list": a manager's token sees
+  /// every booking on the platform, and a platform with one tenant would
+  /// resolve the manager to them.
+  static String? _tenantIdAmong(List<Json> bookings, Json account) {
+    final userId = (account['userId'] ?? account['id'])?.toString();
+    final phone = PhoneNumber.normalizeOrNull(
+      (account['phoneNumber'] ?? account['phone'])?.toString(),
+    );
+
+    final tenants = bookings
+        .map((booking) => booking['tenant'])
+        .whereType<Json>()
+        .where((tenant) => tenant['id'] != null);
+
+    for (final tenant in tenants) {
+      if (userId != null && tenant['userId']?.toString() == userId) {
+        return tenant['id'].toString();
+      }
+    }
+    if (phone == null || phone.isEmpty) return null;
+    for (final tenant in tenants) {
+      final tenantPhone = PhoneNumber.normalizeOrNull(
+        tenant['phoneNumber']?.toString(),
+      );
+      if (tenantPhone == phone) return tenant['id'].toString();
+    }
+    return null;
   }
 
   /// Ends the account's tenure here: the session is over, or belongs to
   /// someone else now.
   Future<void> forget() async {
     _account = null;
+    _tenantId = null;
     await _prefs?.remove(_savedKey);
   }
 
@@ -102,7 +170,10 @@ class AccountIdentity {
   ///
   /// The saved copy is kept. It is a launch-time fallback, and a name edited
   /// yesterday is a better account to restore than none at all.
-  void expire() => _account = null;
+  void expire() {
+    _account = null;
+    _tenantId = null;
+  }
 
   /// Login includes the authoritative account even when /auth/get/account
   /// is restricted for tenants.
@@ -563,15 +634,17 @@ class RemoteUnitRepository implements UnitRepository {
     // second call.
     if (!filter.availableOnly) return _listUnitRecords(filter);
 
-    final availability = await _api.get(
-      Endpoints.availableUnitsToBook,
-      parse: (json) => listFromJson(json, unitAvailabilityFromJson),
-    );
-    return switch (availability) {
+    return switch (await listAvailability()) {
       Err(:final failure) => Err(failure),
       Ok(:final value) => await _listBookable(value, filter),
     };
   }
+
+  @override
+  Future<Result<List<UnitAvailability>>> listAvailability() => _api.get(
+    Endpoints.availableUnitsToBook,
+    parse: (json) => listFromJson(json, unitAvailabilityFromJson),
+  );
 
   Future<Result<Page<Unit>>> _listBookable(
     List<UnitAvailability> availability,
@@ -778,31 +851,37 @@ class RemoteBookingRepository implements BookingRepository {
   @override
   Future<Result<BookingQuote>> getQuote(String unitId) => _unavailable();
 
+  /// The request names a property and a block, which is what the availability
+  /// engine — the one route Browse reads — can name. Nothing else is fetched
+  /// on the way: a tenant's token cannot read unit records, and the server
+  /// allocates the unit within the block itself.
+  ///
+  /// A [UnitTarget] is the one case that reads a unit first, to learn which
+  /// block it sits in. Browse never produces one; the unit detail screen and
+  /// the demo fixtures do.
   @override
   Future<Result<Booking>> createBooking({
-    required String unitId,
+    required BookingTarget target,
     required BookingApplicant applicant,
     required String idempotencyKey,
   }) async {
-    // The booking request wants the property and block the unit sits in, and
-    // the caller has only the unit. Reading the unit first is what supplies
-    // them; it also means the terms shown to the applicant were the terms in
-    // force a moment before the request.
-    final unit = await _api.get<Unit>(
-      Endpoints.unit(unitId),
-      parse: unitFromJson,
-    );
-
-    return switch (unit) {
-      Err<Unit>(:final failure) => Err(failure),
-      Ok<Unit>(value: final found) => await _api.post<Booking>(
-        Endpoints.bookUnit,
-        body: bookingRequestToJson(
-          unitId: unitId,
-          propertyId: found.propertyId,
-          blockId: found.buildingId,
-          applicant: applicant,
+    final space = switch (target) {
+      SpaceTarget() => Ok<SpaceTarget>(target),
+      UnitTarget(:final unitId) =>
+        (await _api.get<Unit>(Endpoints.unit(unitId), parse: unitFromJson)).map(
+          (unit) => SpaceTarget(
+            propertyId: unit.propertyId,
+            blockId: unit.buildingId ?? '',
+            size: unit.area,
+          ),
         ),
+    };
+
+    return switch (space) {
+      Err<SpaceTarget>(:final failure) => Err(failure),
+      Ok<SpaceTarget>(value: final wanted) => await _api.post<Booking>(
+        Endpoints.bookUnit,
+        body: bookingRequestToJson(target: wanted, applicant: applicant),
         idempotencyKey: idempotencyKey,
         // Confirmation requires the actual API booking record. A success
         // message alone must not become a fabricated booking.
@@ -821,17 +900,92 @@ class RemoteBookingRepository implements BookingRepository {
     };
   }
 
+  /// The bookings route takes no parameter: whose bookings come back is the
+  /// server's decision, made from the bearer token, and the app shows what it
+  /// is given. Narrowing them here by the account's phone or tenant id was
+  /// considered and rejected — a booking made with a different contact
+  /// number would have vanished from the list of the person who made it.
+  ///
+  /// `api.md` types the route's items as `Invoice`, which is a slip in the
+  /// document: the operation is `getAllBookings` and the records carry
+  /// `bookingFee`, `expiryDate` and a booking `status`. They are read as
+  /// bookings.
   @override
   Future<Result<Page<Booking>>> listBookings({
     BookingStatus? status,
     int page = 1,
-  }) => _unavailable();
+  }) => _api
+      .get<List<Booking>>(
+        Endpoints.allBookings,
+        parse: (json) => listFromJson(json, bookingFromJson),
+      )
+      .then(
+        (result) => result.map((bookings) {
+          // Newest first, so the booking just made is the first one seen.
+          final sorted = [...bookings]
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          // Narrowed here because the route offers no status parameter.
+          return Page.single(
+            status == null
+                ? sorted
+                : sorted
+                      .where((booking) => booking.status == status)
+                      .toList(growable: false),
+          );
+        }),
+      );
 
+  /// The contract lists bookings and does not serve them one by one, so the
+  /// list is read and the one asked for is picked out of it — the same shape
+  /// as `RemoteInvoiceRepository.getInvoice`.
   @override
-  Future<Result<Booking>> getBooking(String bookingId) => _unavailable();
+  Future<Result<Booking>> getBooking(String bookingId) async {
+    final bookings = await listBookings();
+
+    return switch (bookings) {
+      Err<Page<Booking>>(:final failure) => Err(failure),
+      Ok<Page<Booking>>(:final value) => () {
+        for (final booking in value.items) {
+          if (booking.id == bookingId) return Ok<Booking>(booking);
+        }
+        return const Err<Booking>(
+          NotFoundFailure('We could not find that booking.'),
+        );
+      }(),
+    };
+  }
 
   @override
   Future<Result<Booking>> cancelBooking(String bookingId) => _unavailable();
+
+  @override
+  Future<Result<PaymentPrompt>> requestBookingFeePrompt({
+    required String bookingId,
+    required String phoneNumber,
+    required Money amount,
+    required String idempotencyKey,
+  }) {
+    final handset = PhoneNumber.normalize(phoneNumber);
+    return _api.post(
+      Endpoints.confirmBookedUnit,
+      body: {
+        'bookingId': int.tryParse(bookingId) ?? bookingId,
+        // The number the STK prompt goes to, in the `2547…` form the gateway
+        // accepts.
+        'mpesaPhoneNumber': handset,
+        // The booking fee as the server captured it on the booking. The
+        // contract requires the figure on the request and types it as a
+        // string; the app carries it back rather than deriving one.
+        'amount': amount.toJson().toString(),
+      },
+      idempotencyKey: idempotencyKey,
+      // The route answers `{message, success}` and nothing to poll. The
+      // outcome is read off the booking once the tenant has answered the
+      // prompt — section 39's rule that the handset never decides.
+      parse: (json) =>
+          paymentPromptFromJson(json, phoneNumber: handset, amount: amount),
+    );
+  }
 
   @override
   Future<Result<BookingRequirement>> submitRequirement({
@@ -880,6 +1034,14 @@ class RemoteInvoiceRepository implements InvoiceRepository {
   final ApiClient _api;
   final AccountIdentity _identity;
 
+  /// The route is keyed on the tenant record, so the statement is only as
+  /// reachable as that record is — see [AccountIdentity.tenantId].
+  ///
+  /// An account with no tenant record has nothing invoiced to it: the answer
+  /// is an empty statement, not an error. The screen's own empty state says
+  /// invoices appear once there is a booking or a lease, which is exactly
+  /// the situation. Every other failure — the bookings route refusing, the
+  /// network gone — is still reported as one.
   @override
   Future<Result<Page<Invoice>>> listInvoices({
     InvoiceStatus? status,
@@ -889,6 +1051,7 @@ class RemoteInvoiceRepository implements InvoiceRepository {
     final tenantId = await _identity.tenantId();
 
     return switch (tenantId) {
+      Err<String>(failure: NotFoundFailure()) => Ok(Page.single(const [])),
       Err<String>(:final failure) => Err(failure),
       Ok<String>(value: final id) =>
         await _api
@@ -1009,6 +1172,31 @@ class RemotePaymentRepository implements PaymentRepository {
       // built from what was asked for, and the outcome comes from polling —
       // which is exactly section 39's rule that the handset never decides.
       parse: (json) => paymentIntentFromRequest(json, invoiceId, amount),
+    );
+  }
+
+  @override
+  Future<Result<PaymentPrompt>> requestMpesaPrompt({
+    required String invoiceId,
+    required String phoneNumber,
+    required Money amount,
+    required String idempotencyKey,
+  }) {
+    final handset = PhoneNumber.normalize(phoneNumber);
+    return _api.post(
+      Endpoints.createPaymentRequest,
+      body: {
+        'invoiceId': int.tryParse(invoiceId) ?? invoiceId,
+        'phoneNumber': handset,
+        // The invoice's outstanding balance as the server last stated it,
+        // rounded only because the route types it as a whole number.
+        'amount': amount.majorUnits.round(),
+      },
+      idempotencyKey: idempotencyKey,
+      // The route answers with the invoices it touched, not with a payment.
+      // There is nothing to poll; the invoice itself is re-read afterwards.
+      parse: (json) =>
+          paymentPromptFromJson(json, phoneNumber: handset, amount: amount),
     );
   }
 

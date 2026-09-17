@@ -2174,6 +2174,119 @@
         }
       }
     },
+    "/v1/api/properties/get/all/tenants": {
+      "get": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_GetTenants",
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Tenant"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/properties/create/tenant": {
+      "post": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_CreateTenant",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateTenantRequest"
+            },
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Tenant"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/properties/assign/unit/to/tenant": {
+      "post": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_AssignUnitToTenant",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AssignTenantToUnitRequest"
+            },
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Tenant"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "/v1/api/roles/get/all/roles": {
       "get": {
         "tags": [
@@ -2690,6 +2803,8 @@
         "adminPhoneNumber",
         "adminUserId",
         "propertyIds",
+        "isTenant",
+        "isOwner",
         "lastLogin",
         "createdAt",
         "updatedAt"
@@ -2762,6 +2877,12 @@
         },
         "propertyIds": {
           "type": "string"
+        },
+        "isTenant": {
+          "type": "boolean"
+        },
+        "isOwner": {
+          "type": "boolean"
         },
         "lastLogin": {
           "type": "string",
@@ -3682,10 +3803,6 @@
           "type": "integer",
           "format": "int64"
         },
-        "currentLeaseId": {
-          "type": "integer",
-          "format": "int64"
-        },
         "isDeleted": {
           "type": "boolean"
         },
@@ -3798,9 +3915,10 @@
       "type": "object",
       "required": [
         "id",
+        "userId",
         "fullName",
         "email",
-        "phone",
+        "phoneNumber",
         "idNumber",
         "businessName",
         "businessRegistrationNumber",
@@ -3813,6 +3931,7 @@
         "createdByUserId",
         "updatedByName",
         "updatedByUserId",
+        "unitIds",
         "status",
         "createdAt",
         "updatedAt",
@@ -3826,13 +3945,16 @@
           "type": "integer",
           "format": "int64"
         },
+        "userId": {
+          "type": "string"
+        },
         "fullName": {
           "type": "string"
         },
         "email": {
           "type": "string"
         },
-        "phone": {
+        "phoneNumber": {
           "type": "string"
         },
         "idNumber": {
@@ -3869,6 +3991,9 @@
           "type": "string"
         },
         "updatedByUserId": {
+          "type": "string"
+        },
+        "unitIds": {
           "type": "string"
         },
         "status": {
@@ -4925,6 +5050,89 @@
         "floorNumber": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "CreateTenantRequest": {
+      "type": "object",
+      "required": [
+        "fullName",
+        "email",
+        "phoneNumber",
+        "idNumber",
+        "businessName",
+        "businessRegistrationNumber",
+        "taxPin",
+        "businessType",
+        "emergencyContactName",
+        "emergencyContactPhone",
+        "emergencyContactEmail"
+      ],
+      "properties": {
+        "fullName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "email": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idNumber": {
+          "type": "string",
+          "minLength": 1
+        },
+        "businessName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "businessRegistrationNumber": {
+          "type": "string"
+        },
+        "taxPin": {
+          "type": "string"
+        },
+        "businessType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emergencyContactName": {
+          "type": "string"
+        },
+        "emergencyContactPhone": {
+          "type": "string"
+        },
+        "emergencyContactEmail": {
+          "type": "string"
+        }
+      }
+    },
+    "AssignTenantToUnitRequest": {
+      "type": "object",
+      "required": [
+        "unitId",
+        "tenantId",
+        "blockId",
+        "propertyId"
+      ],
+      "properties": {
+        "unitId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "tenantId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "blockId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "propertyId": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },

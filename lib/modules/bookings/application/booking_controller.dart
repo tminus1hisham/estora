@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/utils/idempotency_key.dart';
+import '../../../domain/entities/billing.dart';
 import '../../../domain/entities/booking.dart';
 import '../../../services/providers.dart';
 import '../../home/application/dashboard_controller.dart';
@@ -75,30 +76,35 @@ class BookingActions {
   /// *intent* and persisted, so a retry after a dropped connection reuses it
   /// and cannot produce a second booking (section 66).
   Future<Result<Booking>> createBooking(
-    String unitId, {
+    BookingTarget target, {
     required BookingApplicant applicant,
   }) async {
     final keys = _ref.read(idempotencyKeysProvider);
-    final intent = IdempotencyKeys.bookingIntent(unitId);
+    final intent = IdempotencyKeys.bookingIntent(target.intent);
     final idempotencyKey = await keys.forIntent(intent);
 
     final result = await _ref
         .read(bookingRepositoryProvider)
         .createBooking(
-          unitId: unitId,
+          target: target,
           applicant: applicant,
           idempotencyKey: idempotencyKey,
         );
 
+    final unitId = switch (target) {
+      UnitTarget(:final unitId) => unitId,
+      SpaceTarget() => null,
+    };
+
     switch (result) {
       case Ok():
-        // The intent is complete. A later booking of the same unit is a new
+        // The intent is complete. A later booking of the same space is a new
         // intent and gets a new key.
         await keys.release(intent);
         _invalidateAfterChange(unitId: unitId);
       case Err(:final failure):
         // Keep the key for retryable failures so a second attempt is treated
-        // as the same intent. A conflict is terminal — the unit is gone — so
+        // as the same intent. A conflict is terminal — the space is gone — so
         // the key is released.
         if (failure is ConflictFailure) {
           await keys.release(intent);
@@ -107,6 +113,69 @@ class BookingActions {
     }
 
     return result;
+  }
+
+  /// Section 24. Asks the server to prompt [phoneNumber] for the booking fee.
+  ///
+  /// The amount on the request is [Booking.bookingFee] — the figure the
+  /// server captured on the booking — carried back because the contract
+  /// wants it on the wire. Nothing here computes it.
+  ///
+  /// The idempotency key is scoped to the booking and persisted, so a retry
+  /// over a dropped connection reuses it and cannot raise a second prompt
+  /// (section 66). It is not released here: the prompt is live on the
+  /// handset until [confirmFeePaid] sees the server record the fee, or the
+  /// tenant asks for a fresh one through [restartFeePrompt].
+  Future<Result<PaymentPrompt>> requestFeePrompt(
+    Booking booking, {
+    required String phoneNumber,
+  }) async {
+    final idempotencyKey = await _ref
+        .read(idempotencyKeysProvider)
+        .forIntent(IdempotencyKeys.bookingFeePaymentIntent(booking.id));
+
+    return _ref
+        .read(bookingRepositoryProvider)
+        .requestBookingFeePrompt(
+          bookingId: booking.id,
+          phoneNumber: phoneNumber,
+          amount: booking.bookingFee,
+          idempotencyKey: idempotencyKey,
+        );
+  }
+
+  /// The tenant wants the prompt sent again — to a corrected number, or
+  /// after declining the first. That is a new intent by their own decision,
+  /// and gets a new key.
+  Future<void> restartFeePrompt(String bookingId) => _ref
+      .read(idempotencyKeysProvider)
+      .release(IdempotencyKeys.bookingFeePaymentIntent(bookingId));
+
+  /// Re-reads the booking and answers whether the server now holds the fee.
+  ///
+  /// This is the only way the app learns the prompt was answered. The
+  /// confirmation route gives back a message and nothing to poll, so the
+  /// booking record is the source of truth — section 39's rule that the
+  /// handset never decides a payment succeeded. A `false` is "not yet", not
+  /// "failed": the prompt may still be open on the phone.
+  Future<Result<bool>> confirmFeePaid(String bookingId) async {
+    final result = await _ref
+        .read(bookingRepositoryProvider)
+        .getBooking(bookingId);
+
+    if (result case Ok(:final value) when !value.canPayFee) {
+      await _ref
+          .read(idempotencyKeysProvider)
+          .release(IdempotencyKeys.bookingFeePaymentIntent(bookingId));
+      // A paid fee activates the booking and starts its clock server-side,
+      // and can raise the deposit invoice; everything that shows any of that
+      // is re-read.
+      _ref.invalidate(bookingDetailProvider(bookingId));
+      _invalidateAfterChange(unitId: value.unitId);
+      return const Ok(true);
+    }
+
+    return result.map((booking) => !booking.canPayFee);
   }
 
   Future<Result<Booking>> cancelBooking(String bookingId) async {
@@ -154,6 +223,7 @@ class BookingActions {
       _ref.invalidate(unitDetailProvider(unitId));
       _ref.invalidate(bookingQuoteProvider(unitId));
     }
+    _ref.invalidate(availabilityProvider);
     _ref.invalidate(unitListProvider);
     _ref.invalidate(bookingListProvider);
     _ref.read(dashboardControllerProvider.notifier).refresh();

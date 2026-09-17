@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/app_refresh_indicator.dart';
-import '../../../components/app_media.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/page_header.dart';
 import '../../../components/app_reveal.dart';
@@ -11,12 +10,17 @@ import '../../../components/app_skeleton.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../domain/entities/property.dart';
-import '../../../domain/enums/domain_enums.dart';
+import '../../../domain/entities/unit.dart';
 import '../../../navigation/routes.dart';
-import '../application/property_controller.dart';
+import '../../units/application/unit_controller.dart';
 
-/// Section 77's Properties screen — the root of the Browse tab.
+/// Section 77's Browse screen — the root of the Browse tab.
+///
+/// Lists what the availability engine says can be booked right now
+/// (`GET /properties/available/units/to/book`): every block with stock and
+/// the sizes on offer in it, grouped here by property. It deliberately does
+/// not start from the properties route, which a tenant's token cannot read
+/// and which would list places with nothing to let.
 class PropertiesScreen extends ConsumerStatefulWidget {
   const PropertiesScreen({super.key});
 
@@ -35,19 +39,18 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final properties = ref.watch(propertyListProvider);
-    // Search belongs to this screen. The shared list remains complete for
-    // manager pages and for a fresh visit to Browse.
+    final availability = ref.watch(availabilityProvider);
+    // Search belongs to this screen. The shared list remains complete for a
+    // fresh visit to Browse.
     final query = _searchController.text.trim().toLowerCase();
-    final visible = properties.whenData(
-      (items) => items
-          .where((property) {
-            return query.isEmpty ||
-                property.name.toLowerCase().contains(query) ||
-                property.city.toLowerCase().contains(query) ||
-                (property.description?.toLowerCase().contains(query) ?? false);
-          })
-          .toList(growable: false),
+    final visible = availability.whenData(
+      (blocks) => _PropertyAvailability.group(
+        blocks.where((block) {
+          return query.isEmpty ||
+              block.propertyName.toLowerCase().contains(query) ||
+              block.blockName.toLowerCase().contains(query);
+        }),
+      ),
     );
 
     return Scaffold(
@@ -59,8 +62,7 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
             child: PageHeader(
               eyebrow: 'Curated commercial spaces',
               title: 'Find a space to grow',
-              subtitle:
-                  'Explore verified retail and office spaces across Nairobi.',
+              subtitle: 'Spaces you can book today, across every property.',
               compact: true,
             ),
           ),
@@ -87,17 +89,17 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
             ),
           ),
           Expanded(
-            child: switch (properties) {
-              AsyncLoading() when !properties.hasValue =>
-                const AppSkeletonMediaList(),
+            child: switch (availability) {
+              AsyncLoading() when !availability.hasValue =>
+                const AppSkeletonList(),
               AsyncError(:final error) => ErrorView(
                 failure: error is Failure
                     ? error
                     : UnknownFailure(error.toString()),
                 onRetry: () =>
-                    ref.read(propertyListProvider.notifier).refresh(),
+                    ref.read(availabilityProvider.notifier).refresh(),
               ),
-              _ => _PropertyList(
+              _ => _AvailabilityList(
                 properties: visible.requireValue,
                 searching: query.isNotEmpty,
               ),
@@ -109,10 +111,41 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
   }
 }
 
-class _PropertyList extends ConsumerWidget {
-  const _PropertyList({required this.properties, required this.searching});
+/// One property's worth of the engine's answer: its blocks with stock.
+class _PropertyAvailability {
+  const _PropertyAvailability({
+    required this.id,
+    required this.name,
+    required this.blocks,
+  });
 
-  final List<Property> properties;
+  final String id;
+  final String name;
+  final List<UnitAvailability> blocks;
+
+  int get count => blocks.fold(0, (sum, block) => sum + block.count);
+
+  /// Groups the engine's block rows by property, keeping the server's order.
+  static List<_PropertyAvailability> group(Iterable<UnitAvailability> blocks) {
+    final byProperty = <String, List<UnitAvailability>>{};
+    for (final block in blocks) {
+      byProperty.putIfAbsent(block.propertyId, () => []).add(block);
+    }
+    return [
+      for (final MapEntry(key: id, value: rows) in byProperty.entries)
+        _PropertyAvailability(
+          id: id,
+          name: rows.first.propertyName,
+          blocks: rows,
+        ),
+    ];
+  }
+}
+
+class _AvailabilityList extends ConsumerWidget {
+  const _AvailabilityList({required this.properties, required this.searching});
+
+  final List<_PropertyAvailability> properties;
   final bool searching;
 
   @override
@@ -120,18 +153,18 @@ class _PropertyList extends ConsumerWidget {
     if (properties.isEmpty) {
       return EmptyState(
         onRefresh: () async {
-          await ref.read(propertyListProvider.notifier).refresh();
+          await ref.read(availabilityProvider.notifier).refresh();
         },
         icon: Icons.location_city_outlined,
-        title: searching ? 'No matching properties' : 'No properties available',
+        title: searching ? 'No matching properties' : 'No spaces available',
         message: searching
             ? 'Try a different search term or clear your search.'
-            : 'No properties were returned for your account. Pull down to check again.',
+            : 'Nothing is open for booking right now. Pull down to check again.',
       );
     }
 
     return AppRefreshIndicator(
-      onRefresh: () => ref.read(propertyListProvider.notifier).refresh(),
+      onRefresh: () => ref.read(availabilityProvider.notifier).refresh(),
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.xxl),
         itemCount: properties.length,
@@ -148,183 +181,115 @@ class _PropertyList extends ConsumerWidget {
 class _PropertyCard extends StatelessWidget {
   const _PropertyCard({required this.property});
 
-  final Property property;
+  final _PropertyAvailability property;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final count = property.count;
 
     return AppSurfaceCard(
-      padding: EdgeInsets.zero,
       elevation: AppElevation.low,
-      semanticLabel: '${property.name}, ${property.locationLabel}',
+      semanticLabel: '${property.name}, $count available',
       onTap: () => context.pushNamed(
-        Routes.propertyDetail,
+        Routes.availableUnits,
         pathParameters: {'propertyId': property.id},
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppMedia(
-            source: property.imageUrl,
-            aspectRatio: 16 / 8.5,
-            heroTag: 'property-${property.id}',
-            semanticLabel: '${property.name} property',
-            fallbackIcon: _iconFor(property),
-            overlay: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: AppGradients.mediaScrim(strength: 0.65),
-                    ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: Text(property.name, style: text.titleLarge)),
+              Gap.w12,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Gap.md,
+                  vertical: Gap.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
+                child: Text(
+                  '$count available',
+                  style: text.labelMedium?.copyWith(
+                    color: scheme.onPrimaryContainer,
                   ),
                 ),
-                Positioned(
-                  left: Gap.md,
-                  bottom: Gap.md,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Gap.md,
-                      vertical: Gap.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      // Fixed rather than themed: this badge sits on a
-                      // photograph, so it has to hold against the image, not
-                      // against the surface behind the card.
-                      color: property.hasAvailability
-                          ? AppPalette.navy900.withValues(alpha: 0.9)
-                          : AppPalette.stone700.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          property.hasAvailability
-                              ? Icons.check_circle_rounded
-                              : Icons.schedule_rounded,
-                          color: property.hasAvailability
-                              ? AppPalette.azure300
-                              : AppPalette.stone200,
-                          size: 15,
-                        ),
-                        Gap.w8,
-                        Text(
-                          property.hasAvailability
-                              ? '${property.availableUnits} available'
-                              : 'Fully let',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: AppPalette.stone0),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(Gap.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        property.name,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    Gap.w12,
-                    Chip(
-                      label: Text(property.propertyType.label),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ),
-                Gap.h4,
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 16,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                    Gap.w4,
-                    Expanded(
-                      child: Text(
-                        property.locationLabel,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                if (property.description != null) ...[
-                  Gap.h12,
-                  Text(
-                    property.description!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-                Gap.h16,
-                Row(
-                  children: [
-                    Icon(
-                      Icons.domain_outlined,
-                      size: 17,
-                      color: scheme.primary,
-                    ),
-                    Gap.w8,
-                    Expanded(
-                      child: Text(
-                        '${property.totalUnits ?? 0} commercial units',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ),
-                    Gap.w8,
-                    Text(
-                      'Explore',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge?.copyWith(color: scheme.primary),
-                    ),
-                    Gap.w4,
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 18,
-                      color: scheme.primary,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          Gap.h12,
+          for (final block in property.blocks) ...[
+            _BlockRow(block: block),
+            if (block != property.blocks.last) Gap.h8,
+          ],
+          Gap.h16,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                'View spaces',
+                style: text.labelLarge?.copyWith(color: scheme.primary),
+              ),
+              Gap.w4,
+              Icon(
+                Icons.arrow_forward_rounded,
+                size: 18,
+                color: scheme.primary,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
 
-  static IconData _iconFor(
-    Property property,
-  ) => switch (property.propertyType) {
-    PropertyType.mall || PropertyType.retailCenter => Icons.local_mall_outlined,
-    PropertyType.office ||
-    PropertyType.businessCenter ||
-    PropertyType.commercialBuilding => Icons.apartment_rounded,
-    PropertyType.warehouse => Icons.warehouse_outlined,
-    PropertyType.mixedUse => Icons.domain_outlined,
-    PropertyType.other || PropertyType.unknown => Icons.location_city_rounded,
-  };
+/// A block and the sizes it has to let — "North Wing · 480 sq ft × 10".
+class _BlockRow extends StatelessWidget {
+  const _BlockRow({required this.block});
+
+  final UnitAvailability block;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.domain_outlined, size: 17, color: scheme.primary),
+        Gap.w8,
+        Expanded(
+          child: Text(
+            block.blockName.isEmpty ? 'Unnamed block' : block.blockName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: text.labelMedium,
+          ),
+        ),
+        Gap.w8,
+        Flexible(
+          child: Text(
+            block.bySize.map(_sizeLabel).join(', '),
+            textAlign: TextAlign.end,
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _sizeLabel(UnitAvailabilitySize size) {
+    if (size.size == 0) return '× ${size.count}';
+    final area = size.size == size.size.roundToDouble()
+        ? size.size.toInt().toString()
+        : size.size.toString();
+    return '$area sq ft × ${size.count}';
+  }
 }

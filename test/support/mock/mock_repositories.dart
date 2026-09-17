@@ -279,6 +279,34 @@ class MockUnitRepository with _MockLatency implements UnitRepository {
     );
   });
 
+  /// The same engine the list asks, summarised the way the live route does:
+  /// bookable units bucketed by block and then by area.
+  @override
+  Future<Result<List<UnitAvailability>>> listAvailability() => guard(() {
+    _server.expireDueBookings();
+    final byBlock = <String, List<UnitRow>>{};
+    for (final unit in _server.units.values) {
+      if (!_server.isUnitAvailable(unit.id)) continue;
+      byBlock.putIfAbsent(unit.buildingId ?? '', () => []).add(unit);
+    }
+    return [
+      for (final MapEntry(key: blockId, value: units) in byBlock.entries)
+        UnitAvailability(
+          propertyId: units.first.propertyId,
+          propertyName: _server.properties[units.first.propertyId]!.name,
+          blockId: blockId,
+          blockName: units.first.buildingName ?? '',
+          bySize: [
+            for (final size in {for (final u in units) u.area ?? 0})
+              UnitAvailabilitySize(
+                size: size,
+                count: units.where((u) => (u.area ?? 0) == size).length,
+              ),
+          ],
+        ),
+    ];
+  });
+
   @override
   Future<Result<Unit>> getUnit(String unitId) => guard(() {
     _server.expireDueBookings();
@@ -349,20 +377,42 @@ class MockBookingRepository with _MockLatency implements BookingRepository {
     return _server.quoteFor(unitId);
   });
 
+  /// A space is allocated the way the live server does it: the first unit in
+  /// the block that is free and of the size asked for. A unit named outright
+  /// is booked as named.
   @override
   Future<Result<Booking>> createBooking({
-    required String unitId,
+    required BookingTarget target,
     required BookingApplicant applicant,
     required String idempotencyKey,
-  }) => guard(
-    () => _toDomain(
+  }) => guard(() {
+    _server.expireDueBookings();
+    final unitId = switch (target) {
+      UnitTarget(:final unitId) => unitId,
+      SpaceTarget(:final blockId, :final size) =>
+        _server.units.values
+            .where(
+              (unit) =>
+                  unit.buildingId == blockId &&
+                  (size == null || (unit.area ?? 0) == size) &&
+                  _server.isUnitAvailable(unit.id),
+            )
+            .firstOrNull
+            ?.id,
+    };
+    if (unitId == null) {
+      throw const MockConflict(
+        'No space of that size is left in this block. Please choose another.',
+      );
+    }
+    return _toDomain(
       _server.createBooking(
         unitId: unitId,
         applicant: applicant,
         idempotencyKey: idempotencyKey,
       ),
-    ),
-  );
+    );
+  });
 
   @override
   Future<Result<Page<Booking>>> listBookings({
@@ -392,6 +442,35 @@ class MockBookingRepository with _MockLatency implements BookingRepository {
   Future<Result<Booking>> cancelBooking(String bookingId) => guard(() {
     _server.cancelBooking(bookingId);
     return _toDomain(_server.bookings[bookingId]!);
+  });
+
+  /// [amount] is deliberately unused, for the same reason as on
+  /// [MockPaymentRepository.initiatePayment]: the server charges the fee it
+  /// captured on the booking, whatever it was told.
+  @override
+  Future<Result<PaymentPrompt>> requestBookingFeePrompt({
+    required String bookingId,
+    required String phoneNumber,
+    required Money amount,
+    required String idempotencyKey,
+  }) => guard(() {
+    final row = _server.bookings[bookingId];
+    if (row == null) throw const MockNotFound('Booking not found');
+    final feeInvoiceId = row.bookingFeeInvoiceId;
+    if (feeInvoiceId == null || !row.status.awaitsBookingFee) {
+      throw const MockConflict('This booking has no fee outstanding.');
+    }
+    final intent = _server.initiatePayment(
+      invoiceId: feeInvoiceId,
+      method: PaymentMethod.mpesa,
+      idempotencyKey: idempotencyKey,
+      phoneNumber: phoneNumber,
+    );
+    return PaymentPrompt(
+      phoneNumber: phoneNumber,
+      amount: intent.amount,
+      message: intent.instruction,
+    );
   });
 
   @override
@@ -566,6 +645,26 @@ class MockPaymentRepository with _MockLatency implements PaymentRepository {
       phoneNumber: phoneNumber,
     ),
   );
+
+  @override
+  Future<Result<PaymentPrompt>> requestMpesaPrompt({
+    required String invoiceId,
+    required String phoneNumber,
+    required Money amount,
+    required String idempotencyKey,
+  }) => guard(() {
+    final intent = _server.initiatePayment(
+      invoiceId: invoiceId,
+      method: PaymentMethod.mpesa,
+      idempotencyKey: idempotencyKey,
+      phoneNumber: phoneNumber,
+    );
+    return PaymentPrompt(
+      phoneNumber: phoneNumber,
+      amount: intent.amount,
+      message: intent.instruction,
+    );
+  });
 
   @override
   Future<Result<Payment>> getPayment(String paymentId) => guard(() {

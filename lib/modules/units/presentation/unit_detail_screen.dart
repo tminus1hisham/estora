@@ -367,10 +367,20 @@ class _BookingBar extends StatelessWidget {
             // real check inside a locking transaction on the server, so a
             // booking attempt can still come back with a conflict if the
             // unit went while this screen was open.
-            onPressed: unit.isBookable
+            // The booking route is keyed on the space, not the unit: the
+            // server allocates within the block, so this unit's block and
+            // size are what get asked for.
+            onPressed: unit.isBookable && unit.buildingId != null
                 ? () => context.pushNamed(
                     Routes.booking,
-                    pathParameters: {'unitId': unit.id},
+                    pathParameters: {
+                      'propertyId': unit.propertyId,
+                      'blockId': unit.buildingId!,
+                    },
+                    queryParameters: {
+                      if (unit.area != null)
+                        Routes.bookingSizeQuery: unit.area!.toString(),
+                    },
                   )
                 : null,
             icon: const Icon(Icons.event_available_outlined),

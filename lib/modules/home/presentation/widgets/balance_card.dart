@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../components/amount_text.dart';
@@ -10,6 +11,7 @@ import '../../../../core/theme/status_palette.dart';
 import '../../../../core/utils/date_format.dart';
 import '../../../../domain/entities/dashboard_summary.dart';
 import '../../../../navigation/routes.dart';
+import '../../../invoices/presentation/widgets/pay_invoice.dart';
 import 'home_atoms.dart';
 
 /// Outstanding balance, next invoice and next due date.
@@ -232,14 +234,14 @@ class _NextInvoice extends StatelessWidget {
   }
 }
 
-class _Actions extends StatelessWidget {
+class _Actions extends ConsumerWidget {
   const _Actions({required this.summary, required this.stacked});
 
   final DashboardSummary summary;
   final bool stacked;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final invoices = _Secondary(
       label: 'All invoices',
       onPressed: () => context.goNamed(Routes.invoices),
@@ -254,10 +256,7 @@ class _Actions extends StatelessWidget {
     }
 
     final pay = FilledButton.icon(
-      onPressed: () => context.pushNamed(
-        Routes.payment,
-        pathParameters: {'invoiceId': summary.nextInvoice!.id},
-      ),
+      onPressed: () => payInvoice(context, ref, summary.nextInvoice!),
       style: FilledButton.styleFrom(
         // Fixed, like the card it sits on. The scheme's primary container is
         // itself dark once the app is in dark mode, which would leave this

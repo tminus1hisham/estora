@@ -177,6 +177,11 @@ class UnitFilter {
 }
 
 abstract interface class UnitRepository {
+  /// Section 48's availability engine across the whole platform: every block
+  /// with bookable stock, and the sizes on offer in each. This is what the
+  /// Browse tab lists, so a tenant sees only spaces they could actually book.
+  Future<Result<List<UnitAvailability>>> listAvailability();
+
   Future<Result<Page<Unit>>> listUnits({
     UnitFilter filter = const UnitFilter(),
     int page = 1,
@@ -204,11 +209,11 @@ abstract interface class BookingRepository {
 
   /// Creates a booking.
   ///
-  /// The body carries the unit and who is asking — and no amounts. The server
-  /// determines the commercial terms and captures them on the booking
+  /// The body carries what is wanted and who is asking — and no amounts. The
+  /// server determines the commercial terms and captures them on the booking
   /// (section 21). [idempotencyKey] makes a retry safe (section 66).
   Future<Result<Booking>> createBooking({
-    required String unitId,
+    required BookingTarget target,
     required BookingApplicant applicant,
     required String idempotencyKey,
   });
@@ -221,6 +226,22 @@ abstract interface class BookingRepository {
   Future<Result<Booking>> getBooking(String bookingId);
 
   Future<Result<Booking>> cancelBooking(String bookingId);
+
+  /// Asks the server to send an M-Pesa prompt for the booking fee (section 24).
+  ///
+  /// [amount] is the booking's own [Booking.bookingFee], the figure the server
+  /// captured when the booking was made, carried back unchanged because the
+  /// contract's confirmation request requires it on the wire. The app never
+  /// derives it. [phoneNumber] is the handset the prompt goes to.
+  ///
+  /// The answer is a [PaymentPrompt], not a payment: the outcome is read off
+  /// the booking once the tenant has answered the prompt.
+  Future<Result<PaymentPrompt>> requestBookingFeePrompt({
+    required String bookingId,
+    required String phoneNumber,
+    required Money amount,
+    required String idempotencyKey,
+  });
 
   /// Uploads a document against one of the booking's requirements
   /// (sections 18 and 51).
@@ -341,6 +362,19 @@ abstract interface class PaymentRepository {
     required Money amount,
     required String idempotencyKey,
     String? phoneNumber,
+  });
+
+  /// Asks the server to send an M-Pesa prompt for an invoice.
+  ///
+  /// The contract's payment request answers with the invoices it touched,
+  /// not with a payment to poll, so this returns a [PaymentPrompt] and the
+  /// outcome is read off the invoice afterwards. The same rules as
+  /// [initiatePayment] apply to [amount]: the server's figure, echoed back.
+  Future<Result<PaymentPrompt>> requestMpesaPrompt({
+    required String invoiceId,
+    required String phoneNumber,
+    required Money amount,
+    required String idempotencyKey,
   });
 
   /// Reads current server-side payment state.

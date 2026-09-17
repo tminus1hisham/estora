@@ -56,6 +56,30 @@ class UnitFilterController extends Notifier<UnitFilter> {
   void clear() => state = UnitFilter(propertyId: state.propertyId);
 }
 
+/// What the Browse tab lists: every block with bookable stock, straight from
+/// the availability engine, grouped by property so the page reads as places
+/// rather than as rows.
+final availabilityProvider =
+    AsyncNotifierProvider<AvailabilityController, List<UnitAvailability>>(
+      AvailabilityController.new,
+    );
+
+class AvailabilityController extends AsyncNotifier<List<UnitAvailability>> {
+  @override
+  Future<List<UnitAvailability>> build() async {
+    final result = await ref.read(unitRepositoryProvider).listAvailability();
+    return switch (result) {
+      Ok(:final value) =>
+        value.where((block) => block.count > 0).toList(growable: false),
+      Err(:final failure) => throw failure,
+    };
+  }
+
+  Future<void> refresh() async {
+    state = await AsyncValue.guard(build);
+  }
+}
+
 /// Section 77's Available Units list.
 ///
 /// Watches the filter, so a filter change refetches. Availability is decided

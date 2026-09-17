@@ -248,7 +248,16 @@ class ApiClient {
         error: e,
         stackTrace: stackTrace,
       );
-      return Err(UnknownFailure(e.toString()));
+      // A mapper that throws a FormatException wrote its message for the
+      // tenant — "the request was received, but…" — so it is passed on as
+      // written rather than prefixed with the exception's own name.
+      return Err(
+        UnknownFailure(
+          e is FormatException && e.message.isNotEmpty
+              ? e.message
+              : e.toString(),
+        ),
+      );
     }
   }
 

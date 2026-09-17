@@ -594,7 +594,7 @@ void main() {
 
     final booking = unwrap(
       await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: applicant,
         idempotencyKey: 'applicant-key',
       ),

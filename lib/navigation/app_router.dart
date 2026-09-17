@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_theme.dart';
 import '../domain/entities/billing.dart';
+import '../domain/entities/booking.dart';
 import '../modules/access/presentation/role_claims_screen.dart';
 import '../modules/access/presentation/roles_screen.dart';
 import '../modules/access/presentation/user_access_screen.dart';
@@ -60,7 +61,7 @@ import '../modules/structure/presentation/unit_form_screen.dart';
 import '../modules/treasury/presentation/bank_payment_edit_screen.dart';
 import '../modules/treasury/presentation/bank_payments_screen.dart';
 import '../modules/treasury/presentation/mpesa_transactions_screen.dart';
-import '../modules/units/presentation/available_units_screen.dart';
+import '../modules/units/presentation/property_spaces_screen.dart';
 import '../modules/units/presentation/unit_detail_screen.dart';
 import 'app_shell.dart';
 import 'owner_shell.dart';
@@ -274,7 +275,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     name: Routes.availableUnits,
                     pageBuilder: (_, state) => lateralPage(
                       state: state,
-                      child: AvailableUnitsScreen(
+                      child: PropertySpacesScreen(
                         propertyId: state.pathParameters['propertyId']!,
                       ),
                     ),
@@ -299,7 +300,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (_, state) => lateralPage(
                       state: state,
                       child: BookingScreen(
-                        unitId: state.pathParameters['unitId']!,
+                        target: SpaceTarget(
+                          propertyId: state.pathParameters['propertyId']!,
+                          blockId: state.pathParameters['blockId']!,
+                          size: double.tryParse(
+                            state.uri.queryParameters[Routes
+                                    .bookingSizeQuery] ??
+                                '',
+                          ),
+                        ),
                       ),
                     ),
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../components/amount_text.dart';
@@ -10,6 +11,7 @@ import '../../../../core/theme/status_palette.dart';
 import '../../../../core/utils/date_format.dart';
 import '../../../../domain/entities/billing.dart';
 import '../../../../navigation/routes.dart';
+import 'pay_invoice.dart';
 
 /// The invoice the tenant is going to have to deal with next.
 ///
@@ -194,21 +196,18 @@ class _DueBody extends StatelessWidget {
   }
 }
 
-class _Actions extends StatelessWidget {
+class _Actions extends ConsumerWidget {
   const _Actions({required this.invoice});
 
   final Invoice invoice;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final pay = OnDarkAction(
       label: 'Pay now',
-      icon: Icons.lock_outline_rounded,
+      icon: Icons.phone_android_rounded,
       style: OnDarkActionStyle.primary,
-      onPressed: () => context.pushNamed(
-        Routes.payment,
-        pathParameters: {'invoiceId': invoice.id},
-      ),
+      onPressed: () => payInvoice(context, ref, invoice),
     );
     final open = OnDarkAction(
       label: 'View invoice',

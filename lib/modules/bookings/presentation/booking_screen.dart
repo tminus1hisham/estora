@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/app_refresh_indicator.dart';
-import '../../../components/amount_text.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_stepper.dart';
 import '../../../components/async_button.dart';
@@ -13,12 +12,12 @@ import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../domain/entities/booking.dart';
-import '../../../domain/enums/domain_enums.dart';
+import '../../../domain/entities/unit.dart';
 import '../../../navigation/routes.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../units/application/unit_controller.dart';
 import '../application/booking_controller.dart';
 
 /// Section 77's Booking screen.
@@ -36,9 +35,10 @@ import '../application/booking_controller.dart';
 /// to a particular trade in it. The fields are prefilled from the signed-in
 /// account, so the common case stays one confirmation.
 class BookingScreen extends ConsumerStatefulWidget {
-  const BookingScreen({required this.unitId, super.key});
+  const BookingScreen({required this.target, super.key});
 
-  final String unitId;
+  /// The space being booked, as the engine named it: a size in a block.
+  final SpaceTarget target;
 
   @override
   ConsumerState<BookingScreen> createState() => _BookingScreenState();
@@ -96,7 +96,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final result = await ref
         .read(bookingActionsProvider)
         .createBooking(
-          widget.unitId,
+          widget.target,
           applicant: BookingApplicant(
             fullName: _nameController.text.trim(),
             phoneNumber: PhoneNumber.normalize(
@@ -114,10 +114,21 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     switch (result) {
       case Ok(:final value):
         // Replace rather than push: coming "back" to a booking confirmation
-        // screen for a booking that now exists makes no sense.
+        // screen for a booking that now exists makes no sense. The status
+        // screen is where the fee gets paid, and the message says so —
+        // nothing on the way here asked for money.
         context.pushReplacementNamed(
           Routes.bookingStatus,
           pathParameters: {'bookingId': value.id},
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Booking made. Pay the booking fee when you are ready to hold '
+              'the unit.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       case Err(:final failure):
         ScaffoldMessenger.of(context).showSnackBar(
@@ -137,30 +148,51 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final quote = ref.watch(bookingQuoteProvider(widget.unitId));
+    // The same route Browse read, so the space is described in the engine's
+    // own words and nothing else is fetched on the way to a booking.
+    final availability = ref.watch(availabilityProvider);
+    final block = availability.whenData(
+      (blocks) => blocks
+          .where(
+            (b) =>
+                b.propertyId == widget.target.propertyId &&
+                b.blockId == widget.target.blockId,
+          )
+          .firstOrNull,
+    );
+    final canBook = block.value != null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Confirm your booking')),
       body: AppRefreshIndicator(
-        onRefresh: () async {
-          await ref
-              .refresh(bookingQuoteProvider(widget.unitId).future)
-              .then<void>((_) {});
-        },
-        child: switch (quote) {
-          AsyncLoading() => const LoadingView(message: 'Preparing your quote…'),
+        onRefresh: () => ref.read(availabilityProvider.notifier).refresh(),
+        child: switch (availability) {
+          AsyncLoading() when !availability.hasValue => const LoadingView(
+            message: 'Checking availability…',
+          ),
           AsyncError(:final error) => ErrorView(
             failure: error is Failure
                 ? error
                 : UnknownFailure(error.toString()),
-            onRetry: () async {
-              await ref
-                  .refresh(bookingQuoteProvider(widget.unitId).future)
-                  .then<void>((_) {});
-            },
+            onRetry: () => ref.read(availabilityProvider.notifier).refresh(),
           ),
-          AsyncData(:final value) => _QuoteBody(
-            quote: value,
+          _ when block.value == null => EmptyState(
+            onRefresh: () async {
+              await ref.read(availabilityProvider.notifier).refresh();
+            },
+            icon: Icons.storefront_outlined,
+            title: 'This space has been taken',
+            message:
+                'Nothing is left to book in this block. Pull down to check '
+                'again, or choose another space.',
+            action: FilledButton.tonal(
+              onPressed: () => context.goNamed(Routes.browse),
+              child: const Text('Back to browse'),
+            ),
+          ),
+          _ => _TermsBody(
+            block: block.value!,
+            size: widget.target.size,
             acceptedTerms: _acceptedTerms,
             onAcceptedChanged: (v) => setState(() => _acceptedTerms = v),
             applicant: _ApplicantSection(
@@ -186,22 +218,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       // AppBottomActionBar keeps the height factor this screen needs: a bottom
       // navigation child receives the scaffold's full height as its upper
       // bound, and without one the bar expands to that bound and leaves almost
-      // no viewport for the quote list above it.
-      bottomNavigationBar: quote.hasValue
+      // no viewport for the list above it.
+      bottomNavigationBar: canBook
           ? AppBottomActionBar(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _PayableSummary(amount: quote.requireValue.total),
-                  Gap.h12,
-                  AsyncButton(
-                    label: 'Confirm booking',
-                    icon: Icons.lock_outline_rounded,
-                    expand: true,
-                    enabled: _acceptedTerms,
-                    onPressed: _confirm,
-                  ),
-                ],
+              child: AsyncButton(
+                label: 'Confirm booking',
+                icon: Icons.event_available_outlined,
+                expand: true,
+                enabled: _acceptedTerms,
+                onPressed: _confirm,
               ),
             )
           : null,
@@ -209,25 +234,47 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   }
 }
 
-class _QuoteBody extends StatelessWidget {
-  const _QuoteBody({
-    required this.quote,
+/// Who is booking, and what: the space as the engine described it.
+///
+/// Nothing on this screen is paid, and nothing on it is priced. The engine
+/// names blocks and sizes, not rents; the server sets the rent, the deposit
+/// and the booking fee on the booking when it is made (section 21), and the
+/// booking is where they are read. So the screen says what is being asked
+/// for, who is asking, and what happens next — and does not guess a figure.
+class _TermsBody extends StatelessWidget {
+  const _TermsBody({
+    required this.block,
+    required this.size,
     required this.acceptedTerms,
     required this.onAcceptedChanged,
     required this.applicant,
   });
 
-  final BookingQuote quote;
+  final UnitAvailability block;
+
+  /// The size chosen, or null for any the block has.
+  final double? size;
   final bool acceptedTerms;
   final ValueChanged<bool> onAcceptedChanged;
 
   /// The applicant details, built by the stateful parent so the controllers
-  /// outlive a rebuild of the quote.
+  /// outlive a rebuild of the availability.
   final Widget applicant;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final chosen = size == null
+        ? null
+        : block.bySize.where((s) => s.size == size).firstOrNull;
+    final sizeLabel = size == null
+        ? 'Any size'
+        : UnitAvailabilitySize(size: size!, count: chosen?.count ?? 0).label;
+    final left = chosen?.count ?? block.count;
+    final blockName = block.blockName.isEmpty
+        ? 'Unnamed block'
+        : block.blockName;
 
     return Center(
       child: ConstrainedBox(
@@ -238,48 +285,65 @@ class _QuoteBody extends StatelessWidget {
             const AppStepper.horizontal(steps: _bookingSteps, currentIndex: 0),
             Gap.h24,
             Text(
-              'Secure this unit',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              'Book a space in $blockName',
+              style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: AppTypography.bold,
               ),
             ),
             Gap.h4,
             Text(
-              'Review the server-issued quote before confirming your booking.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              'Confirm who is booking. Nothing is paid now — the booking fee '
+              'is due once your booking is in.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
+
             Gap.h16,
             SectionCard(
-              title: 'To pay now',
+              title: 'Your space',
               children: [
+                DetailRow(label: 'Property', value: block.propertyName),
+                DetailRow(label: 'Block', value: blockName),
+                DetailRow(label: 'Size', value: sizeLabel),
                 DetailRow(
-                  label: 'Booking fee',
-                  valueWidget: AmountText(
-                    quote.bookingFee,
-                    align: TextAlign.end,
+                  label: 'Available',
+                  value: '$left ${left == 1 ? 'unit' : 'units'}',
+                ),
+                Gap.h8,
+                Text(
+                  'The unit itself is allocated when you book, and your '
+                  'booking is held at the rent in force when it is made. If '
+                  'the listed price changes later, your booking and lease '
+                  'keep that figure.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
-                if (quote.taxAmount != null && quote.taxAmount!.isPositive)
-                  DetailRow(
-                    label: quote.taxLabel ?? 'Tax',
-                    valueWidget: AmountText(
-                      quote.taxAmount!,
-                      align: TextAlign.end,
-                    ),
-                  ),
-                const Divider(),
-                DetailRow(
-                  label: 'Total',
-                  // The server's total, rendered as received. Set at the scale
-                  // that closes a group, which is what carries the emphasis
-                  // here — the row does not need to shout as well.
-                  valueWidget: AmountText(
-                    quote.total,
-                    scale: AmountScale.title,
-                    align: TextAlign.end,
-                  ),
+              ],
+            ),
+
+            Gap.h12,
+            applicant,
+
+            Gap.h12,
+            SectionCard(
+              title: 'After you book',
+              children: [
+                // Every figure is set on the booking by the server. The
+                // engine states none, and one read off the booking is the
+                // only one worth quoting.
+                const DetailRow(
+                  label: 'Monthly rent',
+                  value: 'Set on your booking',
+                ),
+                const DetailRow(
+                  label: 'Booking fee',
+                  value: 'Set on your booking',
+                ),
+                const DetailRow(
+                  label: 'Security deposit',
+                  value: 'Set on your booking',
                 ),
                 Gap.h8,
                 Container(
@@ -299,10 +363,11 @@ class _QuoteBody extends StatelessWidget {
                       Gap.w12,
                       Expanded(
                         child: Text(
-                          'Paying the booking fee holds this unit for '
-                          '${quote.expiryHours} hours while you complete the '
-                          'requirements below.',
-                          style: Theme.of(context).textTheme.bodySmall,
+                          'Pay the booking fee from My bookings to hold the '
+                          'unit. The deposit is invoiced once the unit is '
+                          'held, and is refundable at the end of your lease, '
+                          'less any deductions.',
+                          style: theme.textTheme.bodySmall,
                         ),
                       ),
                     ],
@@ -310,92 +375,6 @@ class _QuoteBody extends StatelessWidget {
                 ),
               ],
             ),
-
-            Gap.h12,
-            SectionCard(
-              title: 'To pay before your lease starts',
-              children: [
-                DetailRow(
-                  label: quote.depositMonths == null
-                      ? 'Security deposit'
-                      : 'Security deposit (${quote.depositMonths} months)',
-                  valueWidget: AmountText(
-                    quote.depositAmount,
-                    align: TextAlign.end,
-                  ),
-                ),
-                Gap.h8,
-                Text(
-                  'Invoiced once your booking is confirmed. Refundable at the end '
-                  'of your lease, less any deductions.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-
-            Gap.h12,
-            SectionCard(
-              title: 'Your rent',
-              children: [
-                DetailRow(
-                  label: 'Monthly rent',
-                  valueWidget: AmountText(
-                    quote.monthlyRent,
-                    scale: AmountScale.title,
-                    align: TextAlign.end,
-                  ),
-                ),
-                Gap.h8,
-                Text(
-                  // Section 21, stated to the tenant because it is a commitment
-                  // being made to them, not just an implementation detail.
-                  'This is the rent your booking is held at. If the listed price '
-                  'changes later, your booking and lease keep this figure.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-
-            if (quote.requirements.isNotEmpty) ...[
-              Gap.h12,
-              SectionCard(
-                title: 'What you will need to provide',
-                children: [
-                  for (final requirement in quote.requirements)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 5),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            requirement.requirementType ==
-                                    RequirementType.payment
-                                ? Icons.payments_outlined
-                                : Icons.description_outlined,
-                            size: 18,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                          Gap.w12,
-                          Expanded(
-                            child: Text(
-                              requirement.isMandatory
-                                  ? requirement.name
-                                  : '${requirement.name} (optional)',
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ],
-
-            Gap.h12,
-            applicant,
 
             Gap.h16,
             Card(
@@ -411,10 +390,10 @@ class _QuoteBody extends StatelessWidget {
                   vertical: Gap.xs,
                 ),
                 title: Text(
-                  'I understand the booking fee is payable now and that this hold '
-                  'expires after ${quote.expiryHours} hours if the requirements are '
-                  'not met.',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  'I understand the booking fee is due after booking to hold '
+                  'this unit, and that the hold lapses if the requirements are '
+                  'not completed in time.',
+                  style: theme.textTheme.bodySmall,
                 ),
               ),
             ),
@@ -425,58 +404,9 @@ class _QuoteBody extends StatelessWidget {
   }
 }
 
-class _PayableSummary extends StatelessWidget {
-  const _PayableSummary({required this.amount});
-
-  final Money amount;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final stack = MediaQuery.textScalerOf(context).scale(1) > 1.2;
-
-    final label = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Payable now',
-          style: Theme.of(
-            context,
-          ).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-        Text(
-          'Secure checkout',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-      ],
-    );
-    final value = AmountText(
-      amount,
-      scale: AmountScale.title,
-      // Trails the label when the two sit across, leads when they stack.
-      align: stack ? TextAlign.start : TextAlign.end,
-    );
-
-    return stack
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [label, Gap.h8, value],
-          )
-        : Row(
-            children: [
-              Expanded(child: label),
-              Gap.w12,
-              Flexible(child: value),
-            ],
-          );
-  }
-}
-
 const _bookingSteps = <AppStep>[
-  AppStep(label: 'Review', icon: Icons.receipt_long_outlined),
-  AppStep(label: 'Confirm', icon: Icons.payments_outlined),
+  AppStep(label: 'Book', icon: Icons.event_available_outlined),
+  AppStep(label: 'Pay fee', icon: Icons.payments_outlined),
   AppStep(label: 'Complete', icon: Icons.check_circle_outline_rounded),
 ];
 

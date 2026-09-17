@@ -414,9 +414,36 @@ Booking bookingFromJson(Json json) {
     leaseId: _strOrNull(json['leaseId']),
     bookingFeeInvoiceId: _strOrNull(json['bookingFeeInvoiceId']),
     depositInvoiceId: _strOrNull(json['depositInvoiceId']),
+    isPaid: _bool(json['isPaid']),
+    phoneNumber: _strOrNull(json['phoneNumber']),
     requirements: _list(
       json['requirements'],
     ).map(bookingRequirementFromJson).toList(growable: false),
+  );
+}
+
+/// Reads the answer to an STK request.
+///
+/// Both of the contract's prompt routes answer without a payment record: the
+/// booking confirmation with `{message, success}`, the invoice request with
+/// the invoices it touched. Neither is something to poll, so the prompt is
+/// built from what was asked for and the server's message, when it sent one.
+/// A `success: false` with a 200 is still a refusal, and is thrown as such
+/// rather than dressed up as a prompt the tenant is now waiting on.
+PaymentPrompt paymentPromptFromJson(
+  Json json, {
+  required String phoneNumber,
+  required Money amount,
+}) {
+  if (json.containsKey('success') && !_bool(json['success'], true)) {
+    throw FormatException(
+      _str(json['message'], 'The payment request was not accepted.'),
+    );
+  }
+  return PaymentPrompt(
+    phoneNumber: phoneNumber,
+    amount: amount,
+    message: _strOrNull(json['message']),
   );
 }
 
@@ -447,20 +474,24 @@ PaymentIntent paymentIntentFromRequest(
   );
 }
 
+/// The published `CreateBookingRequest`: a property, a block, and who is
+/// asking. There is no unit on it — the server allocates one — and the
+/// contract's `description` is where the one thing the tenant chose that the
+/// request cannot otherwise carry, the size, is written down.
 Json bookingRequestToJson({
-  required String unitId,
-  required String? propertyId,
-  required String? blockId,
+  required SpaceTarget target,
   required BookingApplicant applicant,
 }) => {
-  'propertyId': _idToApi(propertyId),
-  'blockId': _idToApi(blockId),
-  'unitId': _idToApi(unitId),
+  'propertyId': _idToApi(target.propertyId),
+  'blockId': _idToApi(target.blockId),
   'fullName': applicant.fullName,
   'phoneNumber': PhoneNumber.normalize(applicant.phoneNumber),
   'email': applicant.email,
   'companyName': applicant.companyName,
   'businessType': applicant.businessType,
+  'description': target.size == null
+      ? 'Any available unit'
+      : '${UnitAvailabilitySize(size: target.size!, count: 0).label} unit',
 };
 
 BookingRequirement bookingRequirementFromJson(Json json) => BookingRequirement(
@@ -648,7 +679,7 @@ Invoice invoiceFromJson(Json json) {
 /// sent.
 InvoiceStatus _invoiceStatusFromContract(Json json) {
   final stated = InvoiceStatus.fromApi(
-    _strOrNull(json['invoiceStatus'])?.replaceAll(' ', '_'),
+    _wireName(_strOrNull(json['invoiceStatus'])),
   );
   if (stated != InvoiceStatus.unknown) return stated;
 
@@ -663,6 +694,21 @@ InvoiceStatus _invoiceStatusFromContract(Json json) {
     return InvoiceStatus.overdue;
   }
   return paid > 0 ? InvoiceStatus.partiallyPaid : InvoiceStatus.issued;
+}
+
+/// A status the server spelled its own way, in the app's wire spelling.
+///
+/// The contract leaves `invoiceStatus` as a string and does not say how it is
+/// written. A .NET service writes an enum's name — `PartiallyPaid` — where the
+/// app expects `PARTIALLY_PAID`; a hand-typed one may say `Partially paid`.
+/// All three are the same word, and this makes them compare as such.
+String? _wireName(String? raw) {
+  if (raw == null) return null;
+  return raw
+      .trim()
+      .replaceAllMapped(RegExp(r'(?<=[a-z0-9])(?=[A-Z])'), (_) => '_')
+      .replaceAll(RegExp(r'[\s-]+'), '_')
+      .toUpperCase();
 }
 
 InvoiceLine _invoiceLineFromInvoice(Json json, String currency) {

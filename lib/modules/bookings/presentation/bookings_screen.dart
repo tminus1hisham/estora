@@ -16,6 +16,7 @@ import '../../../core/utils/date_format.dart';
 import '../../../domain/entities/booking.dart';
 import '../../../navigation/routes.dart';
 import '../application/booking_controller.dart';
+import 'widgets/pay_booking_fee.dart';
 
 /// The Bookings tab: the tenant's bookings, past and present.
 ///
@@ -205,22 +206,68 @@ class _BookingRow extends ConsumerWidget {
     required String caption,
     Color? captionColor,
   }) {
-    return RecordRow(
-      icon: Icons.storefront_outlined,
-      iconColor: context.statusColors.resolve(booking.status.tone),
-      title: 'Unit ${booking.unitNumber ?? '—'}',
-      subtitle: [
-        booking.bookingReference,
-        if (booking.propertyName != null) booking.propertyName!,
-      ].join(' · '),
-      amount: AmountText(booking.monthlyRent, align: TextAlign.end),
-      caption: caption,
-      captionColor:
-          captionColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
-      onTap: () => context.pushNamed(
-        Routes.bookingStatus,
-        pathParameters: {'bookingId': booking.id},
+    return Consumer(
+      builder: (context, ref, _) => RecordRow(
+        icon: Icons.storefront_outlined,
+        iconColor: context.statusColors.resolve(booking.status.tone),
+        title: 'Unit ${booking.unitNumber ?? '—'}',
+        subtitle: [
+          booking.bookingReference,
+          if (booking.propertyName != null) booking.propertyName!,
+        ].join(' · '),
+        amount: AmountText(booking.monthlyRent, align: TextAlign.end),
+        caption: caption,
+        captionColor:
+            captionColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+        // A booking waiting on its fee is the one row on this list that
+        // wants something done, and the fee is the one figure it wants —
+        // so the action sits on the row, with the figure, rather than a tap
+        // and a scroll away.
+        footnote: booking.canPayFee
+            ? _PayFeeAction(booking: booking, ref: ref)
+            : null,
+        onTap: () => context.pushNamed(
+          Routes.bookingStatus,
+          pathParameters: {'bookingId': booking.id},
+        ),
       ),
+    );
+  }
+}
+
+/// "Pay now" on a booking row, with the fee it asks for.
+class _PayFeeAction extends StatelessWidget {
+  const _PayFeeAction({required this.booking, required this.ref});
+
+  final Booking booking;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Booking fee ${booking.bookingFee.format()}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Gap.w12,
+        FilledButton.icon(
+          onPressed: () => payBookingFee(context, ref, booking),
+          style: FilledButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: Gap.md),
+          ),
+          icon: const Icon(Icons.phone_android_rounded, size: 18),
+          label: const Text('Pay now'),
+        ),
+      ],
     );
   }
 }

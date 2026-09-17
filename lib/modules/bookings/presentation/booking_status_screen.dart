@@ -19,6 +19,7 @@ import '../../../domain/entities/booking.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
 import '../application/booking_controller.dart';
+import 'widgets/pay_booking_fee.dart';
 
 /// Section 77's Booking Status screen.
 ///
@@ -398,18 +399,19 @@ class _ProgressCard extends StatelessWidget {
             ),
           ),
         ],
-        if (booking.status.awaitsBookingFee &&
-            booking.bookingFeeInvoiceId != null) ...[
+        if (booking.canPayFee) ...[
           Gap.h12,
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => context.pushNamed(
-                Routes.payment,
-                pathParameters: {'invoiceId': booking.bookingFeeInvoiceId!},
+            child: Consumer(
+              // The fee is paid against the booking itself — the contract's
+              // confirmation route takes the booking, not an invoice — so
+              // the prompt is raised here rather than on a payment screen.
+              builder: (context, ref, _) => FilledButton.icon(
+                onPressed: () => payBookingFee(context, ref, booking),
+                icon: const Icon(Icons.phone_android_rounded),
+                label: const Text('Pay now'),
               ),
-              icon: const Icon(Icons.payments_outlined),
-              label: const Text('Pay the booking fee'),
             ),
           ),
         ],

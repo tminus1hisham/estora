@@ -55,7 +55,7 @@ void main() {
   group('availability', () {
     test('an available unit can be booked', () async {
       final result = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -68,7 +68,7 @@ void main() {
     test('a leased unit cannot be booked', () async {
       // SHOP-101 is let to the seeded demo tenant.
       final result = await bookings.createBooking(
-        unitId: 'unt_shop_101',
+        target: const UnitTarget('unt_shop_101'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -79,7 +79,7 @@ void main() {
 
     test('a unit under maintenance cannot be booked', () async {
       final result = await bookings.createBooking(
-        unitId: 'unt_shop_105',
+        target: const UnitTarget('unt_shop_105'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -89,7 +89,7 @@ void main() {
 
     test('a unit cannot be double-booked', () async {
       final first = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -98,7 +98,7 @@ void main() {
       // A different tenant intent, a different key -- so this is genuinely a
       // second booking attempt, not an idempotent replay.
       final second = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'key-2',
       );
@@ -112,7 +112,7 @@ void main() {
       expect(before.value.items.map((u) => u.id), contains('unt_shop_102'));
 
       await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -130,12 +130,12 @@ void main() {
       'replaying a key returns the original booking, not a second one',
       () async {
         final first = await bookings.createBooking(
-          unitId: 'unt_shop_102',
+          target: const UnitTarget('unt_shop_102'),
           applicant: _applicant,
           idempotencyKey: 'same-key',
         );
         final replay = await bookings.createBooking(
-          unitId: 'unt_shop_102',
+          target: const UnitTarget('unt_shop_102'),
           applicant: _applicant,
           idempotencyKey: 'same-key',
         );
@@ -149,7 +149,7 @@ void main() {
 
     test('replaying a payment key does not charge twice', () async {
       final booking = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'booking-key',
       );
@@ -182,7 +182,7 @@ void main() {
   group('terms capture (section 21)', () {
     test('the booking stores the section 80 figures', () async {
       final booking = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -194,7 +194,7 @@ void main() {
 
     test('a later rent change does not alter an existing booking', () async {
       final booking = await bookings.createBooking(
-        unitId: 'unt_shop_103',
+        target: const UnitTarget('unt_shop_103'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -231,7 +231,7 @@ void main() {
       'the hold clock starts when the fee is paid, not at creation',
       () async {
         final booking = await bookings.createBooking(
-          unitId: 'unt_shop_102',
+          target: const UnitTarget('unt_shop_102'),
           applicant: _applicant,
           idempotencyKey: 'key-1',
         );
@@ -258,7 +258,7 @@ void main() {
       units = MockUnitRepository(server);
 
       final booking = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -284,7 +284,7 @@ void main() {
       bookings = MockBookingRepository(server);
 
       final booking = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );
@@ -302,7 +302,7 @@ void main() {
       'paying the fee makes the booking active and raises the deposit',
       () async {
         final booking = await bookings.createBooking(
-          unitId: 'unt_shop_102',
+          target: const UnitTarget('unt_shop_102'),
           applicant: _applicant,
           idempotencyKey: 'key-1',
         );
@@ -321,7 +321,7 @@ void main() {
 
     test('the unit reads as reserved while the booking is active', () async {
       final booking = await bookings.createBooking(
-        unitId: 'unt_shop_102',
+        target: const UnitTarget('unt_shop_102'),
         applicant: _applicant,
         idempotencyKey: 'key-1',
       );

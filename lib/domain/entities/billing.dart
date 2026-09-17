@@ -297,3 +297,27 @@ class PaymentIntent {
   /// For card or bank providers that need a hosted page.
   final String? redirectUrl;
 }
+
+/// An M-Pesa prompt the server has just sent to a handset.
+///
+/// This is all the contract's two STK routes give back: they answer with a
+/// message, not a payment record. There is nothing here to poll. What the
+/// tenant does next happens on their phone, and whether it worked is read off
+/// the invoice or booking the prompt was raised against — which is also the
+/// only place the app should ever read it from (section 39).
+class PaymentPrompt {
+  const PaymentPrompt({
+    required this.phoneNumber,
+    required this.amount,
+    this.message,
+  });
+
+  /// The handset the prompt went to, in the `2547…` form it was sent as.
+  final String phoneNumber;
+
+  /// What the prompt asks for: the server's figure, echoed back.
+  final Money amount;
+
+  /// The server's own account of what it did, when it gave one.
+  final String? message;
+}

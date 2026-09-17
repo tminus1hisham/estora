@@ -49,6 +49,53 @@ class BookingApplicant {
   ];
 }
 
+/// What a booking is for, as the contract identifies it.
+///
+/// The published request names a property and a block, and nothing smaller:
+/// the server allocates a unit within the block. That is also all the
+/// availability engine — the one route Browse reads — can name, since it
+/// answers with blocks and the sizes in stock rather than with unit records.
+/// So the tenant books a *space* ([SpaceTarget]), and a unit id only enters
+/// the picture when a caller already holds a unit record ([UnitTarget]).
+sealed class BookingTarget {
+  const BookingTarget();
+
+  /// The intent this target represents, for the idempotency key. Booking the
+  /// same space twice is the same intent; a different size in the same block
+  /// is not.
+  String get intent;
+}
+
+/// A size in a block, straight off the availability engine.
+class SpaceTarget extends BookingTarget {
+  const SpaceTarget({
+    required this.propertyId,
+    required this.blockId,
+    this.size,
+  });
+
+  final String propertyId;
+  final String blockId;
+
+  /// The area wanted, in the unit the engine measures in (square feet), or
+  /// null for any size the block has.
+  final double? size;
+
+  @override
+  String get intent => 'space:$propertyId/$blockId/${size ?? '*'}';
+}
+
+/// A specific unit, from a caller that has its record in hand — the unit
+/// detail screen, or the demo fixtures. Never reached from Browse.
+class UnitTarget extends BookingTarget {
+  const UnitTarget(this.unitId);
+
+  final String unitId;
+
+  @override
+  String get intent => 'unit:$unitId';
+}
+
 /// Section 21. A temporary reservation of a unit, ahead of a lease.
 ///
 /// The critical property of this entity is that it **captures its commercial
@@ -74,12 +121,28 @@ class Booking {
     this.leaseId,
     this.bookingFeeInvoiceId,
     this.depositInvoiceId,
+    this.isPaid = false,
+    this.phoneNumber,
     this.requirements = const <BookingRequirement>[],
   });
 
   final String id;
   final String unitId;
   final String tenantId;
+
+  /// Whether the server has received the booking fee.
+  ///
+  /// Carried separately from [status] because the contract states both, and
+  /// they can disagree for a moment: a fee that has landed but whose booking
+  /// the worker has not yet activated. Either one is enough to take the pay
+  /// action off the screen — see [canPayFee].
+  final bool isPaid;
+
+  /// The applicant's phone number, as given on the booking request.
+  ///
+  /// Seeds the M-Pesa prompt: the handset the applicant gave is, nearly
+  /// always, the one they will pay from.
+  final String? phoneNumber;
 
   final String bookingReference;
 
@@ -120,6 +183,13 @@ class Booking {
     final remaining = expiresAt!.difference(DateTime.now());
     return remaining.isNegative ? Duration.zero : remaining;
   }
+
+  /// Whether the booking fee can be paid from here (section 24).
+  ///
+  /// The fee is payable while the server is still waiting for it, and only
+  /// then. A paid booking, an active one, or one that has lapsed has nothing
+  /// left to collect.
+  bool get canPayFee => status.awaitsBookingFee && !isPaid;
 
   bool get isExpiringSoon {
     final remaining = timeRemaining;
