@@ -141,7 +141,11 @@ class PortfolioPositionCard extends StatelessWidget {
                     ),
                   ),
                   Gap.h12,
-                  CollectionColumns(months: portfolio.history, height: 108),
+                  CollectionColumns.monthly(
+                    months: portfolio.history,
+                    height: 108,
+                    ink: kOnDark,
+                  ),
                 ],
               ],
             ),

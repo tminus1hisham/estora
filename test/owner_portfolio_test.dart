@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/owner.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'support/mock/mock_server.dart';
 
@@ -385,6 +386,42 @@ void main() {
       for (final tenancy in server.tenanciesFor(ownerId)) {
         expect(tenancy.termProgress, inInclusiveRange(0, 1));
       }
+    });
+  });
+
+  group('collections over a window', () {
+    test('the month agrees with the ledger', () {
+      final ledger = server.ownerLedger(ownerId);
+      final series = server.ownerCollections(
+        ownerId,
+        const CollectionWindow.month(),
+      );
+
+      expect(series.collected, ledger.collectedThisMonth);
+      expect(series.platformFee, ledger.platformFeeThisMonth);
+      expect(series.net, ledger.netThisMonth);
+      expect(series.points.last.collected, ledger.history.last.collected);
+      expect(series.points.last.billed, ledger.history.last.billed);
+    });
+
+    test('a day is bucketed by the hour and totalled once', () {
+      final series = server.ownerCollections(
+        ownerId,
+        const CollectionWindow.today(),
+      );
+
+      expect(series.points, hasLength(24));
+      expect(series.points.every((point) => point.billed == null), isTrue);
+      expect(series.net, series.collected - series.platformFee);
+    });
+
+    test('someone else’s owner sees none of it', () {
+      final theirs = server.ownerCollections(
+        'own_someone_else',
+        const CollectionWindow.month(),
+      );
+      expect(theirs.collected.isZero, isTrue);
+      expect(theirs.paymentCount, 0);
     });
   });
 

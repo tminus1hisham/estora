@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/ambient_glow.dart';
 import '../core/theme/app_theme.dart';
+import 'adaptive_app_frame.dart';
 
 /// The owner tier's four-tab shell.
 ///
@@ -58,11 +59,16 @@ class ManagerShell extends StatelessWidget {
     final theme = inheritedTheme.brightness == Brightness.dark
         ? AppTheme.ownerStage
         : inheritedTheme;
-    final scheme = theme.colorScheme;
 
     return Theme(
       data: theme,
-      child: Scaffold(
+      child: AdaptiveAppFrame(
+        destinations: _destinations,
+        selectedIndex: _branchIndices.contains(navigationShell.currentIndex)
+            ? _branchIndices.indexOf(navigationShell.currentIndex)
+            : 1,
+        onDestinationSelected: _onDestinationSelected,
+        workspaceLabel: 'Property management',
         body: Stack(
           children: [
             // The stage's one light source. It sits behind everything, which is
@@ -86,22 +92,6 @@ class ManagerShell extends StatelessWidget {
             ),
             navigationShell,
           ],
-        ),
-        bottomNavigationBar: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: scheme.outlineVariant.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-          child: NavigationBar(
-            selectedIndex: _branchIndices.contains(navigationShell.currentIndex)
-                ? _branchIndices.indexOf(navigationShell.currentIndex)
-                : 1,
-            onDestinationSelected: _onDestinationSelected,
-            destinations: _destinations,
-          ),
         ),
       ),
     );

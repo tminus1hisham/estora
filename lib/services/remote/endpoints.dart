@@ -96,6 +96,14 @@ class Endpoints {
   static String blockUnits(String blockId) =>
       '/properties/get/all/units/in/block$blockId';
   static String unit(String id) => '/properties/get/unit/$id';
+
+  /// The server's availability engine, asked across the whole platform.
+  ///
+  /// It answers with blocks that have bookable stock and the sizes on offer in
+  /// each, not with unit records — see `unitAvailabilityFromJson`. It takes no
+  /// parameters and no bearer token.
+  static const String availableUnitsToBook =
+      '/properties/available/units/to/book';
   static const String createUnit = '/properties/create/unit';
   static String updateUnit(String id) => '/properties/update/unit/$id';
   static String deleteUnit(String id) => '/properties/delete/unit/$id';

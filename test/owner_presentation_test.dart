@@ -201,8 +201,8 @@ void main() {
   group('CollectionColumns', () {
     testWidgets('draws nothing when there is nothing to draw', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(body: CollectionColumns(months: [])),
+        MaterialApp(
+          home: Scaffold(body: CollectionColumns.monthly(months: const [])),
         ),
       );
       expect(find.byType(SizedBox), findsWidgets);
@@ -233,7 +233,7 @@ void main() {
           home: Scaffold(
             body: SizedBox(
               width: 300,
-              child: CollectionColumns(months: months),
+              child: CollectionColumns.monthly(months: months),
             ),
           ),
         ),

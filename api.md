@@ -767,12 +767,92 @@
           "Payments"
         ],
         "operationId": "Payments_confirmBookedUnit",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateBookingConfirmationRequest"
+            },
+            "x-nullable": false
+          }
+        ],
         "responses": {
           "200": {
             "x-nullable": false,
             "description": "",
             "schema": {
               "$ref": "#/definitions/SuccessResponse"
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/all/bookings": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getAllBookings",
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Invoice"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/bookings/unit/{unitId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getBookingsByUnit",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "unitId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Invoice"
+              }
             }
           },
           "400": {
@@ -795,6 +875,117 @@
           {
             "type": "integer",
             "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Invoice"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/invoices/unit/{unitId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getUnitInvoices",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "unitId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Invoice"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/invoices/block/{blockId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getBlockInvoices",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "blockId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Invoice"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/invoices/property/{propertyId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getPropertyInvoices",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "propertyId",
             "in": "path",
             "required": true,
             "format": "int64",
@@ -995,6 +1186,117 @@
             "type": "string",
             "name": "transId",
             "in": "query",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/MpesaTransactions"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/mpesa/payment/by/unit/{unitId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getMpesaPaymentByUnitId",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "unitId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/MpesaTransactions"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/mpesa/payment/by/block/{blockId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getMpesaPaymentByBlockId",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "blockId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/MpesaTransactions"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/mpesa/payment/by/property/{propertyId}": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getMpesaPaymentByPropertyId",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "propertyId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
             "x-nullable": false
           }
         ],
@@ -1848,6 +2150,30 @@
         }
       }
     },
+    "/v1/api/properties/available/units/to/book": {
+      "get": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_GetAvailableUnitsToBook",
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "/v1/api/roles/get/all/roles": {
       "get": {
         "tags": [
@@ -2363,6 +2689,7 @@
         "firebaseToken",
         "adminPhoneNumber",
         "adminUserId",
+        "propertyIds",
         "lastLogin",
         "createdAt",
         "updatedAt"
@@ -2431,6 +2758,9 @@
           "type": "string"
         },
         "adminUserId": {
+          "type": "string"
+        },
+        "propertyIds": {
           "type": "string"
         },
         "lastLogin": {
@@ -2706,12 +3036,12 @@
       "required": [
         "propertyId",
         "blockId",
-        "unitId",
         "fullName",
         "phoneNumber",
         "email",
         "companyName",
-        "businessType"
+        "businessType",
+        "description"
       ],
       "properties": {
         "propertyId": {
@@ -2719,10 +3049,6 @@
           "format": "int64"
         },
         "blockId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "unitId": {
           "type": "integer",
           "format": "int64"
         },
@@ -2745,6 +3071,32 @@
         "businessType": {
           "type": "string",
           "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "CreateBookingConfirmationRequest": {
+      "type": "object",
+      "required": [
+        "bookingId",
+        "mpesaPhoneNumber",
+        "amount"
+      ],
+      "properties": {
+        "bookingId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "mpesaPhoneNumber": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -2753,6 +3105,7 @@
       "required": [
         "id",
         "propertyId",
+        "blockId",
         "unitId",
         "tenantId",
         "isDeferred",
@@ -2792,6 +3145,10 @@
           "format": "int64"
         },
         "propertyId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "blockId": {
           "type": "integer",
           "format": "int64"
         },
@@ -3275,14 +3632,6 @@
         },
         "description": {
           "type": "string"
-        },
-        "length": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "width": {
-          "type": "number",
-          "format": "decimal"
         },
         "areaSqFeet": {
           "type": "number",
@@ -3853,6 +4202,7 @@
         "id",
         "propertyId",
         "blockId",
+        "unitId",
         "transactionType",
         "transID",
         "transTime",
@@ -3880,6 +4230,10 @@
           "format": "int64"
         },
         "blockId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "unitId": {
           "type": "integer",
           "format": "int64"
         },
@@ -3958,6 +4312,7 @@
         "email",
         "companyName",
         "businessType",
+        "description",
         "status",
         "bookingFee",
         "monthlyRent",
@@ -4006,6 +4361,9 @@
           "type": "string"
         },
         "businessType": {
+          "type": "string"
+        },
+        "description": {
           "type": "string"
         },
         "status": {
@@ -4170,6 +4528,9 @@
         "paymentReference",
         "invoiceId",
         "tenantId",
+        "propertyId",
+        "blockId",
+        "unitId",
         "purpose",
         "paidByName",
         "bankAccountNumber",
@@ -4200,6 +4561,18 @@
           "format": "int64"
         },
         "tenantId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "propertyId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "blockId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "unitId": {
           "type": "integer",
           "format": "int64"
         },
@@ -4239,6 +4612,7 @@
         "tenantId",
         "propertyId",
         "blockId",
+        "unitId",
         "purpose",
         "paidBy",
         "bankAccountNumber",
@@ -4292,6 +4666,10 @@
           "format": "int64"
         },
         "blockId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "unitId": {
           "type": "integer",
           "format": "int64"
         },
@@ -4509,14 +4887,6 @@
         "description": {
           "type": "string",
           "minLength": 1
-        },
-        "length": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "width": {
-          "type": "number",
-          "format": "decimal"
         },
         "areaSqFeet": {
           "type": "number",

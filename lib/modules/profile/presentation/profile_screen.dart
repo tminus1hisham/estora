@@ -195,9 +195,9 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.pushNamed(Routes.documents),
                 ),
                 _NavTile(
-                  icon: Icons.event_note_outlined,
-                  label: 'My bookings',
-                  onTap: () => context.pushNamed(Routes.bookings),
+                  icon: Icons.description_outlined,
+                  label: 'My lease',
+                  onTap: () => context.pushNamed(Routes.leases),
                 ),
                 _NavTile(
                   icon: Icons.lock_outline_rounded,

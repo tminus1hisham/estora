@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 import '../../core/utils/money.dart';
 import '../enums/domain_enums.dart';
 
@@ -478,6 +480,264 @@ class OwnerCollection {
   final String? unitNumber;
   final PaymentMethod method;
   final String? receiptId;
+}
+
+/// Which slice of the owner's collections is being looked at.
+enum CollectionPeriod { today, yesterday, month, custom }
+
+/// A request for a slice of the owner's collections.
+///
+/// The client names the slice; the server draws the lines. Dates are only
+/// carried for [CollectionPeriod.custom], and even then they are the two days
+/// the owner picked, not the timestamps the query runs between — the server
+/// widens "14 September" to the whole of that day, in its own timezone.
+class CollectionWindow {
+  const CollectionWindow.today()
+    : period = CollectionPeriod.today,
+      from = null,
+      to = null;
+
+  const CollectionWindow.yesterday()
+    : period = CollectionPeriod.yesterday,
+      from = null,
+      to = null;
+
+  /// The calendar month in progress.
+  const CollectionWindow.month()
+    : period = CollectionPeriod.month,
+      from = null,
+      to = null;
+
+  /// Two dates, inclusive, in either order.
+  CollectionWindow.custom({required DateTime from, required DateTime to})
+    : period = CollectionPeriod.custom,
+      from = _day(from.isAfter(to) ? to : from),
+      to = _day(from.isAfter(to) ? from : to);
+
+  final CollectionPeriod period;
+  final DateTime? from;
+  final DateTime? to;
+
+  static DateTime _day(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+
+  /// Resolves the window to its bounds and the columns it should be drawn
+  /// in, relative to [now].
+  ///
+  /// Calendar arithmetic, not money: this is the one piece of a collections
+  /// query every server answers identically, so the demo fixtures and the
+  /// test server share it rather than each drawing the lines slightly
+  /// differently. Neither sums anything here.
+  ///
+  /// The buckets are chosen for the shape of the window rather than for its
+  /// length alone. A day is drawn by the hour; a month is drawn against the
+  /// five before it, billed beside collected, because the gap between the two
+  /// is what that view exists to show; a custom span is drawn by the day up to
+  /// five weeks and by the month beyond.
+  CollectionBounds resolve(DateTime now) {
+    final today = _day(now);
+    switch (period) {
+      case CollectionPeriod.today:
+        return _hours(today);
+      case CollectionPeriod.yesterday:
+        return _hours(today.subtract(const Duration(days: 1)));
+      case CollectionPeriod.month:
+        final start = DateTime(now.year, now.month);
+        final end = DateTime(now.year, now.month + 1);
+        return CollectionBounds(
+          from: start,
+          to: end,
+          buckets: [
+            for (var back = 5; back >= 0; back--)
+              _monthBucket(DateTime(now.year, now.month - back)),
+          ],
+        );
+      case CollectionPeriod.custom:
+        final start = from!;
+        final end = to!.add(const Duration(days: 1));
+        final days = end.difference(start).inDays;
+        if (days <= 35) {
+          return CollectionBounds(
+            from: start,
+            to: end,
+            buckets: [
+              for (var day = 0; day < days; day++)
+                _dayBucket(start.add(Duration(days: day)), day, days),
+            ],
+          );
+        }
+        final buckets = <CollectionBucket>[];
+        var month = DateTime(start.year, start.month);
+        while (month.isBefore(end)) {
+          buckets.add(_monthBucket(month));
+          month = DateTime(month.year, month.month + 1);
+        }
+        return CollectionBounds(from: start, to: end, buckets: buckets);
+    }
+  }
+
+  static CollectionBounds _hours(DateTime day) {
+    final end = day.add(const Duration(days: 1));
+    return CollectionBounds(
+      from: day,
+      to: end,
+      buckets: [
+        for (var hour = 0; hour < 24; hour++)
+          CollectionBucket(
+            start: day.add(Duration(hours: hour)),
+            end: day.add(Duration(hours: hour + 1)),
+            // Four ticks across the day; every hour labelled is a smear.
+            label: hour % 6 == 0 ? _hourLabel(hour) : '',
+            name: '${_hourLabel(hour)}–${_hourLabel(hour + 1)}',
+          ),
+      ],
+    );
+  }
+
+  static CollectionBucket _dayBucket(DateTime day, int index, int count) =>
+      CollectionBucket(
+        start: day,
+        end: day.add(const Duration(days: 1)),
+        // A tick each week, and one on the last day so the span reads at a
+        // glance — unless the weekly tick already lands there.
+        label: index % 7 == 0 || (index == count - 1 && index % 7 != 0)
+            ? DateFormat('d MMM').format(day)
+            : '',
+        name: DateFormat('EEE d MMM').format(day),
+      );
+
+  static CollectionBucket _monthBucket(DateTime month) => CollectionBucket(
+    start: month,
+    end: DateTime(month.year, month.month + 1),
+    label: DateFormat('MMM').format(month),
+    name: DateFormat('MMMM yyyy').format(month),
+    isBillingPeriod: true,
+  );
+
+  static String _hourLabel(int hour) {
+    final h = hour % 24;
+    if (h == 0) return '12am';
+    if (h == 12) return '12pm';
+    return h < 12 ? '${h}am' : '${h - 12}pm';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is CollectionWindow &&
+      other.period == period &&
+      other.from == from &&
+      other.to == to;
+
+  @override
+  int get hashCode => Object.hash(period, from, to);
+}
+
+/// Where a [CollectionWindow] starts and stops, and how it is divided.
+class CollectionBounds {
+  const CollectionBounds({
+    required this.from,
+    required this.to,
+    required this.buckets,
+  });
+
+  /// Half-open: [from] is inside the window, [to] is not.
+  final DateTime from;
+  final DateTime to;
+  final List<CollectionBucket> buckets;
+}
+
+/// One column's worth of time, before anything has been counted into it.
+class CollectionBucket {
+  const CollectionBucket({
+    required this.start,
+    required this.end,
+    required this.label,
+    required this.name,
+    this.isBillingPeriod = false,
+  });
+
+  final DateTime start;
+  final DateTime end;
+
+  /// The tick under the column, or empty where the axis stays quiet.
+  final String label;
+
+  /// The column's full name, for the readout and for a screen reader.
+  final String name;
+
+  /// Whether invoices are raised for this span, so a billed figure means
+  /// something. True of a month; false of an hour or a day.
+  final bool isBillingPeriod;
+
+  bool contains(DateTime at) => !at.isBefore(start) && at.isBefore(end);
+}
+
+/// One column of the collections chart, as the server counted it.
+class CollectionPoint {
+  const CollectionPoint({
+    required this.at,
+    required this.label,
+    required this.name,
+    required this.collected,
+    this.billed,
+  });
+
+  /// The column for a [MonthlyCollection], so the six-month history the
+  /// ledger already carries is drawn by the same chart.
+  CollectionPoint.month(MonthlyCollection month)
+    : at = month.month,
+      label = DateFormat('MMM').format(month.month),
+      name = DateFormat('MMMM yyyy').format(month.month),
+      collected = month.collected,
+      billed = month.billed;
+
+  /// The start of the span the column covers.
+  final DateTime at;
+
+  /// The tick under the column; empty where none is wanted.
+  final String label;
+
+  /// The span in words: "September 2026", "Tue 14 Sep", "2pm–3pm".
+  final String name;
+
+  final Money collected;
+
+  /// What was invoiced over the same span, where the span is one invoices are
+  /// raised for. Null for an hour or a day.
+  final Money? billed;
+}
+
+/// A slice of the owner's collections, totalled and divided by the server.
+///
+/// Section 84 rule 7: the headline figure is [collected] as sent, never the
+/// sum of [points], and [points] are never re-bucketed on the client.
+class CollectionSeries {
+  const CollectionSeries({
+    required this.window,
+    required this.from,
+    required this.to,
+    required this.collected,
+    required this.platformFee,
+    required this.net,
+    required this.paymentCount,
+    required this.points,
+  });
+
+  final CollectionWindow window;
+
+  /// The bounds the server actually answered for. Half-open.
+  final DateTime from;
+  final DateTime to;
+
+  final Money collected;
+  final Money platformFee;
+  final Money net;
+  final int paymentCount;
+
+  /// Oldest first.
+  final List<CollectionPoint> points;
+
+  bool get isEmpty => paymentCount == 0 && collected.isZero;
 }
 
 /// Section 88. What came in, what is owed, and what goes out to the owner.

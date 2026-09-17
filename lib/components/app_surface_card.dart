@@ -53,7 +53,7 @@ class AppSurfaceCard extends StatelessWidget {
     final shape = RoundedRectangleBorder(
       borderRadius: borderRadius,
       side: BorderSide(
-        color: borderColor ?? scheme.outlineVariant.withValues(alpha: 0.78),
+        color: borderColor ?? scheme.outlineVariant.withValues(alpha: 0.45),
       ),
     );
 
@@ -67,7 +67,12 @@ class AppSurfaceCard extends StatelessWidget {
     }
 
     // A custom shadow replaces Material's own, rather than stacking with it.
-    final usesCustomShadow = shadows != null;
+    final resolvedShadows =
+        shadows ??
+        (elevation == AppElevation.none
+            ? AppElevation.lifted(scheme.shadow, brightness: scheme.brightness)
+            : null);
+    final usesCustomShadow = resolvedShadows != null;
 
     Widget surface = Material(
       color: gradient != null
@@ -94,7 +99,7 @@ class AppSurfaceCard extends StatelessWidget {
       surface = DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: borderRadius,
-          boxShadow: shadows,
+          boxShadow: resolvedShadows,
         ),
         child: surface,
       );

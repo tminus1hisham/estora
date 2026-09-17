@@ -109,6 +109,37 @@ final ownerLedgerProvider = FutureProvider<OwnerLedger>((ref) async {
   };
 });
 
+/// Which slice of collections the Money screen is looking at.
+///
+/// Opens on the month, which is the figure the screen is named for; the
+/// narrower windows are a question the owner asks, not the default answer.
+final collectionWindowProvider =
+    NotifierProvider<CollectionWindowController, CollectionWindow>(
+      CollectionWindowController.new,
+    );
+
+class CollectionWindowController extends Notifier<CollectionWindow> {
+  @override
+  CollectionWindow build() => const CollectionWindow.month();
+
+  void select(CollectionWindow window) => state = window;
+}
+
+/// What came in over the selected window, as the server totalled it.
+///
+/// Re-fetched per window rather than filtered client-side from the ledger's
+/// recent arrivals: the headline is a total, and section 84 rule 7 keeps
+/// totals on the server. The previous answer is kept while the next one
+/// loads, so the card changes figure rather than blanking between tabs.
+final collectionSeriesProvider = FutureProvider<CollectionSeries>((ref) async {
+  final window = ref.watch(collectionWindowProvider);
+  final result = await ref.read(ownerRepositoryProvider).getCollections(window);
+  return switch (result) {
+    Ok(:final value) => value,
+    Err(:final failure) => throw failure,
+  };
+});
+
 final ownerActionsProvider = Provider<OwnerActions>(OwnerActions.new);
 
 /// The owner's writes.
@@ -198,6 +229,7 @@ class OwnerActions {
     _ref.invalidate(ownerPortfolioProvider);
     _ref.invalidate(ownerTenanciesProvider);
     _ref.invalidate(ownerLedgerProvider);
+    _ref.invalidate(collectionSeriesProvider);
     if (propertyId != null) {
       _ref.invalidate(propertyPerformanceProvider(propertyId));
       _ref.invalidate(repricingImpactProvider(propertyId));

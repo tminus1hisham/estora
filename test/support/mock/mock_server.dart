@@ -2156,6 +2156,90 @@ class MockServer {
   }
 
   /// Billed against collected, month by month, oldest first.
+  /// What came in over one window, totalled and bucketed here — the client
+  /// only ever draws what this returns (section 84 rule 7).
+  ///
+  /// The fee is read off the ledger entries the settlement wrote, for the
+  /// same reason [ownerLedger] reads its payouts there: the recorded cut is
+  /// the auditable one.
+  CollectionSeries ownerCollections(String ownerId, CollectionWindow window) {
+    final owned = propertiesOwnedBy(ownerId).map((p) => p.id).toSet();
+    final currency = owned.isEmpty
+        ? 'KES'
+        : configs[owned.first]?.defaultCurrency ?? 'KES';
+    final bounds = window.resolve(now);
+
+    final settled = payments.values
+        .where(
+          (payment) =>
+              owned.contains(payment.propertyId) &&
+              payment.status == PaymentStatus.success &&
+              payment.paidAt != null,
+        )
+        .toList(growable: false);
+
+    Money collectedBetween(DateTime start, DateTime end) => _sum(
+      settled
+          .where((payment) => _within(payment.paidAt!, start, end))
+          .map((payment) => payment.amount),
+      currency,
+    );
+
+    final points = [
+      for (final bucket in bounds.buckets)
+        CollectionPoint(
+          at: bucket.start,
+          label: bucket.label,
+          name: bucket.name,
+          collected: collectedBetween(bucket.start, bucket.end),
+          billed: bucket.isBillingPeriod
+              ? _sum(
+                  invoices.values
+                      .where(
+                        (invoice) =>
+                            owned.contains(invoice.propertyId) &&
+                            _within(
+                              invoice.invoiceDate,
+                              bucket.start,
+                              bucket.end,
+                            ),
+                      )
+                      .map((invoice) => invoice.total),
+                  currency,
+                )
+              : null,
+        ),
+    ];
+
+    final inWindow = settled.where(
+      (payment) => _within(payment.paidAt!, bounds.from, bounds.to),
+    );
+    final ids = inWindow.map((payment) => payment.id).toSet();
+    final fee = _sum(
+      ledger
+          .where(
+            (entry) =>
+                entry.referenceType == 'PAYMENT' &&
+                entry.direction == 'OUT' &&
+                ids.contains(entry.referenceId),
+          )
+          .map((entry) => entry.amount),
+      currency,
+    );
+    final collected = collectedBetween(bounds.from, bounds.to);
+
+    return CollectionSeries(
+      window: window,
+      from: bounds.from,
+      to: bounds.to,
+      collected: collected,
+      platformFee: fee,
+      net: collected - fee,
+      paymentCount: ids.length,
+      points: points,
+    );
+  }
+
   List<MonthlyCollection> _collectionHistory({
     required Set<String> propertyIds,
     required String currency,

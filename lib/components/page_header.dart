@@ -47,7 +47,10 @@ class PageHeader extends StatelessWidget {
               (compact
                       ? theme.textTheme.headlineSmall
                       : theme.textTheme.headlineMedium)
-                  ?.copyWith(fontWeight: AppTypography.bold),
+                  ?.copyWith(
+                    fontWeight: AppTypography.bold,
+                    letterSpacing: compact ? -0.6 : -0.9,
+                  ),
         ),
         if (subtitle != null) ...[
           Gap.h8,

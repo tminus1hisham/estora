@@ -15,6 +15,7 @@ import 'package:mall/services/providers.dart';
 import 'package:mall/services/remote/api_client.dart';
 import 'package:mall/services/remote/endpoints.dart';
 import 'package:mall/storage/token_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _Tokens implements TokenStore {
   @override
@@ -54,6 +55,8 @@ void main() {
             addTearDown(tester.view.resetPhysicalSize);
             addTearDown(tester.view.resetDevicePixelRatio);
             final tokens = _Tokens();
+            SharedPreferences.setMockInitialValues({});
+            final prefs = await SharedPreferences.getInstance();
             final paths = <String>[];
             final dio = Dio(
               BaseOptions(
@@ -119,6 +122,7 @@ void main() {
             await tester.pumpWidget(
               ProviderScope(
                 overrides: [
+                  sharedPreferencesProvider.overrideWithValue(prefs),
                   tokenStoreProvider.overrideWithValue(tokens),
                   apiClientProvider.overrideWithValue(
                     ApiClient(tokenStore: tokens, dio: dio),

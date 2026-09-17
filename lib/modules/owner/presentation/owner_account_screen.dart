@@ -8,6 +8,7 @@ import '../../../components/page_header.dart';
 import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
 import '../../../components/theme_mode_control.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../navigation/routes.dart';
 import '../../auth/application/auth_controller.dart';
@@ -49,29 +50,30 @@ class OwnerAccountScreen extends ConsumerWidget {
             DetailRow(label: 'Phone', value: user!.phone!),
         ],
       ),
-      RecordGroup(
-        heading: 'Administration',
-        rowInset: 56,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.group_outlined),
-            title: const Text('People'),
-            subtitle: const Text(
-              'Who has an account, and what each of them may do.',
+      if (AppConfig.showAdministration)
+        RecordGroup(
+          heading: 'Administration',
+          rowInset: 56,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.group_outlined),
+              title: const Text('People'),
+              subtitle: const Text(
+                'Who has an account, and what each of them may do.',
+              ),
+              onTap: () => context.pushNamed(Routes.accessUsers),
             ),
-            onTap: () => context.pushNamed(Routes.accessUsers),
-          ),
-          ListTile(
-            leading: const Icon(Icons.badge_outlined),
-            title: const Text('Roles'),
-            subtitle: const Text(
-              'The permissions a job carries, granted once instead of one at '
-              'a time.',
+            ListTile(
+              leading: const Icon(Icons.badge_outlined),
+              title: const Text('Roles'),
+              subtitle: const Text(
+                'The permissions a job carries, granted once instead of one at '
+                'a time.',
+              ),
+              onTap: () => context.pushNamed(Routes.accessRoles),
             ),
-            onTap: () => context.pushNamed(Routes.accessRoles),
-          ),
-        ],
-      ),
+          ],
+        ),
       const RecordGroup(heading: 'Appearance', children: [ThemeModeControl()]),
       RecordGroup(
         heading: 'Session',

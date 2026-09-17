@@ -10,6 +10,7 @@ import 'package:mall/services/remote/api_client.dart';
 import 'package:mall/services/remote/endpoints.dart';
 import 'package:mall/services/remote/remote_repositories.dart';
 import 'package:mall/storage/token_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _Tokens implements TokenStore {
   AuthTokens? tokens;
@@ -26,9 +27,15 @@ class _Tokens implements TokenStore {
 }
 
 void main() {
-  test('every production repository uses the API implementation', () {
+  test('every production repository uses the API implementation', () async {
+    SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer(
-      overrides: [tokenStoreProvider.overrideWithValue(_Tokens())],
+      overrides: [
+        tokenStoreProvider.overrideWithValue(_Tokens()),
+        sharedPreferencesProvider.overrideWithValue(
+          await SharedPreferences.getInstance(),
+        ),
+      ],
     );
     addTearDown(container.dispose);
     final providers = [
@@ -107,8 +114,10 @@ void main() {
             },
           ),
         );
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
         final api = ApiClient(tokenStore: tokens, dio: dio);
-        final identity = AccountIdentity(api);
+        final identity = AccountIdentity(api, prefs);
         final auth = RemoteAuthRepository(api, tokens, identity);
         final login = await auth.loginWithPassword(
           identifier: '254700000000',
@@ -118,14 +127,20 @@ void main() {
         expect(login.valueOrNull!.user.role.isManager, role != 'Tenant');
         expect((await identity.load()).isOk, isTrue);
         expect(paths, [Endpoints.login]);
-        identity.forget();
-        final restored = await auth.restoreSession();
-        if (role == 'Tenant') {
-          expect(restored.isOk, isFalse);
-        } else {
-          expect(restored.isOk, isTrue);
-          expect(restored.valueOrNull!.user.role, AccountRole.fromApi(role));
-        }
+
+        // A relaunch: the process is new, the preferences and token are not.
+        final relaunched = RemoteAuthRepository(
+          api,
+          tokens,
+          AccountIdentity(api, prefs),
+        );
+        final restored = await relaunched.restoreSession();
+        // A tenant's token cannot read the account route, so the account the
+        // login response carried is what stands in for it.
+        expect(restored.isOk, isTrue);
+        expect(restored.valueOrNull!.user.role, AccountRole.fromApi(role));
+        expect(restored.valueOrNull!.user.id, 'account-id');
+        expect(paths, [Endpoints.login, Endpoints.account]);
         dio.close();
       },
     );
@@ -223,4 +238,108 @@ void main() {
       dio.close();
     },
   );
+
+  /// Signs a tenant in against a server that answers the login route only,
+  /// then hands back the preferences and token store a relaunch would find.
+  Future<({SharedPreferences prefs, _Tokens tokens})> signedInTenant() async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final tokens = _Tokens();
+    final dio = Dio(
+      BaseOptions(baseUrl: 'https://test.invalid', validateStatus: (_) => true),
+    );
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (request, handler) => handler.resolve(
+          Response(
+            requestOptions: request,
+            statusCode: 200,
+            data: {
+              'token': 'test-token',
+              'refreshToken': 'test-refresh',
+              'user': {
+                'id': 42,
+                'userId': 'tenant-id',
+                'fullName': 'Test Tenant',
+                'userRole': 'Tenant',
+              },
+            },
+          ),
+        ),
+      ),
+    );
+    final api = ApiClient(tokenStore: tokens, dio: dio);
+    final login = await RemoteAuthRepository(
+      api,
+      tokens,
+      AccountIdentity(api, prefs),
+    ).loginWithPassword(identifier: '254700000000', password: 'test');
+    expect(login.isOk, isTrue);
+    dio.close();
+    return (prefs: prefs, tokens: tokens);
+  }
+
+  test('a saved session survives a launch with no connectivity', () async {
+    final (:prefs, :tokens) = await signedInTenant();
+    final dio = Dio(BaseOptions(baseUrl: 'https://test.invalid'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (request, handler) => handler.reject(
+          DioException.connectionError(
+            requestOptions: request,
+            reason: 'offline',
+          ),
+        ),
+      ),
+    );
+    final api = ApiClient(tokenStore: tokens, dio: dio);
+    final auth = RemoteAuthRepository(api, tokens, AccountIdentity(api, prefs));
+
+    final restored = await auth.restoreSession();
+    expect(restored.isOk, isTrue);
+    expect(restored.valueOrNull!.user.id, 'tenant-id');
+    expect(tokens.tokens, isNotNull);
+    dio.close();
+  });
+
+  test('a session the server will not renew is not restored', () async {
+    final (:prefs, :tokens) = await signedInTenant();
+    final dio = Dio(
+      BaseOptions(baseUrl: 'https://test.invalid', validateStatus: (_) => true),
+    );
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (request, handler) => handler.resolve(
+          Response(
+            requestOptions: request,
+            statusCode: 401,
+            data: {'message': 'Unauthorized'},
+          ),
+        ),
+      ),
+    );
+    final api = ApiClient(tokenStore: tokens, dio: dio);
+    final identity = AccountIdentity(api, prefs);
+    final auth = RemoteAuthRepository(api, tokens, identity);
+
+    final restored = await auth.restoreSession();
+    expect(restored, isA<Ok<AuthSession?>>());
+    expect(restored.valueOrNull, isNull);
+    // The refusal cleared the token, and the saved account went with it: a
+    // sign-in screen, not a stale name presented as a signed-in tenant.
+    expect(tokens.tokens, isNull);
+    expect(identity.saved, isNull);
+    dio.close();
+  });
+
+  test('signing out forgets the saved account', () async {
+    final (:prefs, :tokens) = await signedInTenant();
+    final api = ApiClient(tokenStore: tokens);
+    final identity = AccountIdentity(api, prefs);
+    expect(identity.saved, isNotNull);
+
+    await RemoteAuthRepository(api, tokens, identity).logout();
+    expect(identity.saved, isNull);
+    expect(tokens.tokens, isNull);
+  });
 }

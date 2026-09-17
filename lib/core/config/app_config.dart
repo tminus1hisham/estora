@@ -17,6 +17,26 @@ class AppConfig {
 
   static String get apiRoot => '$apiBaseUrl/$apiVersion/api';
 
+  /// Serves the Money, Leases and Invoices screens from fixtures in
+  /// `lib/services/demo/` instead of the API.
+  ///
+  /// Off in every ordinary build. Turn it on for a design review or a
+  /// screenshot run:
+  /// `flutter run --dart-define=DEMO_DATA=true`
+  ///
+  /// The contract publishes no route for leases or the owner ledger, so
+  /// those two screens can only ever show their "on its way" state against
+  /// the live server; this is the one way to see them with figures on them.
+  /// Everything else — sign-in, properties, units, payments — still goes to
+  /// the API, and the fixtures never reach a build that does not ask for
+  /// them.
+  static const bool demoData = bool.fromEnvironment('DEMO_DATA');
+
+  /// Whether the owner's account page lists the People and Roles screens.
+  /// Hidden for now; the routes themselves stay registered, so flipping this
+  /// back on is the whole change.
+  static const bool showAdministration = false;
+
   /// How often the payment status screen re-checks the server while a payment
   /// is in a non-terminal state. Section 39 forbids trusting the handset's own
   /// view of the outcome, so the client polls rather than assuming success.
@@ -50,5 +70,4 @@ class AppConfig {
   /// asked. Two weeks leaves room for a tenant who only opens the app on rent
   /// day to see the offer at least once before it becomes a block.
   static const int forcedUpdateStalenessDays = 14;
-
 }

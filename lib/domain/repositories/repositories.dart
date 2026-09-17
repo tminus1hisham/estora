@@ -432,6 +432,10 @@ abstract interface class OwnerRepository {
   /// What came in, what is owed, and what is due out (section 41).
   Future<Result<OwnerLedger>> getLedger();
 
+  /// What came in over one [CollectionWindow], totalled and bucketed by the
+  /// server (section 84 rule 7): the Money screen never adds up payments.
+  Future<Result<CollectionSeries>> getCollections(CollectionWindow window);
+
   Future<Result<Property>> createProperty({
     required PropertyDraft draft,
     required String idempotencyKey,

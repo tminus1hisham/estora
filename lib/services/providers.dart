@@ -1,15 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/config/app_config.dart';
 import '../core/utils/idempotency_key.dart';
 import '../domain/repositories/repositories.dart';
 import '../storage/token_store.dart';
 import '../storage/token_store_factory.dart';
+import 'demo/demo_fixtures.dart';
+import 'demo/demo_repositories.dart';
 import 'remote/api_client.dart';
 import 'remote/remote_repositories.dart';
 import 'update/app_update_service.dart';
 
 /// API-only dependency wiring. Tests override individual repositories.
+///
+/// The one exception is `--dart-define=DEMO_DATA=true`, which puts fixtures
+/// behind Money (with its M-Pesa and bank payment screens), Leases and
+/// Invoices — and nothing else. See [AppConfig.demoData].
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -35,6 +42,12 @@ final apiClientProvider = Provider<ApiClient>(
   (ref) => ApiClient(tokenStore: ref.watch(tokenStoreProvider)),
 );
 
+/// One set of fixtures for the life of the app, so a deferral or a signature
+/// made on one screen is still there when the next screen reads.
+///
+/// Only ever read when [AppConfig.demoData] is set.
+final demoFixturesProvider = Provider<DemoFixtures>((ref) => DemoFixtures());
+
 /// Google Play's view of whether this build is the current one.
 ///
 /// A provider rather than a static call so a test can override it with a
@@ -49,7 +62,10 @@ final appUpdateServiceProvider = Provider<AppUpdateService>(
 /// phone number. Rather than have each repository fetch the account for
 /// itself, they share this one.
 final accountIdentityProvider = Provider<AccountIdentity>(
-  (ref) => AccountIdentity(ref.watch(apiClientProvider)),
+  (ref) => AccountIdentity(
+    ref.watch(apiClientProvider),
+    ref.watch(sharedPreferencesProvider),
+  ),
 );
 
 final authRepositoryProvider = Provider<AuthRepository>(
@@ -73,14 +89,18 @@ final bookingRepositoryProvider = Provider<BookingRepository>(
 );
 
 final leaseRepositoryProvider = Provider<LeaseRepository>(
-  (ref) => RemoteLeaseRepository(ref.watch(apiClientProvider)),
+  (ref) => AppConfig.demoData
+      ? DemoLeaseRepository(ref.watch(demoFixturesProvider))
+      : RemoteLeaseRepository(ref.watch(apiClientProvider)),
 );
 
 final invoiceRepositoryProvider = Provider<InvoiceRepository>(
-  (ref) => RemoteInvoiceRepository(
-    ref.watch(apiClientProvider),
-    ref.watch(accountIdentityProvider),
-  ),
+  (ref) => AppConfig.demoData
+      ? DemoInvoiceRepository(ref.watch(demoFixturesProvider))
+      : RemoteInvoiceRepository(
+          ref.watch(apiClientProvider),
+          ref.watch(accountIdentityProvider),
+        ),
 );
 
 final paymentRepositoryProvider = Provider<PaymentRepository>(
@@ -107,9 +127,12 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>(
   (ref) => RemoteDashboardRepository(ref.watch(apiClientProvider)),
 );
 
-final ownerRepositoryProvider = Provider<OwnerRepository>(
-  (ref) => RemoteOwnerRepository(ref.watch(apiClientProvider)),
-);
+final ownerRepositoryProvider = Provider<OwnerRepository>((ref) {
+  final remote = RemoteOwnerRepository(ref.watch(apiClientProvider));
+  return AppConfig.demoData
+      ? DemoOwnerRepository(ref.watch(demoFixturesProvider), remote)
+      : remote;
+});
 
 final propertyStructureRepositoryProvider =
     Provider<PropertyStructureRepository>(
@@ -117,7 +140,9 @@ final propertyStructureRepositoryProvider =
     );
 
 final treasuryRepositoryProvider = Provider<TreasuryRepository>(
-  (ref) => RemoteTreasuryRepository(ref.watch(apiClientProvider)),
+  (ref) => AppConfig.demoData
+      ? DemoTreasuryRepository(ref.watch(demoFixturesProvider))
+      : RemoteTreasuryRepository(ref.watch(apiClientProvider)),
 );
 
 final accessRepositoryProvider = Provider<AccessRepository>(

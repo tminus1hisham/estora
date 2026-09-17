@@ -288,6 +288,32 @@ Unit unitFromJson(Json json) {
   );
 }
 
+/// One row of `GET /properties/available/units/to/book`:
+///
+/// ```json
+/// {"propertyId": 2, "propertyName": "Grace Mall",
+///  "blockId": 2, "blockName": "North Wing",
+///  "availableUnitsGroupedBySize": [{"size": 480, "count": 10}]}
+/// ```
+///
+/// `size` is the unit's `areaSqFeet`, in the contract's own unit — see
+/// `_apiAreaUnit` — so it compares directly against `Unit.area`.
+UnitAvailability unitAvailabilityFromJson(Json json) => UnitAvailability(
+  propertyId: _str(json['propertyId']),
+  propertyName: _str(json['propertyName']),
+  blockId: _str(json['blockId']),
+  blockName: _str(json['blockName']),
+  bySize: _list(json['availableUnitsGroupedBySize'])
+      .map(
+        (group) => UnitAvailabilitySize(
+          size: _doubleOrNull(group['size']) ?? 0,
+          count: _int(group['count']),
+        ),
+      )
+      .where((group) => group.count > 0)
+      .toList(growable: false),
+);
+
 Json unitDraftToJson(UnitDraft draft) => {
   'propertyId': _idToApi(draft.propertyId),
   'blockId': _idToApi(draft.blockId),

@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'adaptive_app_frame.dart';
+
 /// The five-tab bottom navigation.
 ///
 /// Section 45 lists eight destinations — Home, My Lease, Invoices, Payments,
 /// Documents, Property, Notifications, Profile — which is more than a bottom
-/// bar can carry legibly. All eight are still reachable; the three that are not
+/// bar can carry legibly. All eight are still reachable; the four that are not
 /// tabs live as sub-routes:
 ///
 /// * Notifications — the bell in the home app bar
 /// * Property — from the home tenancy card, and the Browse tab
 /// * Payments and Documents — from Profile, and from the invoices app bar
+/// * My Lease — from Profile, and the home quick actions
 ///
-/// Browse is added as a tab because section 77's Main group (Properties,
-/// Available Units, Unit Details, Booking) is the whole pre-tenancy journey and
-/// needs a top-level entry point.
+/// Browse and Bookings are tabs instead, because section 77's Main group
+/// (Properties, Available Units, Unit Details, Booking) is the whole
+/// pre-tenancy journey and needs a top-level entry point at both ends: a place
+/// to find a unit, and a place to watch the hold on it count down. A lease is
+/// read once and kept; a booking is checked.
 class AppShell extends StatelessWidget {
   const AppShell({required this.navigationShell, super.key});
 
@@ -32,9 +37,9 @@ class AppShell extends StatelessWidget {
       label: 'Browse',
     ),
     NavigationDestination(
-      icon: Icon(Icons.description_outlined),
-      selectedIcon: Icon(Icons.description_rounded),
-      label: 'Lease',
+      icon: Icon(Icons.event_available_outlined),
+      selectedIcon: Icon(Icons.event_available_rounded),
+      label: 'Bookings',
     ),
     NavigationDestination(
       icon: Icon(Icons.receipt_long_outlined),
@@ -59,27 +64,12 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
+    return AdaptiveAppFrame(
       body: navigationShell,
-      // The hairline gives the bar an edge to sit on. Without it the bar and
-      // the content beneath share a background and the boundary only appears
-      // once something has been scrolled up against it.
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: scheme.outlineVariant.withValues(alpha: 0.6),
-            ),
-          ),
-        ),
-        child: NavigationBar(
-          selectedIndex: navigationShell.currentIndex,
-          onDestinationSelected: _onDestinationSelected,
-          destinations: _destinations,
-        ),
-      ),
+      destinations: _destinations,
+      selectedIndex: navigationShell.currentIndex,
+      onDestinationSelected: _onDestinationSelected,
+      workspaceLabel: 'Your space',
     );
   }
 }

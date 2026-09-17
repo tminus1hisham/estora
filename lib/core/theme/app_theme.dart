@@ -120,7 +120,7 @@ abstract final class AppTheme {
     onSurface: AppPalette.stone100,
     surfaceDim: Color(0xFF030A14),
     surfaceBright: AppPalette.navy700,
-    surfaceContainerLowest: Color(0xFF020811),
+    surfaceContainerLowest: Color(0xFF0D1D32),
     surfaceContainerLow: Color(0xFF08152A),
     surfaceContainer: AppPalette.navy900,
     surfaceContainerHigh: AppPalette.navy800,
@@ -194,10 +194,10 @@ abstract final class AppTheme {
 
   static ThemeData _build(ColorScheme scheme, StatusColors statusColors) {
     final textTheme = _textTheme(scheme);
-    final controlShape = RoundedRectangleBorder(borderRadius: AppRadius.small);
+    final controlShape = RoundedRectangleBorder(borderRadius: AppRadius.medium);
     final cardShape = RoundedRectangleBorder(
       borderRadius: AppRadius.large,
-      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.78)),
+      side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
     );
 
     return ThemeData(
@@ -305,7 +305,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerLow,
+        fillColor: scheme.surfaceContainerLowest,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpace.lg,
           vertical: AppSpace.lg,
@@ -328,11 +328,15 @@ abstract final class AppTheme {
         suffixIconColor: scheme.onSurfaceVariant,
         border: OutlineInputBorder(
           borderRadius: AppRadius.small,
-          borderSide: BorderSide(color: scheme.outlineVariant),
+          borderSide: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.55),
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.small,
-          borderSide: BorderSide(color: scheme.outlineVariant),
+          borderSide: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.55),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.small,
@@ -371,7 +375,7 @@ abstract final class AppTheme {
         ),
       ),
       dividerTheme: DividerThemeData(
-        color: scheme.outlineVariant.withValues(alpha: 0.72),
+        color: scheme.outlineVariant.withValues(alpha: 0.4),
         space: 1,
         thickness: 1,
       ),
@@ -562,13 +566,13 @@ abstract final class AppTheme {
           displayLarge: const TextStyle(
             fontSize: 56,
             height: 1.06,
-            fontWeight: AppTypography.extraBold,
+            fontWeight: AppTypography.bold,
             letterSpacing: -2,
           ),
           displayMedium: const TextStyle(
             fontSize: 45,
             height: 1.08,
-            fontWeight: AppTypography.extraBold,
+            fontWeight: AppTypography.bold,
             letterSpacing: -1.4,
           ),
           displaySmall: const TextStyle(

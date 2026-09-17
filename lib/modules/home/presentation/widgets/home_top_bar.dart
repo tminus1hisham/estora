@@ -68,6 +68,14 @@ class HomeTopBar extends StatelessWidget {
                 child: Row(
                   children: [
                     const AppBrandMark(size: 36),
+                    Gap.w12,
+                    Text(
+                      'Mall',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: foreground,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
                     const Spacer(),
                     _NotificationBell(
                       unread: unread,

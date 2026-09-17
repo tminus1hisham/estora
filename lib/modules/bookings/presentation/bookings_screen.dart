@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/countdown_timer.dart';
 import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
 import '../../../components/summary_banner.dart';
@@ -16,7 +17,11 @@ import '../../../domain/entities/booking.dart';
 import '../../../navigation/routes.dart';
 import '../application/booking_controller.dart';
 
-/// The tenant's bookings, past and present.
+/// The Bookings tab: the tenant's bookings, past and present.
+///
+/// This is the tab a pre-tenancy account lives on. A booking is a hold with a
+/// clock on it, and the whole point of the screen is to see where each one
+/// stands — how long is left, what still needs doing — without opening it.
 ///
 /// Expired and cancelled bookings stay on the list. Section 23 is explicit that
 /// an expired booking is not deleted, and a tenant who paid a booking fee has a
@@ -156,18 +161,50 @@ class _BookingOverview extends StatelessWidget {
 ///
 /// The countdown is the one thing here that changes on its own, so it takes the
 /// caption slot where the eye already goes for status — an expiring hold is the
-/// reason this screen gets opened.
-class _BookingRow extends StatelessWidget {
+/// reason this screen gets opened. It ticks rather than being read once: a tab
+/// stays mounted while the tenant is elsewhere in the app, and a caption
+/// computed on first build would still say "2 hours" long after the hold
+/// lapsed.
+class _BookingRow extends ConsumerWidget {
   const _BookingRow({required this.booking});
 
   final Booking booking;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final counting =
-        booking.status.isCountingDown && booking.timeRemaining != null;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expiresAt = booking.expiresAt;
+    if (!booking.status.isCountingDown || expiresAt == null) {
+      return _row(context, caption: booking.status.label);
+    }
 
+    return CountdownTimer(
+      expiresAt: expiresAt,
+      // The caption is only ever minutes-granular, so a second-by-second
+      // rebuild of every row would be work nobody could see.
+      tick: const Duration(minutes: 1),
+      // Zero here does not expire the booking. A background worker on the
+      // server does that (section 23); this refetches so the list shows the
+      // server's verdict rather than guessing at it.
+      onExpired: () => ref.read(bookingListProvider.notifier).refresh(),
+      builder: (context, remaining) {
+        final scheme = Theme.of(context).colorScheme;
+        final urgent = remaining < const Duration(hours: 6);
+        return _row(
+          context,
+          caption: remaining == Duration.zero
+              ? 'Hold ended'
+              : 'Expires in ${AppDate.humanDuration(remaining)}',
+          captionColor: urgent ? scheme.error : context.statusColors.warning,
+        );
+      },
+    );
+  }
+
+  Widget _row(
+    BuildContext context, {
+    required String caption,
+    Color? captionColor,
+  }) {
     return RecordRow(
       icon: Icons.storefront_outlined,
       iconColor: context.statusColors.resolve(booking.status.tone),
@@ -177,14 +214,9 @@ class _BookingRow extends StatelessWidget {
         if (booking.propertyName != null) booking.propertyName!,
       ].join(' · '),
       amount: AmountText(booking.monthlyRent, align: TextAlign.end),
-      caption: counting
-          ? 'Expires in ${AppDate.humanDuration(booking.timeRemaining!)}'
-          : booking.status.label,
-      captionColor: counting && booking.isExpiringSoon
-          ? scheme.error
-          : counting
-          ? context.statusColors.warning
-          : scheme.onSurfaceVariant,
+      caption: caption,
+      captionColor:
+          captionColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
       onTap: () => context.pushNamed(
         Routes.bookingStatus,
         pathParameters: {'bookingId': booking.id},

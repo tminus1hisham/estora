@@ -17,7 +17,15 @@ flutter run --dart-define=API_BASE_URL=https://your-api-host
 ```
 
 The default API is `https://property-manager-api.transfa.org/v1/api`.
-Production repositories call only operations defined in `api.md`. There is no mock switch, seeded application data or demo login. Unsupported features return an unavailable result locally without HTTP requests; a failed API request shows an error; an empty API result shows an empty state.
+Production repositories call only operations defined in `api.md`. There is no seeded application data or demo login. Unsupported features return an unavailable result locally without HTTP requests; a failed API request shows an error; an empty API result shows an empty state.
+
+The one exception is a build-time flag for looking at the three screens the API cannot fill:
+
+```bash
+flutter run --dart-define=DEMO_DATA=true
+```
+
+This serves the Money, M-Pesa payments, Bank payments, Leases and Invoices screens (and the detail, agreement, defer and sign screens behind them) from fixtures in `lib/services/demo/`. Everything else, including sign-in, still goes to the API. The flag is off in every ordinary build, and `api_only_test.dart` holds that the default wiring is API-only.
 
 Some screens need capabilities the API does not provide. See [backend_requirement.md](backend_requirement.md) for the current capability gaps. The app does not invent report totals, booking quotes or booking confirmations to fill those gaps.
 
@@ -37,6 +45,7 @@ The opt-in live probe accepts `PROBE_PHONE` and `PROBE_PASSWORD` build defines. 
 - `lib/modules/`: screens and controllers
 - `lib/navigation/`: tenant and manager navigation (existing owner route names are retained for compatibility)
 - `lib/services/remote/`: API client and HTTP repositories
+- `lib/services/demo/`: fixtures behind `--dart-define=DEMO_DATA=true`
 - `lib/services/models/`: API mappings
 - `test/support/`: offline fixtures only
 

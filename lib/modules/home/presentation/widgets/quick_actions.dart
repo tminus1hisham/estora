@@ -44,7 +44,6 @@ class QuickActions extends StatelessWidget {
               icon: Icons.description_rounded,
               label: 'My lease',
               route: Routes.leases,
-              tab: true,
             ),
           ]
         : const [
@@ -58,6 +57,7 @@ class QuickActions extends StatelessWidget {
               icon: Icons.event_available_rounded,
               label: 'Bookings',
               route: Routes.bookings,
+              tab: true,
             ),
             _Action(
               icon: Icons.folder_copy_rounded,
@@ -137,10 +137,17 @@ class _ActionTile extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: scheme.surfaceContainerLowest,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    scheme.surfaceContainerLowest,
+                    scheme.primaryContainer.withValues(alpha: 0.45),
+                  ],
+                ),
                 borderRadius: AppRadius.medium,
                 border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.78),
+                  color: scheme.outlineVariant.withValues(alpha: 0.4),
                 ),
                 boxShadow: AppElevation.lifted(
                   scheme.shadow,

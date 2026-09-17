@@ -150,6 +150,44 @@ class Unit {
       : value.toString();
 }
 
+/// Section 48's availability engine, answered for one block.
+///
+/// This is the server's word on what a tenant could book right now: the
+/// block, and within it the unit sizes with stock and how many of each. It
+/// carries no unit ids, so it cannot be shown as a list of spaces on its
+/// own — it says which of a block's units are worth fetching.
+class UnitAvailability {
+  const UnitAvailability({
+    required this.propertyId,
+    required this.propertyName,
+    required this.blockId,
+    required this.blockName,
+    required this.bySize,
+  });
+
+  final String propertyId;
+  final String propertyName;
+  final String blockId;
+  final String blockName;
+
+  /// Sizes with bookable stock, in the area unit the server measures in.
+  final List<UnitAvailabilitySize> bySize;
+
+  /// Units in this block, in total, that could be booked.
+  int get count => bySize.fold(0, (sum, size) => sum + size.count);
+
+  /// Whether a unit of [area] in this block has bookable stock.
+  bool offers(double? area) =>
+      area != null && bySize.any((s) => s.count > 0 && s.size == area);
+}
+
+class UnitAvailabilitySize {
+  const UnitAvailabilitySize({required this.size, required this.count});
+
+  final double size;
+  final int count;
+}
+
 /// Section 16. A template used for batch unit creation (section 17).
 ///
 /// The tenant app only reads unit types — for filtering the browse list by

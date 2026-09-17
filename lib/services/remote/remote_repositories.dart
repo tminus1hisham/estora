@@ -1,3 +1,8 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../core/debug/debug_log.dart';
 import '../../core/error/failure.dart';
 import '../../core/error/result.dart';
 import '../../core/utils/money.dart';
@@ -47,10 +52,16 @@ import 'endpoints.dart';
 /// each repository fetch the account for itself, they share this: it asks
 /// once, remembers, and hands out what it learned.
 class AccountIdentity {
-  AccountIdentity(this._api);
+  AccountIdentity(this._api, [this._prefs]);
 
   final ApiClient _api;
+
+  /// Where the account outlives the process. Optional so a test can run
+  /// memory-only; the app always supplies it.
+  final SharedPreferences? _prefs;
   Json? _account;
+
+  static const _savedKey = 'auth.account';
 
   Future<Result<Json>> load({bool refresh = false}) async {
     final cached = _account;
@@ -60,7 +71,7 @@ class AccountIdentity {
       Endpoints.account,
       parse: (json) => json,
     );
-    if (result case Ok(:final value)) _account = value;
+    if (result case Ok(:final value)) await remember(value);
     return result;
   }
 
@@ -80,11 +91,45 @@ class AccountIdentity {
     };
   }
 
-  void forget() => _account = null;
+  /// Ends the account's tenure here: the session is over, or belongs to
+  /// someone else now.
+  Future<void> forget() async {
+    _account = null;
+    await _prefs?.remove(_savedKey);
+  }
+
+  /// The account changed on the server; the next [load] fetches it afresh.
+  ///
+  /// The saved copy is kept. It is a launch-time fallback, and a name edited
+  /// yesterday is a better account to restore than none at all.
+  void expire() => _account = null;
 
   /// Login includes the authoritative account even when /auth/get/account
   /// is restricted for tenants.
-  void remember(Json account) => _account = account;
+  ///
+  /// Written through to preferences as well, because that restriction holds
+  /// on the next launch too: a tenant's token survives a restart but the
+  /// route that would name its account does not answer. [saved] is what
+  /// [RemoteAuthRepository.restoreSession] falls back on.
+  Future<void> remember(Json account) async {
+    _account = account;
+    await _prefs?.setString(_savedKey, jsonEncode(account));
+  }
+
+  /// The account as it was last seen, from a previous run of the app.
+  ///
+  /// Null when nothing was saved or what was saved no longer parses — either
+  /// way, the caller has to reach the server for it.
+  Json? get saved {
+    final raw = _prefs?.getString(_savedKey);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Json ? decoded : null;
+    } on FormatException {
+      return null;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +174,7 @@ class RemoteAuthRepository implements AuthRepository {
       ),
     );
 
-    _identity.forget();
+    await _identity.forget();
 
     // The sign-in response carries the user inline on some routes and not on
     // others. Where it does not, the account route is authoritative.
@@ -147,7 +192,7 @@ class RemoteAuthRepository implements AuthRepository {
 
   Future<Result<AuthSession>> _rejectSession(Failure failure) async {
     await _tokenStore.clear();
-    _identity.forget();
+    await _identity.forget();
     return Err(failure);
   }
 
@@ -160,7 +205,7 @@ class RemoteAuthRepository implements AuthRepository {
         ),
       );
     }
-    _identity.remember(account);
+    await _identity.remember(account);
     return Ok(AuthSession(user: user, tenant: null));
   }
 
@@ -271,11 +316,46 @@ class RemoteAuthRepository implements AuthRepository {
 
     return switch (result) {
       Ok<Json>(:final value) => await _sessionFromAccount(value),
-      // An expired session is not an error worth showing; it just means the
-      // tenant needs to sign in again.
-      Err<Json>(failure: UnauthorizedFailure()) => const Ok(null),
-      Err<Json>(:final failure) => Err(failure),
+      Err<Json>(:final failure) => await _restoreFromSaved(failure),
     };
+  }
+
+  /// The account route did not answer; the saved account stands in.
+  ///
+  /// A tenant's token cannot read `/auth/get/account` — the live server
+  /// answers 401 — and a handset that starts offline cannot read anything.
+  /// Neither means the session is over. What would mean that is the token
+  /// store having been cleared, which is what `ApiClient` does when the
+  /// server refuses to *renew* the token: then the server has ended the
+  /// session, and no saved account can revive it.
+  Future<Result<AuthSession?>> _restoreFromSaved(Failure failure) async {
+    final saved = _identity.saved;
+    final tokens = await _tokenStore.read();
+
+    if (saved == null || tokens == null) {
+      // Nothing left to present, so nothing left worth keeping.
+      await _identity.forget();
+      DebugLog.write(
+        'auth',
+        saved == null
+            ? 'Account route refused ($failure) and no account is saved; '
+                  'the session cannot be restored'
+            : 'Account route refused ($failure) and the token was cleared; '
+                  'the session is over',
+      );
+      return switch (failure) {
+        // An expired session is not an error worth showing; it just means the
+        // tenant needs to sign in again.
+        UnauthorizedFailure() || ForbiddenFailure() => const Ok(null),
+        _ => Err(failure),
+      };
+    }
+
+    DebugLog.write(
+      'auth',
+      'Account route refused ($failure); restoring from the saved account',
+    );
+    return _sessionFromAccount(saved);
   }
 
   /// The contract has no sign-out route: a session ends when its token does.
@@ -285,7 +365,7 @@ class RemoteAuthRepository implements AuthRepository {
   @override
   Future<Result<void>> logout() async {
     await _tokenStore.clear();
-    _identity.forget();
+    await _identity.forget();
     return const Ok(null);
   }
 }
@@ -376,7 +456,7 @@ class RemoteAccountRepository implements AccountRepository {
       Endpoints.updateProfilePicture,
       body: {'image': encodedImage},
     );
-    _identity.forget();
+    _identity.expire();
     return result;
   }
 
@@ -397,7 +477,7 @@ class RemoteAccountRepository implements AccountRepository {
         'phoneNumber': PhoneNumber.normalize(phoneNumber),
       },
     );
-    _identity.forget();
+    _identity.expire();
     return result;
   }
 }
@@ -474,6 +554,58 @@ class RemoteUnitRepository implements UnitRepository {
     UnitFilter filter = const UnitFilter(),
     int page = 1,
   }) async {
+    // Browse asks what can be booked. That is the availability engine's
+    // question (section 48), and the contract answers it with one route
+    // across the whole platform — blocks with bookable stock, and the sizes
+    // on offer in each. It names no units, so the unit records still come
+    // from the routes below; but it decides which blocks are worth fetching,
+    // and a property it does not mention has nothing to show without a
+    // second call.
+    if (!filter.availableOnly) return _listUnitRecords(filter);
+
+    final availability = await _api.get(
+      Endpoints.availableUnitsToBook,
+      parse: (json) => listFromJson(json, unitAvailabilityFromJson),
+    );
+    return switch (availability) {
+      Err(:final failure) => Err(failure),
+      Ok(:final value) => await _listBookable(value, filter),
+    };
+  }
+
+  Future<Result<Page<Unit>>> _listBookable(
+    List<UnitAvailability> availability,
+    UnitFilter filter,
+  ) async {
+    final byBlock = <String, UnitAvailability>{
+      for (final block in availability)
+        if (block.bySize.isNotEmpty &&
+            (filter.propertyId == null ||
+                block.propertyId == filter.propertyId) &&
+            (filter.buildingId == null || block.blockId == filter.buildingId))
+          block.blockId: block,
+    };
+    if (byBlock.isEmpty) return Ok(Page.single(const <Unit>[]));
+
+    // A block the engine named is the one to fetch. A property-wide browse
+    // with a single block in stock costs one block call, not the property.
+    final scoped = byBlock.length == 1 && filter.buildingId == null
+        ? filter.copyWith(buildingId: byBlock.keys.single)
+        : filter;
+
+    final records = await _listUnitRecords(scoped);
+    return records.map(
+      (page) => Page.single(
+        page.items
+            .where(
+              (unit) => byBlock[unit.buildingId]?.offers(unit.area) ?? false,
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  Future<Result<Page<Unit>>> _listUnitRecords(UnitFilter filter) async {
     // The contract lists units within a block or within a property, and offers
     // nothing across the whole platform. So the narrowest route the filter
     // allows is used, and only the browse-everything case pays for the wider
@@ -1281,6 +1413,10 @@ class RemoteOwnerRepository implements OwnerRepository {
 
   @override
   Future<Result<OwnerLedger>> getLedger() => _unavailable();
+
+  @override
+  Future<Result<CollectionSeries>> getCollections(CollectionWindow window) =>
+      _unavailable();
 
   /// The one owner write the contract does publish.
   ///

@@ -34,8 +34,8 @@ class Routes {
   static const browse = 'browse';
   static const browsePath = '/browse';
 
-  static const leases = 'leases';
-  static const leasesPath = '/leases';
+  static const bookings = 'bookings';
+  static const bookingsPath = '/bookings';
 
   static const invoices = 'invoices';
   static const invoicesPath = '/invoices';
@@ -102,7 +102,7 @@ class Routes {
   /// The tenant's read-only agreement screen, reached from the owner's side.
   ///
   /// Under `/owner` for the same reason as [ownerPreview]: the redirect keeps
-  /// an owner out of `/leases`, so linking there would bounce them home.
+  /// an owner out of `/profile/leases`, so linking there would bounce them home.
   static const ownerAgreement = 'owner-agreement';
   static const ownerAgreementPath = 'agreement/:leaseId';
 
@@ -175,10 +175,15 @@ class Routes {
   static const bookingStatus = 'booking-status';
   static const bookingStatusPath = 'booking/:bookingId';
 
-  static const bookings = 'bookings';
-  static const bookingsPath = 'bookings';
-
   // -- Lease sub-routes -----------------------------------------------------
+  //
+  // Under the profile tab. The bottom bar carries bookings, not the lease: a
+  // booking is the thing a tenant checks on daily while it is live, whereas a
+  // signed lease is read once and then kept. Everything below nests under
+  // [leases], so a lease id never has to be resolved from anywhere else.
+  static const leases = 'leases';
+  static const leasesPath = 'leases';
+
   static const leaseDetail = 'lease-detail';
   static const leaseDetailPath = ':leaseId';
 
