@@ -27,6 +27,7 @@ import '../../../domain/entities/treasury.dart';
 import '../../../navigation/routes.dart';
 import '../../properties/application/property_controller.dart';
 import '../application/owner_controller.dart';
+import 'widgets/invoice_payments_sheet.dart';
 
 /// Section 88. Money in.
 ///
@@ -551,6 +552,7 @@ class _Ageing extends StatelessWidget {
 }
 
 /// The invoices behind the bands, soonest due first, each with who owes it.
+/// Tapping one opens what has been paid against it.
 class _Outstanding extends StatelessWidget {
   const _Outstanding({required this.invoices});
 
@@ -576,6 +578,7 @@ class _Outstanding extends StatelessWidget {
             subtitle: _where(invoice) ?? invoice.invoiceNumber,
             amount: AmountText(invoice.amountDue),
             caption: 'Due ${AppDate.short(invoice.dueDate)}',
+            onTap: () => showInvoicePaymentsSheet(context, invoice),
           ),
       ],
     );

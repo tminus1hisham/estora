@@ -691,6 +691,9 @@ Invoice invoiceFromJson(Json json) {
     deferReason: _strOrNull(json['deferReason']),
     settledOn: _dateOrNull(json['settledOn']),
     paymentReceipt: _strOrNull(json['paymentReceipt']),
+    payments: _list(
+      json['payments'],
+    ).map(mpesaTransactionFromJson).toList(growable: false),
   );
 }
 

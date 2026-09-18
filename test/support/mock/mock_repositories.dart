@@ -939,15 +939,22 @@ class MockOwnerRepository with _MockLatency implements OwnerRepository {
     final owned = propertyId == null
         ? _server.propertiesOwnedBy(owner.id).map((p) => p.id).toSet()
         : {propertyId};
+    final till = _server.backOffice.listMpesa();
     return OwnerReport(
       propertyId: propertyId,
-      received: _server.backOffice
-          .listMpesa()
+      received: till
           .where((row) => owned.contains(row.propertyId))
           .toList(growable: false),
       invoices: [
         for (final invoice in _server.invoices.values)
-          if (owned.contains(invoice.propertyId)) invoice.toDomain(),
+          if (owned.contains(invoice.propertyId))
+            invoice.toDomain(
+              // The live record embeds the till rows placed against it; the
+              // mock joins them on the account number the payer typed.
+              payments: till
+                  .where((row) => row.invoiceNumber == invoice.invoiceNumber)
+                  .toList(growable: false),
+            ),
       ],
     );
   });

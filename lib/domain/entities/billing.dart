@@ -1,5 +1,6 @@
 import '../../core/utils/money.dart';
 import '../enums/domain_enums.dart';
+import 'treasury.dart';
 
 /// Section 32. An invoice raised against a lease.
 ///
@@ -37,6 +38,7 @@ class Invoice {
     this.deferReason,
     this.settledOn,
     this.paymentReceipt,
+    this.payments = const <MpesaTransaction>[],
   });
 
   final String id;
@@ -93,6 +95,11 @@ class Invoice {
 
   /// The receipt reference the server attached once money landed.
   final String? paymentReceipt;
+
+  /// The M-Pesa transactions the server has placed against this invoice, as
+  /// the record embeds them. What [amountPaid] is made of, not a figure the
+  /// app adds up: the invoice's own totals stay the server's.
+  final List<MpesaTransaction> payments;
 
   bool get isOverdue => status == InvoiceStatus.overdue;
 

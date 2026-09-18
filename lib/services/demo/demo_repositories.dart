@@ -241,6 +241,7 @@ class DemoInvoiceRepository implements InvoiceRepository {
     deferReason: deferReason ?? invoice.deferReason,
     settledOn: settledOn ?? invoice.settledOn,
     paymentReceipt: invoice.paymentReceipt,
+    payments: invoice.payments,
   );
 }
 

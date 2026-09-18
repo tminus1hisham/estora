@@ -86,7 +86,7 @@ class LoggingInterceptor extends Interceptor {
     DebugLog.write(
       'http',
       '✗ #${_id(options)} ${options.method} ${_target(options)} '
-      'gave up after ${_elapsed(options)} (${err.type.name})',
+          'gave up after ${_elapsed(options)} (${err.type.name})',
       detail: err.response?.data,
       error: err.error ?? err.message ?? err.type.name,
       stackTrace: err.stackTrace,
@@ -122,7 +122,9 @@ class LoggingInterceptor extends Interceptor {
     return <String, Object?>{
       for (final MapEntry(:key, :value) in options.headers.entries)
         if (value != null && wanted.contains(key.toLowerCase()))
-          key: DebugLog.isSensitiveKey(key) ? DebugLog.maskSecret(value) : value,
+          key: DebugLog.isSensitiveKey(key)
+              ? DebugLog.maskSecret(value)
+              : value,
     };
   }
 
@@ -152,6 +154,8 @@ class LoggingInterceptor extends Interceptor {
 
   String _elapsed(RequestOptions options) {
     final clock = options.extra[_clockKey];
-    return clock is Stopwatch ? '${clock.elapsedMilliseconds}ms' : 'unknown time';
+    return clock is Stopwatch
+        ? '${clock.elapsedMilliseconds}ms'
+        : 'unknown time';
   }
 }

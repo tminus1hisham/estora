@@ -16,6 +16,7 @@ import 'package:mall/domain/entities/lease.dart';
 import 'package:mall/domain/entities/property.dart';
 import 'package:mall/domain/entities/tenant.dart';
 import 'package:mall/domain/entities/unit.dart';
+import 'package:mall/domain/entities/treasury.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 
 // ---------------------------------------------------------------------------
@@ -600,7 +601,9 @@ class InvoiceRow {
   DateTime? settledOn;
   String? paymentReceipt;
 
-  Invoice toDomain() => Invoice(
+  /// [payments] are the till's rows against this invoice, where the caller
+  /// has them — the live record embeds them, so the owner's report does too.
+  Invoice toDomain({List<MpesaTransaction> payments = const []}) => Invoice(
     id: id,
     invoiceNumber: invoiceNumber,
     tenantId: tenantId,
@@ -627,6 +630,7 @@ class InvoiceRow {
     deferReason: deferReason,
     settledOn: settledOn,
     paymentReceipt: paymentReceipt,
+    payments: payments,
   );
 }
 

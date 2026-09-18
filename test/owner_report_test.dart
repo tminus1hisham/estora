@@ -318,6 +318,18 @@ void main() {
       ).listPayments();
 
       final payments = result.valueOrNull!.items;
+      // The invoice itself carries the same rows, for the owner's sheet.
+      expect(
+        invoiceFromJson(
+          invoice(
+            101,
+            propertyId: 1,
+            due: '2026-09-20T00:00:00Z',
+            payments: [transaction(2, amount: '600', at: '20260910091000')],
+          ),
+        ).payments.single.transactionId,
+        'TX2',
+      );
       // Newest first, whichever invoice each was placed against.
       expect(payments.map((p) => p.id), ['3', '2', '1']);
       expect(payments.first.invoiceId, '101');

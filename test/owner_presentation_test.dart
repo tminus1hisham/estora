@@ -9,6 +9,7 @@ import 'package:mall/components/unit_status_strip.dart';
 import 'package:mall/core/theme/app_theme.dart';
 import 'package:mall/domain/entities/owner.dart';
 import 'package:mall/modules/owner/application/owner_controller.dart';
+import 'package:mall/modules/owner/presentation/widgets/invoice_payments_sheet.dart';
 import 'package:mall/modules/properties/application/property_controller.dart';
 import 'package:mall/navigation/owner_shell.dart';
 import 'package:mall/navigation/routes.dart';
@@ -163,6 +164,59 @@ void main() {
 
     expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
     expect(find.text('OWED TO YOU'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tapping an outstanding invoice opens its payments', (
+    tester,
+  ) async {
+    useViewport(tester, const Size(390, 844));
+
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+
+    await tester.tap(find.text('Revenue'));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(OwnerShell)),
+    );
+    final report = container.read(ownerReportProvider).requireValue;
+    final owed = report.outstandingInvoices;
+    expect(owed, isNotEmpty);
+
+    // The list sits under the collected card and the ageing bands.
+    final row = find.text(owed.first.tenantName ?? owed.first.invoiceNumber);
+    await tester.scrollUntilVisible(
+      row.first,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(row.first);
+    await tester.pumpAndSettle();
+
+    // The sheet leads with the invoice's own figures, then the till's rows
+    // against it, or says plainly that there are none.
+    expect(find.byType(InvoicePaymentsSheet), findsOneWidget);
+    expect(find.text('Balance due'), findsOneWidget);
+    final count = owed.first.payments.length;
+    if (count == 0) {
+      expect(
+        find.text('No payments have been received against this invoice.'),
+        findsOneWidget,
+      );
+    } else {
+      expect(
+        find.text('$count PAYMENT${count == 1 ? '' : 'S'}'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(owed.first.payments.first.transactionId),
+        findsOneWidget,
+      );
+    }
     expect(tester.takeException(), isNull);
   });
 

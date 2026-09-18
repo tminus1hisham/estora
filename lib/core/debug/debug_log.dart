@@ -128,6 +128,8 @@ class DebugLog {
   /// a `DateTime`, an entity, an enum — falls back to its `toString` rather
   /// than throwing, because a logger that can fail is a logger that takes the
   /// app down over a diagnostic.
-  static String _encode(Object? value) =>
-      JsonEncoder.withIndent('  ', (object) => object.toString()).convert(value);
+  static String _encode(Object? value) => JsonEncoder.withIndent(
+    '  ',
+    (object) => object.toString(),
+  ).convert(value);
 }
