@@ -137,10 +137,12 @@ class _LegendEntry extends StatelessWidget {
           ),
         ),
         Gap.w4,
-        Text(
-          label.toLowerCase(),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        Flexible(
+          child: Text(
+            label.toLowerCase(),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],

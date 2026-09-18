@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/app_surface_card.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/property.dart';
-import '../../../navigation/routes.dart';
+import '../../../domain/enums/domain_enums.dart';
 import '../../properties/application/property_controller.dart';
-import '../../../components/app_media.dart';
-import '../../../components/occupancy_meter.dart';
+import 'widgets/owner_dashboard_widgets.dart';
+
 import '../../../components/page_empty_state.dart';
 
 /// Section 88. The owner's buildings.
@@ -44,14 +44,37 @@ class OwnerPropertiesScreen extends ConsumerWidget {
   }
 }
 
-class _Properties extends StatelessWidget {
+class _Properties extends StatefulWidget {
   const _Properties({required this.properties, required this.onRefresh});
 
   final List<Property> properties;
   final Future<void> Function() onRefresh;
 
   @override
+  State<_Properties> createState() => _PropertiesState();
+}
+
+class _PropertiesState extends State<_Properties> {
+  final _search = TextEditingController();
+  PropertyType? _type;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _search.clear();
+      _type = null;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final properties = widget.properties;
+    final onRefresh = widget.onRefresh;
     if (properties.isEmpty) {
       return PageEmptyState(
         icon: Icons.apartment_outlined,
@@ -65,56 +88,185 @@ class _Properties extends StatelessWidget {
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final types = properties.map((property) => property.propertyType).toSet();
+    final selectedType = types.contains(_type) ? _type : null;
+    final query = _search.text.trim().toLowerCase();
+    final visible = properties.where((property) {
+      return (selectedType == null || property.propertyType == selectedType) &&
+          (query.isEmpty ||
+              '${property.name} ${property.code} ${property.locationLabel}'
+                  .toLowerCase()
+                  .contains(query));
+    }).toList();
     return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 760 ? 2 : 1;
+          final columns = MediaQuery.textScalerOf(context).scale(14) > 20
+              ? 1
+              : constraints.maxWidth >= 1080
+              ? 3
+              : constraints.maxWidth >= 700
+              ? 2
+              : 1;
           return CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 sliver: SliverToBoxAdapter(
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1080),
-                      child: Container(
-                        width: double.infinity,
+                      child: AppSurfaceCard(
                         padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: scheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
+                        gradient: AppGradients.brandHero,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'YOUR PORTFOLIO',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onPrimaryContainer,
+                                color: AppPalette.brass200,
                                 letterSpacing: 1.6,
                               ),
                             ),
                             Gap.h12,
                             Text(
-                              '${properties.length} ${properties.length == 1 ? 'property' : 'properties'}, one place',
+                              'Every property.\nA clearer picture.',
                               style: theme.textTheme.headlineSmall?.copyWith(
-                                color: scheme.onPrimaryContainer,
+                                color: Colors.white,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                             Gap.h8,
                             Text(
-                              'View your buildings, explore units and manage the details.',
+                              'Explore your buildings, find a space and manage the details.',
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: scheme.onPrimaryContainer,
+                                color: Colors.white70,
                               ),
+                            ),
+                            Gap.h16,
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 8,
+                              children: [
+                                _PortfolioBadge(
+                                  icon: Icons.apartment_rounded,
+                                  label:
+                                      '${properties.length} ${properties.length == 1 ? 'property' : 'properties'}',
+                                ),
+                                _PortfolioBadge(
+                                  icon: Icons.category_outlined,
+                                  label:
+                                      '${types.length} ${types.length == 1 ? 'property type' : 'property types'}',
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                     ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: constraints.maxWidth > 1120
+                      ? (constraints.maxWidth - 1080) / 2
+                      : 20,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _search,
+                        onChanged: (_) => setState(() {}),
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: 'Search by name, code or location',
+                          labelText: 'Find a property',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _search.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear search',
+                                  onPressed: () => setState(_search.clear),
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                        ),
+                      ),
+                      if (types.length > 1) ...[
+                        Gap.h12,
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('All properties'),
+                              selected: selectedType == null,
+                              onSelected: (_) => setState(() => _type = null),
+                            ),
+                            for (final type in types)
+                              ChoiceChip(
+                                label: Text(type.label),
+                                selected: selectedType == type,
+                                onSelected: (selected) => setState(
+                                  () => _type = selected ? type : null,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                      Gap.h24,
+                      Text(
+                        query.isNotEmpty || selectedType != null
+                            ? '${visible.length} of ${properties.length} properties'
+                            : 'Your properties',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Gap.h4,
+                      Text(
+                        'Select a property to view its spaces and details.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Gap.h16,
+                      if (visible.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.search_off_rounded,
+                                  size: 36,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                                Gap.h12,
+                                Text(
+                                  'No matching properties',
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                                Gap.h8,
+                                const Text(
+                                  'Try another name, location or property type.',
+                                  textAlign: TextAlign.center,
+                                ),
+                                Gap.h12,
+                                OutlinedButton(
+                                  onPressed: _resetFilters,
+                                  child: const Text('Clear filters'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -130,7 +282,7 @@ class _Properties extends StatelessWidget {
                   32,
                 ),
                 sliver: SliverList.separated(
-                  itemCount: (properties.length / columns).ceil(),
+                  itemCount: (visible.length / columns).ceil(),
                   separatorBuilder: (_, _) => Gap.h16,
                   itemBuilder: (context, row) => Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,12 +290,11 @@ class _Properties extends StatelessWidget {
                       for (var column = 0; column < columns; column++) ...[
                         if (column > 0) Gap.w16,
                         Expanded(
-                          child: row * columns + column < properties.length
+                          child: row * columns + column < visible.length
                               ? AppReveal(
                                   index: row,
-                                  child: _PropertyCard(
-                                    property:
-                                        properties[row * columns + column],
+                                  child: OwnerPropertyTile(
+                                    property: visible[row * columns + column],
                                   ),
                                 )
                               : const SizedBox.shrink(),
@@ -161,132 +312,34 @@ class _Properties extends StatelessWidget {
   }
 }
 
-class _PropertyCard extends StatelessWidget {
-  const _PropertyCard({required this.property});
-  final Property property;
+class _PortfolioBadge extends StatelessWidget {
+  const _PortfolioBadge({required this.icon, required this.label});
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-      ),
-      child: InkWell(
-        onTap: () => context.pushNamed(
-          Routes.ownerProperty,
-          pathParameters: {'propertyId': property.id},
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppMedia(
-              source: property.imageUrl,
-              aspectRatio: 2,
-              semanticLabel: property.name,
-              fallbackIcon: Icons.apartment_rounded,
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    property.propertyType.label.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: scheme.primary,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  Gap.h8,
-                  Text(
-                    property.name,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Gap.h8,
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 16,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      Gap.w4,
-                      Expanded(
-                        child: Text(
-                          property.locationLabel,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Gap.h16,
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (property.totalUnits != null)
-                        _Fact(label: '${property.totalUnits} units'),
-                      if (property.availableUnits != null)
-                        _Fact(label: '${property.availableUnits} available'),
-                      if (property.rateLabel != null)
-                        _Fact(label: property.rateLabel!),
-                    ],
-                  ),
-                  if (property.mix != null) ...[
-                    Gap.h16,
-                    OccupancyMeter(mix: property.mix!),
-                  ],
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Divider(height: 1),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Manage property',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: scheme.primary,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 19,
-                        color: scheme.primary,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Fact extends StatelessWidget {
-  const _Fact({required this.label});
+  final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(8),
+      color: Colors.white.withValues(alpha: .08),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.white.withValues(alpha: .14)),
     ),
-    child: Text(label, style: Theme.of(context).textTheme.labelMedium),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: AppPalette.brass200),
+        Gap.w8,
+        Flexible(
+          child: Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: Colors.white),
+          ),
+        ),
+      ],
+    ),
   );
 }

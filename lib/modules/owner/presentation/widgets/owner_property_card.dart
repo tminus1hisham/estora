@@ -38,7 +38,7 @@ class OwnerPropertyCard extends StatelessWidget {
         children: [
           AppMedia(
             source: performance.imageUrl,
-            height: 132,
+            height: 84,
             semanticLabel: performance.propertyName,
           ),
           Padding(
@@ -77,11 +77,11 @@ class OwnerPropertyCard extends StatelessWidget {
                     _Occupancy(rate: performance.occupancyRate),
                   ],
                 ),
-                Gap.h16,
+                Gap.h8,
                 UnitStatusStrip(mix: performance.mix),
-                Gap.h16,
+                Gap.h8,
                 const Hairline(),
-                Gap.h16,
+                Gap.h8,
                 StatRow(
                   left: Stat(
                     'Rent roll',

@@ -13,7 +13,8 @@ import '../../../core/theme/status_palette.dart';
 import '../../../domain/entities/owner.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
-import '../../home/presentation/available_home.dart';
+import 'owner_live_dashboard.dart';
+import 'widgets/owner_dashboard_widgets.dart';
 import '../application/owner_controller.dart';
 import 'widgets/owner_property_card.dart';
 import 'widgets/portfolio_position_card.dart';
@@ -31,15 +32,17 @@ class OwnerPortfolioScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final portfolio = ref.watch(ownerPortfolioProvider);
     if (portfolio.error is UnsupportedFeatureFailure) {
-      return const Scaffold(body: AvailableHome(manager: true));
+      return const OwnerLiveDashboard();
     }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Home'),
-        backgroundColor: Colors.transparent,
-      ),
+      appBar: portfolio.hasValue && portfolio.requireValue.hasProperties
+          ? null
+          : AppBar(
+              title: const Text('Home'),
+              backgroundColor: Colors.transparent,
+            ),
       body: switch (portfolio) {
         AsyncLoading() when !portfolio.hasValue => const AppSkeletonList(
           header: true,
@@ -86,27 +89,55 @@ class _Portfolio extends StatelessWidget {
       );
     }
 
-    final sections = <Widget>[
-      PortfolioPositionCard(portfolio: portfolio),
-      if (portfolio.hasAlerts) _AlertRail(alerts: portfolio.alerts),
-      _PropertyList(properties: portfolio.properties),
-    ];
-
     return AppRefreshIndicator(
       onRefresh: onRefresh,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppLayout.maxReadingWidth,
-          ),
-          child: ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),
-            itemCount: sections.length,
-            separatorBuilder: (_, _) => Gap.h24,
-            itemBuilder: (context, index) =>
-                AppReveal(index: index, child: sections[index]),
-          ),
+      child: OwnerDashboardScrollView(
+        onRefresh: onRefresh,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppReveal(child: PortfolioPositionCard(portfolio: portfolio)),
+            const SizedBox(height: 16),
+            OwnerWidgetGrid(
+              minWidth: 150,
+              children: [
+                OwnerMetric(
+                  label: 'Total properties',
+                  value: '${portfolio.propertyCount}',
+                  icon: Icons.apartment_outlined,
+                ),
+                OwnerMetric(
+                  label: 'Occupancy',
+                  value: '${(portfolio.occupancyRate * 100).round()}%',
+                  icon: Icons.donut_small_outlined,
+                ),
+                OwnerMetric(
+                  label: 'Available spaces',
+                  value: '${portfolio.mix.available}',
+                  icon: Icons.meeting_room_outlined,
+                ),
+                OwnerMetric(
+                  label: 'Outstanding',
+                  value: portfolio.outstanding.format(),
+                  icon: Icons.receipt_long_outlined,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _PropertyList(properties: portfolio.properties),
+            if (portfolio.hasAlerts) ...[
+              const SizedBox(height: 12),
+              AppReveal(
+                index: 2,
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+                  title: Text('Needs attention · ${portfolio.alerts.length}'),
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  children: [_AlertRail(alerts: portfolio.alerts)],
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -173,16 +204,25 @@ class _PropertyList extends StatelessWidget {
             ),
           ),
         ),
-        for (final (index, performance) in properties.indexed) ...[
-          if (index > 0) Gap.h16,
-          OwnerPropertyCard(
-            performance: performance,
-            onTap: () => context.pushNamed(
-              Routes.ownerProperty,
-              pathParameters: {'propertyId': performance.propertyId},
-            ),
+        OwnerWidgetGrid(
+          children: [
+            for (final performance in properties.take(4))
+              OwnerPropertyCard(
+                performance: performance,
+                onTap: () => context.pushNamed(
+                  Routes.ownerProperty,
+                  pathParameters: {'propertyId': performance.propertyId},
+                ),
+              ),
+          ],
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () => context.goNamed(Routes.ownerProperties),
+            child: const Text('View all properties'),
           ),
-        ],
+        ),
       ],
     );
   }

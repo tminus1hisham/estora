@@ -23,9 +23,19 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Administration'), findsNothing);
+    expect(find.text('ADMINISTRATION'), findsNothing);
+    expect(find.text('People'), findsNothing);
+    expect(find.text('Roles'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('Sign out'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('ADMINISTRATION'), findsNothing);
     expect(find.text('People'), findsNothing);
     expect(find.text('Roles'), findsNothing);
     expect(find.text('Sign out'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

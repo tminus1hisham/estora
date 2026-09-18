@@ -8,10 +8,10 @@ import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/app_surface_card.dart';
 import '../../../components/collection_columns.dart';
 import '../../../components/money_count_up.dart';
 import '../../../components/record_group.dart';
-import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/page_empty_state.dart';
 import '../../../components/surface_atoms.dart';
@@ -226,8 +226,10 @@ class _Money extends StatelessWidget {
     final ageing = report.ageingAt(DateTime.now());
     final owed = report.outstandingInvoices;
     final sections = <Widget>[
+      _RevenueHeading(propertyName: properties[report.propertyId]?.name),
       _CollectedCard(report: report),
-      if (report.hasArrears) _Ageing(buckets: ageing),
+      if (report.hasArrears)
+        _Ageing(buckets: ageing, outstanding: report.outstanding),
       if (owed.isNotEmpty) _Outstanding(invoices: owed),
       if (report.received.isNotEmpty)
         _Received(rows: report.received, properties: properties),
@@ -247,7 +249,7 @@ class _Money extends StatelessWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(
                 Gap.lg,
-                Gap.xs,
+                Gap.lg,
                 Gap.lg,
                 Gap.xxl,
               ),
@@ -259,6 +261,44 @@ class _Money extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RevenueHeading extends StatelessWidget {
+  const _RevenueHeading({this.propertyName});
+
+  final String? propertyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'FINANCIAL OVERVIEW',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 2,
+          ),
+        ),
+        Gap.h8,
+        Text(
+          'Your portfolio. In perspective.',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.8,
+          ),
+        ),
+        Gap.h8,
+        Text(
+          propertyName ?? 'Collections and balances across your properties.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -281,40 +321,102 @@ class _CollectedCard extends ConsumerWidget {
     final window = ref.watch(collectionWindowProvider);
     final figures = _Figures.of(report.sliceOver(window));
 
-    return SectionCard(
-      children: [
-        _PeriodStrip(
-          window: window,
-          onSelected: (next) =>
-              ref.read(collectionWindowProvider.notifier).select(next),
-          onCustom: () => _pickRange(context, ref, window),
-        ),
-        Gap.h16,
-        Text(
-          figures.caption,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            letterSpacing: 1.2,
+    return AppSurfaceCard(
+      gradient: AppGradients.brandHero,
+      borderRadius: AppRadius.extraLarge,
+      borderColor: AppPalette.brass300.withValues(alpha: 0.3),
+      padding: const EdgeInsets.all(Gap.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppPalette.brass300.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.small,
+                  border: Border.all(
+                    color: AppPalette.brass300.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.account_balance_outlined,
+                  size: 22,
+                  color: AppPalette.brass300,
+                ),
+              ),
+              Gap.w12,
+              Expanded(
+                child: Text(
+                  'Collection overview',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        Gap.h12,
-        MoneyCountUp(figures.collected, scale: AmountScale.hero),
-        Gap.h8,
-        Text(
-          figures.detail,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        if (figures.points.isNotEmpty) ...[
           Gap.h24,
-          CollectionColumns(
-            key: ValueKey(figures.window),
-            points: figures.points,
-            height: 120,
+          _PeriodStrip(
+            window: window,
+            onSelected: (next) =>
+                ref.read(collectionWindowProvider.notifier).select(next),
+            onCustom: () => _pickRange(context, ref, window),
           ),
+          Gap.h32,
+          Text(
+            figures.caption,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppPalette.brass300,
+              letterSpacing: 1.6,
+            ),
+          ),
+          Gap.h12,
+          MoneyCountUp(
+            figures.collected,
+            scale: AmountScale.hero,
+            color: Colors.white,
+          ),
+          Gap.h8,
+          Text(
+            figures.detail,
+            style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+          ),
+          if (figures.points.isNotEmpty) ...[
+            Gap.h24,
+            Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
+            Gap.h16,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: Gap.md,
+              runSpacing: Gap.sm,
+              children: [
+                Text(
+                  'Collection history',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+                Text(
+                  'Tap a column to explore',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+            Gap.h12,
+            CollectionColumns(
+              key: ValueKey(figures.window),
+              points: figures.points,
+              height: 140,
+              ink: Colors.white,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -429,11 +531,13 @@ class _PeriodStrip extends StatelessWidget {
         ])
           _PeriodPill(
             label: label,
+            onDark: true,
             selected: window == choice,
             onTap: () => onSelected(choice),
           ),
         _PeriodPill(
           label: custom ? _rangeLabel(window) : 'Custom',
+          onDark: true,
           selected: custom,
           icon: Icons.date_range_rounded,
           onTap: onCustom,
@@ -449,18 +553,22 @@ class _PeriodPill extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.icon,
+    this.onDark = false,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
   final IconData? icon;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final foreground = selected
+    final foreground = onDark
+        ? (selected ? AppPalette.navy900 : Colors.white)
+        : selected
         ? scheme.onPrimaryContainer
         : scheme.onSurfaceVariant;
 
@@ -470,13 +578,19 @@ class _PeriodPill extends StatelessWidget {
       label: label,
       excludeSemantics: true,
       child: Material(
-        color: selected
+        color: onDark
+            ? (selected
+                  ? AppPalette.brass300
+                  : Colors.white.withValues(alpha: 0.08))
+            : selected
             ? scheme.primaryContainer
             : scheme.surfaceContainerLowest.withValues(alpha: 0.6),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.pill),
           side: BorderSide(
-            color: selected
+            color: onDark
+                ? Colors.white.withValues(alpha: selected ? 0 : 0.16)
+                : selected
                 ? Colors.transparent
                 : scheme.outlineVariant.withValues(alpha: 0.8),
           ),
@@ -496,13 +610,15 @@ class _PeriodPill extends StatelessWidget {
                   Icon(icon, size: 16, color: foreground),
                   Gap.w4,
                 ],
-                Text(
-                  label,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: foreground,
-                    fontWeight: selected
-                        ? AppTypography.bold
-                        : AppTypography.semibold,
+                Flexible(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: foreground,
+                      fontWeight: selected
+                          ? AppTypography.bold
+                          : AppTypography.semibold,
+                    ),
                   ),
                 ),
               ],
@@ -516,9 +632,10 @@ class _PeriodPill extends StatelessWidget {
 
 /// Outstanding money, banded by how long it has been owed.
 class _Ageing extends StatelessWidget {
-  const _Ageing({required this.buckets});
+  const _Ageing({required this.buckets, required this.outstanding});
 
   final List<ArrearsBucket> buckets;
+  final Money outstanding;
 
   @override
   Widget build(BuildContext context) {
@@ -528,6 +645,49 @@ class _Ageing extends StatelessWidget {
     return RecordGroup(
       heading: 'Owed to you',
       children: [
+        Padding(
+          padding: const EdgeInsets.all(Gap.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Total outstanding',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Gap.h8,
+              AmountText(outstanding, scale: AmountScale.title),
+              Gap.h16,
+              ClipRRect(
+                borderRadius: AppRadius.small,
+                child: SizedBox(
+                  height: 6,
+                  child: Row(
+                    children: [
+                      for (final bucket in showing)
+                        if (bucket.amount.minorUnits > 0)
+                          Expanded(
+                            flex: bucket.amount.minorUnits,
+                            child: ColoredBox(
+                              color: statuses.resolve(_tone(bucket)),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+              ),
+              Gap.h12,
+              Text(
+                'Balances by age · All invoice dates',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
         for (final (index, bucket) in showing.indexed)
           RecordRow(
             icon: index == 0
@@ -535,11 +695,7 @@ class _Ageing extends StatelessWidget {
                 : Icons.warning_amber_rounded,
             // The bands darken as they age, which is the only thing the icons
             // and colours here are being asked to say.
-            iconColor: statuses.resolve(switch (bucket.label) {
-              'Not yet due' => StatusTone.neutral,
-              '1–30 days' => StatusTone.warning,
-              _ => StatusTone.danger,
-            }),
+            iconColor: statuses.resolve(_tone(bucket)),
             title: bucket.label,
             subtitle:
                 '${bucket.invoiceCount} invoice'
@@ -549,6 +705,12 @@ class _Ageing extends StatelessWidget {
       ],
     );
   }
+
+  static StatusTone _tone(ArrearsBucket bucket) => switch (bucket.label) {
+    'Not yet due' => StatusTone.neutral,
+    '1–30 days' => StatusTone.warning,
+    _ => StatusTone.danger,
+  };
 }
 
 /// The invoices behind the bands, soonest due first, each with who owes it.

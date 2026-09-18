@@ -4,16 +4,18 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
+import '../../../components/app_surface_card.dart';
 import '../../../components/page_header.dart';
 import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
+import '../../../components/surface_atoms.dart';
 import '../../../components/theme_mode_control.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../navigation/routes.dart';
 import '../../auth/application/auth_controller.dart';
 
-/// Section 88. The owner's account, and the way back to the tenant side.
+/// The manager's identity, account details and preferences.
 class OwnerAccountScreen extends ConsumerWidget {
   const OwnerAccountScreen({super.key});
 
@@ -22,77 +24,151 @@ class OwnerAccountScreen extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     final owner = auth.owner;
     final user = auth.user;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final businessDetails = <Widget>[
+      if (owner?.registrationNumber != null)
+        DetailRow(
+          label: 'Registration number',
+          value: owner!.registrationNumber!,
+        ),
+      if (owner?.taxNumber != null)
+        DetailRow(label: 'Tax number', value: owner!.taxNumber!),
+      if (owner?.maskedPayoutAccount != null)
+        DetailRow(label: 'Payout account', value: owner!.maskedPayoutAccount!),
+    ];
 
     final sections = <Widget>[
-      PageHeader(
-        eyebrow: 'Manager',
-        title: owner?.displayName ?? user?.fullName ?? 'Account',
-        subtitle: owner?.legalName,
+      AppSurfaceCard(
+        padding: const EdgeInsets.all(Gap.xl),
+        borderColor: scheme.primary.withValues(alpha: 0.25),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.surfaceContainerHigh, scheme.surfaceContainerLowest],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(Gap.lg),
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.large,
+                    border: Border.all(
+                      color: scheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    owner?.initials ?? user?.initials ?? '?',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: scheme.primary,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.manage_accounts_outlined,
+                  color: scheme.primary,
+                  size: 28,
+                ),
+              ],
+            ),
+            Gap.h24,
+            PageHeader(
+              compact: true,
+              eyebrow: 'Manager account',
+              title: owner?.displayName ?? user?.fullName ?? 'Your account',
+              subtitle: owner?.legalName,
+            ),
+          ],
+        ),
       ),
       SectionCard(
-        title: 'Account details',
+        title: 'Contact details',
+        trailing: Icon(
+          Icons.contact_mail_outlined,
+          size: 20,
+          color: scheme.primary,
+        ),
         children: [
-          if (owner?.registrationNumber != null)
-            DetailRow(
-              label: 'Registration number',
-              value: owner!.registrationNumber!,
-            ),
-          if (owner?.taxNumber != null)
-            DetailRow(label: 'Tax number', value: owner!.taxNumber!),
-          if (owner?.maskedPayoutAccount != null)
-            DetailRow(
-              label: 'Payout account',
-              value: owner!.maskedPayoutAccount!,
-            ),
-          if (user?.email != null)
-            DetailRow(label: 'Email', value: user!.email!),
-          if (user?.phone != null)
-            DetailRow(label: 'Phone', value: user!.phone!),
+          _ContactDetail(
+            icon: Icons.mail_outline_rounded,
+            label: 'Email',
+            value: user?.email,
+          ),
+          const Divider(height: 24),
+          _ContactDetail(
+            icon: Icons.phone_outlined,
+            label: 'Phone',
+            value: user?.phone,
+          ),
         ],
       ),
+      if (businessDetails.isNotEmpty)
+        SectionCard(
+          title: 'Business & payouts',
+          trailing: Icon(
+            Icons.account_balance_outlined,
+            size: 20,
+            color: scheme.primary,
+          ),
+          children: businessDetails,
+        ),
       if (AppConfig.showAdministration)
         RecordGroup(
           heading: 'Administration',
-          rowInset: 56,
           children: [
-            ListTile(
-              leading: const Icon(Icons.group_outlined),
-              title: const Text('People'),
-              subtitle: const Text(
-                'Who has an account, and what each of them may do.',
-              ),
+            _AccountAction(
+              icon: Icons.group_outlined,
+              title: 'People',
+              subtitle: 'Manage accounts and access.',
               onTap: () => context.pushNamed(Routes.accessUsers),
             ),
-            ListTile(
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('Roles'),
-              subtitle: const Text(
-                'The permissions a job carries, granted once instead of one at '
-                'a time.',
-              ),
+            _AccountAction(
+              icon: Icons.badge_outlined,
+              title: 'Roles',
+              subtitle: 'Set permissions for each role.',
               onTap: () => context.pushNamed(Routes.accessRoles),
             ),
           ],
         ),
-      const RecordGroup(heading: 'Appearance', children: [ThemeModeControl()]),
       RecordGroup(
-        heading: 'Session',
-        rowInset: 56,
+        heading: 'Security',
         children: [
-          ListTile(
-            leading: const Icon(Icons.lock_outline_rounded),
-            title: const Text('Sign-in and security'),
-            subtitle: const Text(
-              'Your password and confirming your contact details.',
-            ),
+          _AccountAction(
+            icon: Icons.lock_outline_rounded,
+            title: 'Sign-in and security',
+            subtitle: 'Manage your password and verify your contacts.',
             onTap: () => context.pushNamed(Routes.security),
           ),
-          ListTile(
-            leading: const Icon(Icons.logout_rounded),
-            title: const Text('Sign out'),
-            onTap: () => ref.read(authControllerProvider.notifier).logout(),
+        ],
+      ),
+      const RecordGroup(
+        heading: 'Appearance',
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: Gap.lg),
+            child: ThemeModeControl(),
           ),
         ],
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          style: TextButton.styleFrom(
+            foregroundColor: scheme.error,
+            padding: const EdgeInsets.symmetric(
+              horizontal: Gap.lg,
+              vertical: Gap.md,
+            ),
+          ),
+          onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+          icon: const Icon(Icons.logout_rounded, size: 20),
+          label: const Text('Sign out'),
+        ),
       ),
     ];
 
@@ -112,6 +188,7 @@ class OwnerAccountScreen extends ConsumerWidget {
               maxWidth: AppLayout.maxReadingWidth,
             ),
             child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(
                 Gap.lg,
                 Gap.xs,
@@ -119,11 +196,105 @@ class OwnerAccountScreen extends ConsumerWidget {
                 Gap.xxl,
               ),
               itemCount: sections.length,
-              separatorBuilder: (_, _) => Gap.h16,
+              separatorBuilder: (_, _) => Gap.h24,
               itemBuilder: (context, index) =>
                   AppReveal(index: index, child: sections[index]),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactDetail extends StatelessWidget {
+  const _ContactDetail({required this.icon, required this.label, this.value});
+
+  final IconData icon;
+  final String label;
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ToneIconTile(icon: icon, color: theme.colorScheme.primary),
+        Gap.w12,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Gap.h4,
+              SelectableText(
+                value == null || value!.trim().isEmpty
+                    ? 'Not provided'
+                    : value!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: AppTypography.semibold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountAction extends StatelessWidget {
+  const _AccountAction({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(Gap.lg),
+        child: Row(
+          children: [
+            ToneIconTile(icon: icon, color: theme.colorScheme.primary),
+            Gap.w12,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: theme.textTheme.titleSmall),
+                  Gap.h4,
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Gap.w8,
+            Icon(
+              Icons.chevron_right_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+              size: 20,
+            ),
+          ],
         ),
       ),
     );

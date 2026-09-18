@@ -112,17 +112,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Sarit Mall'), findsWidgets);
 
-    // Tenancies: grouped by what needs doing, so the arrears tenant leads.
-    // RecordGroup sets its heading in small caps, hence the case here.
-    await tester.tap(find.text('Tenancies'));
+    // The current shell exposes Revenue and Account; Tenancies is hidden.
+    await tester.tap(find.text('Revenue'));
     await tester.pumpAndSettle();
-    expect(find.text('IN ARREARS'), findsOneWidget);
-    expect(find.text('Tembo Electronics'), findsOneWidget);
+    expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
 
-    // And into one tenancy.
-    await tester.tap(find.text('Tembo Electronics'));
+    await tester.tap(find.text('Account'));
     await tester.pumpAndSettle();
-    expect(find.text('Money'), findsWidgets);
+    expect(find.text('owner@karunaholdings.co.ke'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -163,7 +160,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('OWED TO YOU'),
+      200,
+      scrollable: find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          )
+          .last,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     expect(find.text('OWED TO YOU'), findsOneWidget);
+    expect(find.text('Total outstanding'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('revenue period controls fit a small phone with large text', (
+    tester,
+  ) async {
+    useViewport(tester, const Size(390, 844));
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+    await tester.tap(find.text('Revenue'));
+    await tester.pumpAndSettle();
+
+    useViewport(tester, const Size(320, 640), textScale: 2);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Today'),
+      150,
+      scrollable: find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          )
+          .last,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Today'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('COLLECTED TODAY'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -189,10 +232,19 @@ void main() {
     // The list sits under the collected card and the ageing bands.
     final row = find.text(owed.first.tenantName ?? owed.first.invoiceNumber);
     await tester.scrollUntilVisible(
-      row.first,
+      row,
       200,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          )
+          .last,
     );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(row.first);
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     await tester.tap(row.first);
     await tester.pumpAndSettle();
