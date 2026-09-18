@@ -5,14 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/occupancy_meter.dart';
 import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
+import '../../../components/unit_status_strip.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/status_palette.dart';
+import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
 import '../../../domain/entities/unit.dart';
 import '../../../navigation/routes.dart';
@@ -95,17 +98,6 @@ class BlockScreen extends ConsumerWidget {
             ),
         ],
       ),
-      floatingActionButton: block.hasValue
-          ? FloatingActionButton.extended(
-              onPressed: () => context.pushNamed(
-                Routes.unitCreate,
-                pathParameters: {'propertyId': block.requireValue.propertyId},
-                queryParameters: {'blockId': blockId},
-              ),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add unit'),
-            )
-          : null,
       body: switch (block) {
         AsyncLoading() when !block.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
@@ -189,7 +181,16 @@ class _BlockBody extends ConsumerWidget {
                         .then<void>((_) {});
                   },
                 ),
-                _ => _UnitList(units: units.requireValue),
+                _ => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (units.requireValue.isNotEmpty) ...[
+                      _Occupancy(mix: UnitMix.of(units.requireValue)),
+                      Gap.h12,
+                    ],
+                    _UnitList(units: units.requireValue),
+                  ],
+                ),
               },
             ],
           ),
@@ -201,6 +202,24 @@ class _BlockBody extends ConsumerWidget {
   static String _trim(double value) => value == value.roundToDouble()
       ? value.toInt().toString()
       : value.toStringAsFixed(1);
+}
+
+/// How much of the block is let, counted from the units listed beneath it —
+/// the same records, so the figure and the list cannot disagree.
+class _Occupancy extends StatelessWidget {
+  const _Occupancy({required this.mix});
+
+  final UnitMix mix;
+
+  @override
+  Widget build(BuildContext context) => SectionCard(
+    title: 'Occupancy',
+    children: [
+      OccupancyMeter(mix: mix, label: 'Units let'),
+      Gap.h16,
+      UnitStatusStrip(mix: mix),
+    ],
+  );
 }
 
 class _UnitList extends StatelessWidget {

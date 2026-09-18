@@ -61,12 +61,28 @@ class Endpoints {
       '/payments/get/bookings/unit/$unitId';
   static String tenantInvoices(String tenantId) =>
       '/payments/get/invoices/$tenantId';
+  static String unitInvoices(String unitId) =>
+      '/payments/get/invoices/unit/$unitId';
+  static String blockInvoices(String blockId) =>
+      '/payments/get/invoices/block/$blockId';
+  static String propertyInvoices(String propertyId) =>
+      '/payments/get/invoices/property/$propertyId';
   static const String createPaymentRequest = '/payments/create/payment/request';
   static const String deferInvoice = '/payments/defer/invoice';
   static const String settleInvoice = '/payments/settle/invoice';
   static const String mpesaPayments = '/payments/get/mpesa/payments';
   static const String mpesaPaymentByTransId =
       '/payments/get/mpesa/payment/by/trans/id';
+  static String mpesaPaymentsByUnit(String unitId) =>
+      '/payments/get/mpesa/payment/by/unit/$unitId';
+  static String mpesaPaymentsByBlock(String blockId) =>
+      '/payments/get/mpesa/payment/by/block/$blockId';
+  static String mpesaPaymentsByProperty(String propertyId) =>
+      '/payments/get/mpesa/payment/by/property/$propertyId';
+
+  /// Every M-Pesa arrival across the properties the caller owns. Whose they
+  /// are is the server's call from the bearer token; the route takes nothing.
+  static const String ownerReport = '/payments/get/owner/report';
   static const String createManualPayment = '/payments/create/manual/payment';
   static const String bankPayments = '/payments/get/bank/payments';
   static String deleteBankPayment(String id) =>

@@ -49,7 +49,31 @@ const _created = {
 
 typedef _Sent = ({String method, String path, Object? body});
 
-({RemoteBookingRepository bookings, List<_Sent> sent}) _repository() {
+/// What the deployed route actually answers: an acknowledgement, no record.
+const _acknowledged = {'message': 'Booking success.', 'success': true};
+
+/// The bookings list read back after the acknowledgement. Amina's older one
+/// on another property, one made a moment ago on a different phone by
+/// whoever else holds this token, and hers.
+final _listed = [
+  {
+    ..._created,
+    'id': 7,
+    'propertyId': 5,
+    'bookingDate': '2026-09-16T09:00:00Z',
+  },
+  {
+    ..._created,
+    'id': 11,
+    'phoneNumber': '254799000000',
+    'bookingDate': '2026-09-17T09:05:00Z',
+  },
+  {..._created, 'phoneNumber': '254712345678'},
+];
+
+({RemoteBookingRepository bookings, List<_Sent> sent}) _repository({
+  Object created = _created,
+}) {
   final sent = <_Sent>[];
   final dio = Dio(
     BaseOptions(baseUrl: 'https://test.invalid', validateStatus: (_) => true),
@@ -63,7 +87,8 @@ typedef _Sent = ({String method, String path, Object? body});
           body: request.data,
         ));
         final (Object data, int status) = switch (request.path) {
-          Endpoints.bookUnit => (_created, 200),
+          Endpoints.bookUnit => (created, 200),
+          Endpoints.allBookings => (_listed, 200),
           // Every unit route is what a tenant sees: refused.
           _ => ({'message': 'Unauthorized'}, 401),
         };
@@ -108,6 +133,42 @@ void main() {
       // The one thing the tenant chose that the request has no field for.
       'description': '480 sq ft unit',
     });
+  });
+
+  test(
+    'a bare acknowledgement is followed by reading the booking back',
+    () async {
+      final (:bookings, :sent) = _repository(created: _acknowledged);
+
+      final result = await bookings.createBooking(
+        target: const SpaceTarget(propertyId: '2', blockId: '2', size: 480),
+        applicant: _applicant,
+        idempotencyKey: 'k1',
+      );
+
+      // Newest first, on this property, made with this phone: not the older
+      // booking elsewhere, and not the one someone else just made.
+      expect(result.valueOrNull!.id, '9');
+      expect(sent.map((s) => s.path), [
+        Endpoints.bookUnit,
+        Endpoints.allBookings,
+      ]);
+    },
+  );
+
+  test('a refused booking under a 200 is an error, not a booking', () async {
+    final (:bookings, :sent) = _repository(
+      created: const {'message': 'Block is full.', 'success': false},
+    );
+
+    final result = await bookings.createBooking(
+      target: const SpaceTarget(propertyId: '2', blockId: '2'),
+      applicant: _applicant,
+      idempotencyKey: 'k1',
+    );
+
+    expect(result, isA<Err<Booking>>());
+    expect(sent.map((s) => s.path), [Endpoints.bookUnit]);
   });
 
   test('the same block without a size asks for any unit in it', () async {

@@ -104,7 +104,10 @@ final invoiceRepositoryProvider = Provider<InvoiceRepository>(
 );
 
 final paymentRepositoryProvider = Provider<PaymentRepository>(
-  (ref) => RemotePaymentRepository(ref.watch(apiClientProvider)),
+  (ref) => RemotePaymentRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(accountIdentityProvider),
+  ),
 );
 
 final receiptRepositoryProvider = Provider<ReceiptRepository>(

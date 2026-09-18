@@ -47,24 +47,34 @@ class OwnerPropertyCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text(
-                        performance.propertyName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            performance.propertyName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          if (performance.rateLabel != null) ...[
+                            Gap.h4,
+                            Text(
+                              performance.rateLabel!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    if (performance.rateLabel != null) ...[
-                      Gap.w8,
-                      Text(
-                        performance.rateLabel!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                    Gap.w12,
+                    // The server's figure, not the strip's arithmetic — the
+                    // one the accounts are kept in.
+                    _Occupancy(rate: performance.occupancyRate),
                   ],
                 ),
                 Gap.h16,
@@ -118,6 +128,38 @@ class OwnerPropertyCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The occupancy figure, set at the card's top right where the eye lands
+/// after the name. Medium weight: a number, not an alarm.
+class _Occupancy extends StatelessWidget {
+  const _Occupancy({required this.rate});
+
+  final double rate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          '${(rate * 100).round()}%',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: AppTypography.medium,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        Text(
+          'let',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

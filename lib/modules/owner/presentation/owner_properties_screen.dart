@@ -12,6 +12,7 @@ import '../../../domain/entities/property.dart';
 import '../../../navigation/routes.dart';
 import '../../properties/application/property_controller.dart';
 import '../../../components/app_media.dart';
+import '../../../components/occupancy_meter.dart';
 import '../../../components/page_empty_state.dart';
 
 /// Section 88. The owner's buildings.
@@ -27,14 +28,6 @@ class OwnerPropertiesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Properties'),
         backgroundColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: 'Add a property',
-            onPressed: () => context.pushNamed(Routes.ownerAddProperty),
-            icon: const Icon(Icons.add_rounded),
-          ),
-          Gap.w8,
-        ],
       ),
       body: switch (portfolio) {
         AsyncLoading() when !portfolio.hasValue => const AppSkeletonMediaList(),
@@ -62,16 +55,11 @@ class _Properties extends StatelessWidget {
     if (properties.isEmpty) {
       return PageEmptyState(
         icon: Icons.apartment_outlined,
-        caption: 'Build your portfolio',
-        title: 'Your first property starts here',
+        caption: 'Your portfolio',
+        title: 'No properties yet',
         message:
-            'Add a property to organise your spaces and keep building details in one place.',
+            'Properties assigned to you will appear here with their spaces and building details.',
         onRefresh: onRefresh,
-        action: FilledButton.icon(
-          onPressed: () => context.pushNamed(Routes.ownerAddProperty),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Add a property'),
-        ),
       );
     }
 
@@ -253,6 +241,10 @@ class _PropertyCard extends StatelessWidget {
                         _Fact(label: property.rateLabel!),
                     ],
                   ),
+                  if (property.mix != null) ...[
+                    Gap.h16,
+                    OccupancyMeter(mix: property.mix!),
+                  ],
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
                     child: Divider(height: 1),

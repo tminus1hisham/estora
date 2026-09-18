@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
-import '../../../components/app_stepper.dart';
 import '../../../components/async_button.dart';
 import '../../../components/country_code_field.dart';
 import '../../../components/section_card.dart';
@@ -56,7 +57,6 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   late Country _country;
 
   bool _acceptedTerms = false;
-  bool _forBusiness = false;
   String? _businessType;
 
   @override
@@ -104,8 +104,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               country: _country,
             ),
             email: _emailController.text.trim(),
-            companyName: _forBusiness ? _companyController.text.trim() : null,
-            businessType: _forBusiness ? _businessType : null,
+            companyName: _companyController.text.trim(),
+            businessType: _businessType,
           ),
         );
 
@@ -113,23 +113,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     switch (result) {
       case Ok(:final value):
-        // Replace rather than push: coming "back" to a booking confirmation
-        // screen for a booking that now exists makes no sense. The status
-        // screen is where the fee gets paid, and the message says so —
-        // nothing on the way here asked for money.
-        context.pushReplacementNamed(
-          Routes.bookingStatus,
-          pathParameters: {'bookingId': value.id},
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Booking made. Pay the booking fee when you are ready to hold '
-              'the unit.',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        // Not awaited: the button is busy for as long as this future runs,
+        // and the dialog should open over a settled screen, not a spinner.
+        unawaited(_announce(value));
       case Err(:final failure):
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -144,6 +130,37 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           Navigator.of(context).pop();
         }
     }
+  }
+
+  /// Says the booking is made, then goes to My bookings.
+  ///
+  /// A dialog rather than a snackbar: the booking is the whole point of this
+  /// screen, and a strip at the bottom is easy to miss under the keyboard.
+  /// Nothing on the way here asked for money, and the dialog says where the
+  /// fee gets paid.
+  Future<void> _announce(Booking booking) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.check_circle_outline_rounded),
+        title: const Text('Booking made'),
+        content: Text(
+          'Your booking ${booking.bookingReference} is in. Pay the booking '
+          'fee from My bookings when you are ready to hold the unit.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('View my bookings'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    // Go rather than push: coming "back" to a confirmation screen for a
+    // booking that now exists makes no sense, and the Bookings tab is where
+    // the new one is paid for.
+    context.goNamed(Routes.bookings);
   }
 
   @override
@@ -203,12 +220,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               onCountryChanged: (country) => setState(() => _country = country),
               emailController: _emailController,
               companyController: _companyController,
-              forBusiness: _forBusiness,
               businessType: _businessType,
-              onForBusinessChanged: (value) => setState(() {
-                _forBusiness = value;
-                if (!value) _businessType = null;
-              }),
               onBusinessTypeChanged: (value) =>
                   setState(() => _businessType = value),
             ),
@@ -282,8 +294,6 @@ class _TermsBody extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
           children: [
-            const AppStepper.horizontal(steps: _bookingSteps, currentIndex: 0),
-            Gap.h24,
             Text(
               'Book a space in $blockName',
               style: theme.textTheme.headlineSmall?.copyWith(
@@ -404,18 +414,11 @@ class _TermsBody extends StatelessWidget {
   }
 }
 
-const _bookingSteps = <AppStep>[
-  AppStep(label: 'Book', icon: Icons.event_available_outlined),
-  AppStep(label: 'Pay fee', icon: Icons.payments_outlined),
-  AppStep(label: 'Complete', icon: Icons.check_circle_outline_rounded),
-];
-
 /// Who the unit is being taken by.
 ///
 /// Prefilled from the signed-in account and still editable, because the two
-/// are not always the same person. The business half only appears once someone
-/// says the letting is for a business — asking a sole trader for a company
-/// registration they do not have is how a form loses somebody.
+/// are not always the same person. Every unit here is let to a trade, so the
+/// trading name and what will trade from it are asked of everyone.
 class _ApplicantSection extends StatelessWidget {
   const _ApplicantSection({
     required this.formKey,
@@ -425,9 +428,7 @@ class _ApplicantSection extends StatelessWidget {
     required this.onCountryChanged,
     required this.emailController,
     required this.companyController,
-    required this.forBusiness,
     required this.businessType,
-    required this.onForBusinessChanged,
     required this.onBusinessTypeChanged,
   });
 
@@ -438,9 +439,7 @@ class _ApplicantSection extends StatelessWidget {
   final ValueChanged<Country> onCountryChanged;
   final TextEditingController emailController;
   final TextEditingController companyController;
-  final bool forBusiness;
   final String? businessType;
-  final ValueChanged<bool> onForBusinessChanged;
   final ValueChanged<String?> onBusinessTypeChanged;
 
   @override
@@ -509,51 +508,34 @@ class _ApplicantSection extends StatelessWidget {
                   : 'Enter a valid email address';
             },
           ),
-          Gap.h8,
-          SwitchListTile(
-            value: forBusiness,
-            onChanged: onForBusinessChanged,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('This unit is for a business'),
-            subtitle: Text(
-              'Adds the trading name and what will trade from the unit.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          Gap.h12,
+          TextFormField(
+            controller: companyController,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Trading name',
+              prefixIcon: Icon(Icons.storefront_outlined),
             ),
+            validator: (value) => (value?.trim().isEmpty ?? true)
+                ? 'Enter the trading name'
+                : null,
           ),
-          if (forBusiness) ...[
-            Gap.h8,
-            TextFormField(
-              controller: companyController,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Trading name',
-                prefixIcon: Icon(Icons.storefront_outlined),
-              ),
-              validator: (value) =>
-                  forBusiness && (value?.trim().isEmpty ?? true)
-                  ? 'Enter the trading name'
-                  : null,
+          Gap.h12,
+          DropdownButtonFormField<String>(
+            initialValue: businessType,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Type of business',
+              prefixIcon: Icon(Icons.category_outlined),
             ),
-            Gap.h12,
-            DropdownButtonFormField<String>(
-              initialValue: businessType,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Type of business',
-                prefixIcon: Icon(Icons.category_outlined),
-              ),
-              items: [
-                for (final type in BookingApplicant.businessTypes)
-                  DropdownMenuItem(value: type, child: Text(type)),
-              ],
-              onChanged: onBusinessTypeChanged,
-              validator: (value) => forBusiness && (value == null)
-                  ? 'Choose what will trade from the unit'
-                  : null,
-            ),
-          ],
+            items: [
+              for (final type in BookingApplicant.businessTypes)
+                DropdownMenuItem(value: type, child: Text(type)),
+            ],
+            onChanged: onBusinessTypeChanged,
+            validator: (value) =>
+                value == null ? 'Choose what will trade from the unit' : null,
+          ),
         ],
       ),
     );

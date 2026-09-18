@@ -162,7 +162,7 @@ void main() {
               expect(
                 find.text(
                   manager
-                      ? 'Room for your first property.'
+                      ? 'Nothing in your portfolio yet.'
                       : 'A fresh start. A clear view.',
                 ),
                 findsOneWidget,
@@ -199,13 +199,15 @@ void main() {
                 capture.dispose();
               });
             }
-            await tester.ensureVisible(
-              find.text(manager ? 'View properties' : 'View invoices'),
-            );
+            if (manager) {
+              expect(find.text('MAKE YOURSELF AT HOME'), findsNothing);
+              expect(find.text('View properties'), findsNothing);
+              expect(find.text('Add property'), findsNothing);
+              return;
+            }
+            await tester.ensureVisible(find.text('View invoices'));
             await tester.pumpAndSettle();
-            await tester.tap(
-              find.text(manager ? 'View properties' : 'View invoices'),
-            );
+            await tester.tap(find.text('View invoices'));
             await tester.pumpAndSettle();
             expect(find.text('Destination'), findsOneWidget);
           },

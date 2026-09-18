@@ -33,7 +33,6 @@ import '../modules/leases/presentation/leases_screen.dart';
 import '../modules/leases/presentation/sign_agreement_screen.dart';
 import '../modules/notifications/presentation/notifications_screen.dart';
 import '../modules/owner/presentation/owner_account_screen.dart';
-import '../modules/owner/presentation/owner_add_property_screen.dart';
 import '../modules/owner/presentation/owner_money_screen.dart';
 import '../modules/owner/presentation/owner_payouts_screen.dart';
 import '../modules/owner/presentation/owner_portfolio_screen.dart';
@@ -56,7 +55,6 @@ import '../modules/properties/presentation/property_detail_screen.dart';
 import '../modules/structure/presentation/block_form_screen.dart';
 import '../modules/structure/presentation/block_screen.dart';
 import '../modules/structure/presentation/blocks_screen.dart';
-import '../modules/structure/presentation/property_edit_screen.dart';
 import '../modules/structure/presentation/unit_form_screen.dart';
 import '../modules/treasury/presentation/bank_payment_edit_screen.dart';
 import '../modules/treasury/presentation/bank_payments_screen.dart';
@@ -557,17 +555,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                   GoRoute(
-                    path: Routes.ownerAddPropertyPath,
-                    name: Routes.ownerAddProperty,
-                    // A focused transaction with its own action bar, presented
-                    // above the shell so the tab bar cannot compete with it.
-                    parentNavigatorKey: _rootNavigatorKey,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: const OwnerAddPropertyScreen(),
-                    ),
-                  ),
-                  GoRoute(
                     path: Routes.ownerPropertyRatePath,
                     name: Routes.ownerPropertyRate,
                     parentNavigatorKey: _rootNavigatorKey,
@@ -631,45 +618,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                   GoRoute(
-                    path: Routes.blockCreatePath,
-                    name: Routes.blockCreate,
-                    parentNavigatorKey: _rootNavigatorKey,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: BlockFormScreen(
-                        propertyId: state.pathParameters['propertyId']!,
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.unitCreatePath,
-                    name: Routes.unitCreate,
-                    parentNavigatorKey: _rootNavigatorKey,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: UnitFormScreen(
-                        propertyId: state.pathParameters['propertyId']!,
-                        blockId: state.uri.queryParameters['blockId'],
-                      ),
-                    ),
-                  ),
-                  GoRoute(
                     path: Routes.blocksPath,
                     name: Routes.blocks,
                     pageBuilder: (_, state) => lateralPage(
                       state: state,
                       child: BlocksScreen(
-                        propertyId: state.pathParameters['propertyId']!,
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.propertyEditPath,
-                    name: Routes.propertyEdit,
-                    parentNavigatorKey: _rootNavigatorKey,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: PropertyEditScreen(
                         propertyId: state.pathParameters['propertyId']!,
                       ),
                     ),

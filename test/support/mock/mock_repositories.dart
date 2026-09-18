@@ -932,6 +932,27 @@ class MockOwnerRepository with _MockLatency implements OwnerRepository {
       guard(() => _server.ownerCollections(_requireOwner().id, window));
 
   @override
+  Future<Result<OwnerReport>> getReport({String? propertyId}) => guard(() {
+    final owner = _requireOwner();
+    if (propertyId != null) _requireOwned(propertyId);
+    _server.markOverdueInvoices();
+    final owned = propertyId == null
+        ? _server.propertiesOwnedBy(owner.id).map((p) => p.id).toSet()
+        : {propertyId};
+    return OwnerReport(
+      propertyId: propertyId,
+      received: _server.backOffice
+          .listMpesa()
+          .where((row) => owned.contains(row.propertyId))
+          .toList(growable: false),
+      invoices: [
+        for (final invoice in _server.invoices.values)
+          if (owned.contains(invoice.propertyId)) invoice.toDomain(),
+      ],
+    );
+  });
+
+  @override
   Future<Result<Property>> createProperty({
     required PropertyDraft draft,
     required String idempotencyKey,

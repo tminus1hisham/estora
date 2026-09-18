@@ -879,24 +879,74 @@ class RemoteBookingRepository implements BookingRepository {
 
     return switch (space) {
       Err<SpaceTarget>(:final failure) => Err(failure),
-      Ok<SpaceTarget>(value: final wanted) => await _api.post<Booking>(
-        Endpoints.bookUnit,
-        body: bookingRequestToJson(target: wanted, applicant: applicant),
+      Ok<SpaceTarget>(value: final wanted) => await _bookSpace(
+        wanted,
+        applicant: applicant,
         idempotencyKey: idempotencyKey,
-        // Confirmation requires the actual API booking record. A success
-        // message alone must not become a fabricated booking.
-        parse: (json) {
-          if (json['id'] == null ||
-              json['status'] == null ||
-              json['monthlyRent'] == null) {
-            throw const FormatException(
-              'The booking request was received, but the API did not return '
-              'a booking record. Check your bookings before trying again.',
-            );
-          }
-          return bookingFromJson(json);
-        },
       ),
+    };
+  }
+
+  /// Posts the booking and returns the record the server made for it.
+  ///
+  /// The contract types this route's answer as `SuccessResponse`, and the
+  /// live server keeps to it: `{message: "Booking success.", success: true}`
+  /// and nothing else — the same shape the STK routes answer with. So, as
+  /// with a fee prompt, the acknowledgement is not the record. The bookings
+  /// list is read back and the booking just made is picked out of it; a
+  /// success message alone never becomes a fabricated booking. A server that
+  /// does answer with the record (the mock, or a later build) is read as is.
+  Future<Result<Booking>> _bookSpace(
+    SpaceTarget target, {
+    required BookingApplicant applicant,
+    required String idempotencyKey,
+  }) async {
+    final posted = await _api.post<Booking?>(
+      Endpoints.bookUnit,
+      body: bookingRequestToJson(target: target, applicant: applicant),
+      idempotencyKey: idempotencyKey,
+      parse: createdBookingFromJson,
+    );
+
+    return switch (posted) {
+      Err<Booking?>(:final failure) => Err(failure),
+      Ok<Booking?>(value: final booking?) => Ok(booking),
+      Ok<Booking?>() => await _findBookingJustMade(target, applicant),
+    };
+  }
+
+  /// Reads the bookings back and returns the newest one that matches what
+  /// was just asked for. The list is already newest-first; a record is
+  /// matched on its property and its phone number where it carries them,
+  /// so a booking someone else made with the same token a moment ago is not
+  /// mistaken for this one.
+  Future<Result<Booking>> _findBookingJustMade(
+    SpaceTarget target,
+    BookingApplicant applicant,
+  ) async {
+    final phone = PhoneNumber.normalize(applicant.phoneNumber);
+    final bookings = await listBookings();
+
+    return switch (bookings) {
+      Err<Page<Booking>>(:final failure) => Err(failure),
+      Ok<Page<Booking>>(:final value) => () {
+        for (final booking in value.items) {
+          final sameProperty =
+              booking.propertyId == null ||
+              booking.propertyId == target.propertyId;
+          final samePhone =
+              booking.phoneNumber == null ||
+              PhoneNumber.normalize(booking.phoneNumber!) == phone;
+          if (sameProperty && samePhone) return Ok<Booking>(booking);
+        }
+        return const Err<Booking>(
+          NotFoundFailure(
+            'The booking request was received, but the booking has not '
+            'appeared in your bookings yet. Check your bookings before '
+            'trying again.',
+          ),
+        );
+      }(),
     };
   }
 
@@ -1129,9 +1179,10 @@ class RemoteInvoiceRepository implements InvoiceRepository {
 // ---------------------------------------------------------------------------
 
 class RemotePaymentRepository implements PaymentRepository {
-  RemotePaymentRepository(this._api);
+  RemotePaymentRepository(this._api, this._identity);
 
   final ApiClient _api;
+  final AccountIdentity _identity;
 
   @override
   Future<Result<PaymentIntent>> initiatePayment({
@@ -1203,8 +1254,34 @@ class RemotePaymentRepository implements PaymentRepository {
   @override
   Future<Result<Payment>> getPayment(String paymentId) => _unavailable();
 
+  /// The tenant's payment history, read off their own invoices.
+  ///
+  /// The contract publishes no payments route, but every invoice it serves
+  /// embeds the M-Pesa transactions placed against it — see
+  /// [paymentsFromInvoiceJson]. Keyed on the same tenant record as the
+  /// statement itself, so the history is that tenant's and nobody else's; an
+  /// account with no tenant record has no history, which is an empty page and
+  /// not an error, for the reason [RemoteInvoiceRepository.listInvoices]
+  /// gives.
   @override
-  Future<Result<Page<Payment>>> listPayments({int page = 1}) => _unavailable();
+  Future<Result<Page<Payment>>> listPayments({int page = 1}) async {
+    final tenantId = await _identity.tenantId();
+
+    return switch (tenantId) {
+      Err<String>(failure: NotFoundFailure()) => Ok(Page.single(const [])),
+      Err<String>(:final failure) => Err(failure),
+      Ok<String>(value: final id) =>
+        await _api
+            .get<List<Payment>>(
+              Endpoints.tenantInvoices(id),
+              parse: (json) => [
+                for (final invoice in rawListFromJson(json))
+                  ...paymentsFromInvoiceJson(invoice),
+              ]..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+            )
+            .then((result) => result.map((payments) => Page.single(payments))),
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1605,6 +1682,68 @@ class RemoteOwnerRepository implements OwnerRepository {
   @override
   Future<Result<CollectionSeries>> getCollections(CollectionWindow window) =>
       _unavailable();
+
+  /// Every M-Pesa arrival and every invoice across the owner's properties.
+  ///
+  /// Two lists, both served by the contract. With no [propertyId] the
+  /// arrivals come from the owner report route — whose properties they cover
+  /// is the server's decision from the bearer token — and the invoices are
+  /// read property by property, because the contract keys its landlord-side
+  /// invoice routes on a property and offers nothing wider. Which properties
+  /// to ask about is what the property list says the caller holds: the same
+  /// bearer-scoped answer the Properties tab shows. With a [propertyId] both
+  /// lists are asked of the server for that property alone, so the filter is
+  /// the server's, not a narrowing of what was already fetched.
+  @override
+  Future<Result<OwnerReport>> getReport({String? propertyId}) async {
+    final List<String> propertyIds;
+    if (propertyId != null) {
+      propertyIds = [propertyId];
+    } else {
+      final properties = await _api.get<List<Property>>(
+        Endpoints.properties,
+        parse: (json) => listFromJson(json, propertyFromJson),
+      );
+      if (properties case Err<List<Property>>(:final failure)) {
+        return Err(failure);
+      }
+      propertyIds = [
+        for (final property in properties.valueOrNull!) property.id,
+      ];
+    }
+
+    final received = await _api.get<List<MpesaTransaction>>(
+      propertyId == null
+          ? Endpoints.ownerReport
+          : Endpoints.mpesaPaymentsByProperty(propertyId),
+      parse: (json) => listFromJson(json, mpesaTransactionFromJson),
+    );
+    if (received case Err<List<MpesaTransaction>>(:final failure)) {
+      return Err(failure);
+    }
+
+    final invoices = <Invoice>[];
+    for (final id in propertyIds) {
+      final page = await _api.get<List<Invoice>>(
+        Endpoints.propertyInvoices(id),
+        parse: (json) => listFromJson(json, invoiceFromJson),
+      );
+      switch (page) {
+        case Err<List<Invoice>>(:final failure):
+          return Err(failure);
+        case Ok<List<Invoice>>(:final value):
+          invoices.addAll(value);
+      }
+    }
+
+    return Ok(
+      OwnerReport(
+        propertyId: propertyId,
+        received: received.valueOrNull!,
+        invoices: invoices,
+      ),
+    );
+  }
 
   /// The one owner write the contract does publish.
   ///

@@ -8,6 +8,8 @@ import 'package:mall/components/collection_columns.dart';
 import 'package:mall/components/unit_status_strip.dart';
 import 'package:mall/core/theme/app_theme.dart';
 import 'package:mall/domain/entities/owner.dart';
+import 'package:mall/modules/owner/application/owner_controller.dart';
+import 'package:mall/modules/properties/application/property_controller.dart';
 import 'package:mall/navigation/owner_shell.dart';
 import 'package:mall/navigation/routes.dart';
 import 'package:mall/services/providers.dart';
@@ -156,11 +158,50 @@ void main() {
     await tester.pumpAndSettle();
     await signInAsOwner(tester);
 
-    await tester.tap(find.text('Money'));
+    await tester.tap(find.text('Revenue'));
     await tester.pumpAndSettle();
 
     expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
     expect(find.text('OWED TO YOU'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an owner of two properties can cut the report to one', (
+    tester,
+  ) async {
+    useViewport(tester, const Size(390, 844));
+
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+
+    await tester.tap(find.text('Revenue'));
+    await tester.pumpAndSettle();
+
+    // Karuna holds both seeded properties, so the strip is offered, opening
+    // on the whole portfolio.
+    expect(find.text('All properties'), findsOneWidget);
+    expect(find.text('ABC Business Centre'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(OwnerShell)),
+    );
+    expect(container.read(reportPropertyProvider), isNull);
+
+    // The strip scrolls sideways; the second property sits past the edge
+    // of a phone.
+    await tester.ensureVisible(find.text('ABC Business Centre'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ABC Business Centre'));
+    await tester.pumpAndSettle();
+
+    // The filter is the server's: the report is re-asked for that property.
+    final abc = container
+        .read(propertyListProvider)
+        .requireValue
+        .singleWhere((property) => property.name == 'ABC Business Centre');
+    expect(container.read(reportPropertyProvider), abc.id);
+    expect(container.read(ownerReportProvider).requireValue.propertyId, abc.id);
+    expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

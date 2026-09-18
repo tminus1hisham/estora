@@ -334,12 +334,19 @@ void main() {
       await settle(tester);
 
       expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
+      // One property in the fixtures' list: no strip to cut the report by.
+      expect(find.text('All properties'), findsNothing);
       expect(find.text('OWED TO YOU'), findsOneWidget);
-      expect(find.text('1–30 days'), findsOneWidget);
-      // The arrivals sit below the fold on a phone.
-      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      // The services invoice falls due in four days whatever today is.
+      expect(find.text('Not yet due'), findsOneWidget);
+      // The arrivals sit below the fold on a phone, named as the till named
+      // the payer.
+      await tester.drag(find.byType(ListView), const Offset(0, -900));
       await settle(tester);
-      expect(find.text('Bahari Coffee'), findsWidgets);
+      expect(find.text('OUTSTANDING INVOICES'), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, -900));
+      await settle(tester);
+      expect(find.text('BAHARI COFFEE'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
@@ -353,17 +360,17 @@ void main() {
       await settle(tester);
 
       expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
-      expect(find.text('KES 715,000'), findsWidgets);
 
       await tester.tap(find.text('Yesterday'));
-      // The month's figure is still on screen while the answer is fetched.
-      await tester.pump();
-      expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
       await settle(tester);
 
+      // Bahari's rent and the orphaned Rafiki payment both landed yesterday.
       expect(find.text('COLLECTED YESTERDAY'), findsOneWidget);
-      expect(find.text('KES 100,000'), findsWidgets);
-      expect(find.textContaining('1 payment.'), findsOneWidget);
+      expect(find.text('KES 235,000'), findsWidgets);
+      expect(
+        find.textContaining('2 M-Pesa payments yesterday.'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Today'));
       await settle(tester);

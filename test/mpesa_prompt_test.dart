@@ -111,7 +111,7 @@ _repositories({Object? confirmAnswer, int confirmStatus = 200}) {
   final api = ApiClient(tokenStore: _Tokens(), dio: dio);
   return (
     bookings: RemoteBookingRepository(api),
-    payments: RemotePaymentRepository(api),
+    payments: RemotePaymentRepository(api, AccountIdentity(api)),
     sent: sent,
   );
 }

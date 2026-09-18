@@ -23,7 +23,7 @@ class ManagerShell extends StatelessWidget {
     NavigationDestination(
       icon: Icon(Icons.donut_small_outlined),
       selectedIcon: Icon(Icons.donut_small_rounded),
-      label: 'Manager',
+      label: 'Home',
     ),
     NavigationDestination(
       icon: Icon(Icons.apartment_outlined),
@@ -33,7 +33,7 @@ class ManagerShell extends StatelessWidget {
     NavigationDestination(
       icon: Icon(Icons.account_balance_outlined),
       selectedIcon: Icon(Icons.account_balance_rounded),
-      label: 'Money',
+      label: 'Revenue',
     ),
     NavigationDestination(
       icon: Icon(Icons.person_outline_rounded),

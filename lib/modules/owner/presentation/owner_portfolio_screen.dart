@@ -37,7 +37,7 @@ class OwnerPortfolioScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Manager'),
+        title: const Text('Home'),
         backgroundColor: Colors.transparent,
       ),
       body: switch (portfolio) {
@@ -77,8 +77,8 @@ class _Portfolio extends StatelessWidget {
                 icon: Icons.apartment_outlined,
                 title: 'No properties yet',
                 message:
-                    'Add a property and set its rate per square metre to start '
-                    'letting space.',
+                    'Properties assigned to you will appear here once they '
+                    'are set up.',
               ),
             ),
           ],

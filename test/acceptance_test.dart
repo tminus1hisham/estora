@@ -7,7 +7,7 @@ import 'package:mall/app.dart';
 import 'package:mall/core/utils/money.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/modules/bookings/presentation/booking_screen.dart';
-import 'package:mall/modules/bookings/presentation/booking_status_screen.dart';
+import 'package:mall/modules/bookings/presentation/bookings_screen.dart';
 import 'package:mall/modules/home/presentation/home_screen.dart';
 import 'package:mall/modules/properties/presentation/properties_screen.dart';
 import 'package:mall/navigation/routes.dart';
@@ -231,13 +231,32 @@ void main() {
       await tester.tap(find.byType(CheckboxListTile));
       await tester.pumpAndSettle();
 
+      // Every unit is let to a trade, so the trading name and what will trade
+      // from it are always asked — and the form does not submit without them.
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Trading name'),
+        'Sokoni Fresh',
+      );
+      await tester.tap(find.text('Type of business'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Retail').last);
+      await tester.pumpAndSettle();
+
       await tester.tap(confirmFinder);
       await tester.pumpAndSettle();
 
-      // Landed on the status screen for a real booking.
-      expect(find.byType(BookingStatusScreen), findsOneWidget);
+      // The booking is announced in a dialog naming the real booking, and
+      // dismissing it lands on My bookings, where the fee is paid.
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('Booking made'), findsOneWidget);
       expect(find.textContaining('BKG-'), findsWidgets);
-      expect(find.text('Awaiting payment'), findsWidgets);
+      await tester.tap(find.text('View my bookings'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(BookingScreen), findsNothing);
+      expect(find.byType(BookingsScreen), findsOneWidget);
+      expect(find.textContaining('BKG-'), findsWidgets);
 
       // And the server captured the terms (section 21).
       final booking = server.bookings.values.single;

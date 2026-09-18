@@ -29,6 +29,7 @@ class Invoice {
     this.unitId,
     this.propertyName,
     this.unitNumber,
+    this.tenantName,
     this.billingPeriodStart,
     this.billingPeriodEnd,
     this.documentId,
@@ -69,6 +70,10 @@ class Invoice {
 
   final String? propertyName;
   final String? unitNumber;
+
+  /// Who was billed, where the record embeds the tenant. Read from the
+  /// landlord's side; a tenant reading their own statement knows who they are.
+  final String? tenantName;
   final String? documentId;
 
   /// Whether payment has been formally postponed.

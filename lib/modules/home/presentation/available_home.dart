@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/record_group.dart';
 import '../../../components/app_media.dart';
+import '../../../components/occupancy_meter.dart';
 import 'widgets/premium_home.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
@@ -63,10 +64,15 @@ class AvailableHome extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Transform.translate(
-                      offset: const Offset(0, -28),
-                      child: HomeActionPanel(manager: manager),
-                    ),
+                    // Owners reach properties from the shell; the tenant
+                    // panel overlaps the hero, so keep its lift.
+                    if (manager)
+                      Gap.h24
+                    else
+                      Transform.translate(
+                        offset: const Offset(0, -28),
+                        child: HomeActionPanel(manager: manager),
+                      ),
                     Text(
                       manager ? 'Your properties' : 'Recent invoices',
                       style: Theme.of(context).textTheme.titleLarge,
@@ -121,6 +127,20 @@ class AvailableHome extends ConsumerWidget {
                                                     Icons.arrow_forward_rounded,
                                                   ),
                                                 ),
+                                                if (property.mix != null)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.fromLTRB(
+                                                          Gap.lg,
+                                                          0,
+                                                          Gap.lg,
+                                                          Gap.lg,
+                                                        ),
+                                                    child: OccupancyMeter(
+                                                      mix: property.mix!,
+                                                      dense: true,
+                                                    ),
+                                                  ),
                                               ],
                                             ),
                                           ),

@@ -162,6 +162,7 @@ Property propertyFromJson(Json json) {
     availableUnits: units.isEmpty
         ? null
         : units.where((unit) => _bool(unit['isAvailable'])).length,
+    mix: units.isEmpty ? null : UnitMix.of(units.map(unitFromJson)),
     ownerId: _strOrNull(json['ownerId']),
     rentRatePerSqm: null,
     logoUrl: _strOrNull(json['logo'] ?? json['logoUrl']),
@@ -422,6 +423,27 @@ Booking bookingFromJson(Json json) {
   );
 }
 
+/// Reads the answer to a booking request.
+///
+/// The contract types it as `SuccessResponse`, and the live route keeps to
+/// it: `{message: "Booking success.", success: true}` and no record. That
+/// reads as `null` — an acknowledgement, for the caller to follow up by
+/// reading the booking back — never as a fabricated booking. A server that
+/// does answer with the record (the mock, or a later build) gets it parsed.
+/// A `success: false` under a 200 is a refusal and is thrown as one.
+Booking? createdBookingFromJson(Json json) {
+  if (json.containsKey('success') && !_bool(json['success'], true)) {
+    throw FormatException(
+      _str(json['message'], 'The booking request was not accepted.'),
+    );
+  }
+  final isRecord =
+      json['id'] != null &&
+      json['status'] != null &&
+      json['monthlyRent'] != null;
+  return isRecord ? bookingFromJson(json) : null;
+}
+
 /// Reads the answer to an STK request.
 ///
 /// Both of the contract's prompt routes answer without a payment record: the
@@ -626,6 +648,7 @@ Invoice invoiceFromJson(Json json) {
   final currency = _str(json['currencyCode'], _defaultCurrency);
   final property = json['property'] is Json ? json['property'] as Json : null;
   final unit = json['unit'] is Json ? json['unit'] as Json : null;
+  final tenant = json['tenant'] is Json ? json['tenant'] as Json : null;
 
   return Invoice(
     id: _str(json['id']),
@@ -639,6 +662,7 @@ Invoice invoiceFromJson(Json json) {
     unitId: _strOrNull(json['unitId']),
     propertyName: _strOrNull(property?['propertyName']),
     unitNumber: _strOrNull(unit?['unitNumber']),
+    tenantName: _strOrNull(tenant?['fullName']),
     invoiceDate: _date(json['invoiceDate']),
     dueDate: _date(json['dueDate']),
     billingPeriodStart: _dateOrNull(json['billingPeriodStart']),
@@ -778,6 +802,45 @@ Payment paymentFromJson(Json json) {
         )
         .toList(growable: false),
   );
+}
+
+/// The payments an invoice record embeds, as the tenant's payment history.
+///
+/// The contract has no payment-history route. What it has is the tenant's
+/// invoices, each carrying the M-Pesa transactions that were placed against
+/// it — so a tenant's history is those transactions, read off their own
+/// invoices and nobody else's. Each is a transaction the till *received*,
+/// which is why it is recorded as succeeded: the server is stating that the
+/// money arrived, not the app concluding it (section 39). Whether it has been
+/// reconciled yet is the server's `processed` flag and is not a status.
+List<Payment> paymentsFromInvoiceJson(Json invoice) {
+  final currency = _str(invoice['currencyCode'], _defaultCurrency);
+  final invoiceId = _str(invoice['id']);
+  return [
+    for (final row in _list(invoice['payments']))
+      Payment(
+        id: _str(row['id']),
+        paymentReference: _str(row['transID']),
+        tenantId: _str(invoice['tenantId']),
+        invoiceId: invoiceId,
+        invoiceNumber: _str(invoice['invoiceNumber'], 'INV-$invoiceId'),
+        leaseId: _strOrNull(invoice['leaseId']),
+        propertyId: _strOrNull(row['propertyId'] ?? invoice['propertyId']),
+        amount: Money.fromJson(row['transAmount'], currency),
+        currency: currency,
+        paymentMethod: PaymentMethod.mpesa,
+        provider: 'MPESA',
+        providerTransactionId: _strOrNull(row['transID']),
+        status: PaymentStatus.success,
+        paidAt:
+            _mpesaTimestamp(row['transTime']) ?? _dateOrNull(row['createdAt']),
+        createdAt:
+            _dateOrNull(row['createdAt']) ??
+            _mpesaTimestamp(row['transTime']) ??
+            _date(invoice['invoiceDate']),
+        description: _strOrNull(row['billRefNumber']),
+      ),
+  ];
 }
 
 PaymentIntent paymentIntentFromJson(Json json) {

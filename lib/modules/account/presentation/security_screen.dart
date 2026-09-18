@@ -21,6 +21,10 @@ import '../application/account_controller.dart';
 /// screen per route would be five screens nobody could find. They are one
 /// subject: whether this account is who it says it is, and who can get into
 /// it. So they are one screen, and the ones that need typing open from here.
+/// Two-factor is hidden for now: the section, its button and the enable call
+/// stay wired up behind this flag so it can come back by flipping one line.
+const bool _showTwoFactor = false;
+
 class SecurityScreen extends ConsumerWidget {
   const SecurityScreen({super.key});
 
@@ -123,37 +127,39 @@ class _Body extends StatelessWidget {
                   ),
                 ],
               ),
-              Gap.h12,
-              SectionCard(
-                title: 'Two-factor authentication',
-                trailing: StatusChip(
-                  label: account.twoFactorEnabled ? 'On' : 'Off',
-                  tone: account.twoFactorEnabled
-                      ? StatusTone.positive
-                      : StatusTone.neutral,
-                  dense: true,
-                ),
-                children: [
-                  Text(
-                    account.twoFactorEnabled
-                        ? 'A code is required alongside your password when you '
-                              'sign in.'
-                        : 'Adds a code to your sign-in, so a stolen password is '
-                              'not enough on its own.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+              if (_showTwoFactor) ...[
+                Gap.h12,
+                SectionCard(
+                  title: 'Two-factor authentication',
+                  trailing: StatusChip(
+                    label: account.twoFactorEnabled ? 'On' : 'Off',
+                    tone: account.twoFactorEnabled
+                        ? StatusTone.positive
+                        : StatusTone.neutral,
+                    dense: true,
                   ),
-                  if (!account.twoFactorEnabled) ...[
-                    Gap.h12,
-                    FilledButton.tonalIcon(
-                      onPressed: onEnableTwoFactor,
-                      icon: const Icon(Icons.shield_outlined),
-                      label: const Text('Turn on two-factor'),
+                  children: [
+                    Text(
+                      account.twoFactorEnabled
+                          ? 'A code is required alongside your password when you '
+                                'sign in.'
+                          : 'Adds a code to your sign-in, so a stolen password is '
+                                'not enough on its own.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
+                    if (!account.twoFactorEnabled) ...[
+                      Gap.h12,
+                      FilledButton.tonalIcon(
+                        onPressed: onEnableTwoFactor,
+                        icon: const Icon(Icons.shield_outlined),
+                        label: const Text('Turn on two-factor'),
+                      ),
+                    ],
                   ],
-                ],
-              ),
+                ),
+              ],
               Gap.h12,
               SectionCard(
                 title: 'Contact details',

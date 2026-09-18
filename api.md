@@ -761,89 +761,12 @@
         }
       }
     },
-    "/v1/api/payments/confirm/booked/unit": {
-      "post": {
-        "tags": [
-          "Payments"
-        ],
-        "operationId": "Payments_confirmBookedUnit",
-        "consumes": [
-          "application/json",
-          "text/json",
-          "application/*+json"
-        ],
-        "parameters": [
-          {
-            "name": "request",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/CreateBookingConfirmationRequest"
-            },
-            "x-nullable": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "x-nullable": false,
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/SuccessResponse"
-            }
-          },
-          "400": {
-            "x-nullable": false,
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        }
-      }
-    },
     "/v1/api/payments/get/all/bookings": {
       "get": {
         "tags": [
           "Payments"
         ],
         "operationId": "Payments_getAllBookings",
-        "responses": {
-          "200": {
-            "x-nullable": false,
-            "description": "",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Invoice"
-              }
-            }
-          },
-          "400": {
-            "x-nullable": false,
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        }
-      }
-    },
-    "/v1/api/payments/get/bookings/unit/{unitId}": {
-      "get": {
-        "tags": [
-          "Payments"
-        ],
-        "operationId": "Payments_getBookingsByUnit",
-        "parameters": [
-          {
-            "type": "integer",
-            "name": "unitId",
-            "in": "path",
-            "required": true,
-            "format": "int64",
-            "x-nullable": false
-          }
-        ],
         "responses": {
           "200": {
             "x-nullable": false,
@@ -1497,6 +1420,33 @@
               "type": "array",
               "items": {
                 "$ref": "#/definitions/SuccessResponse"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/owner/report": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getOwnerReport",
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/MpesaTransactions"
               }
             }
           },
@@ -3156,7 +3106,6 @@
       "type": "object",
       "required": [
         "propertyId",
-        "blockId",
         "fullName",
         "phoneNumber",
         "email",
@@ -3169,10 +3118,6 @@
           "type": "integer",
           "format": "int64"
         },
-        "blockId": {
-          "type": "integer",
-          "format": "int64"
-        },
         "fullName": {
           "type": "string",
           "minLength": 1
@@ -3182,8 +3127,7 @@
           "minLength": 1
         },
         "email": {
-          "type": "string",
-          "minLength": 1
+          "type": "string"
         },
         "companyName": {
           "type": "string",
@@ -3194,28 +3138,6 @@
           "minLength": 1
         },
         "description": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "CreateBookingConfirmationRequest": {
-      "type": "object",
-      "required": [
-        "bookingId",
-        "mpesaPhoneNumber",
-        "amount"
-      ],
-      "properties": {
-        "bookingId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "mpesaPhoneNumber": {
-          "type": "string",
-          "minLength": 1
-        },
-        "amount": {
           "type": "string",
           "minLength": 1
         }
@@ -4430,31 +4352,14 @@
       "required": [
         "id",
         "propertyId",
-        "unitId",
-        "blockId",
         "fullName",
         "phoneNumber",
         "email",
         "companyName",
         "businessType",
         "description",
-        "status",
-        "bookingFee",
-        "monthlyRent",
-        "depositAmount",
-        "serviceCharge",
-        "bookingDate",
-        "cancellationReason",
-        "isRefunded",
-        "isPaid",
-        "isDeleted",
         "createdAt",
-        "updatedAt",
-        "property",
-        "unit",
-        "block",
-        "tenant",
-        "payment"
+        "updatedAt"
       ],
       "properties": {
         "id": {
@@ -4462,14 +4367,6 @@
           "format": "int64"
         },
         "propertyId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "unitId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "blockId": {
           "type": "integer",
           "format": "int64"
         },
@@ -4491,65 +4388,6 @@
         "description": {
           "type": "string"
         },
-        "status": {
-          "$ref": "#/definitions/BookingStatus"
-        },
-        "bookingFee": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "monthlyRent": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "depositAmount": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "serviceCharge": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "bookingDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "expiryDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "paymentDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "cancelledAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "cancellationReason": {
-          "type": "string"
-        },
-        "isRefunded": {
-          "type": "boolean"
-        },
-        "isPaid": {
-          "type": "boolean"
-        },
-        "leaseId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "convertedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "paymentId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "isDeleted": {
-          "type": "boolean"
-        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
@@ -4557,41 +4395,8 @@
         "updatedAt": {
           "type": "string",
           "format": "date-time"
-        },
-        "property": {
-          "$ref": "#/definitions/Property"
-        },
-        "unit": {
-          "$ref": "#/definitions/PropertyUnit"
-        },
-        "block": {
-          "$ref": "#/definitions/PropertyBlock"
-        },
-        "tenant": {
-          "$ref": "#/definitions/Tenant"
-        },
-        "payment": {
-          "$ref": "#/definitions/MpesaTransactions"
         }
       }
-    },
-    "BookingStatus": {
-      "type": "integer",
-      "description": "",
-      "x-enumNames": [
-        "PendingPayment",
-        "Active",
-        "Expired",
-        "Cancelled",
-        "ConvertedToLease"
-      ],
-      "enum": [
-        0,
-        1,
-        2,
-        3,
-        4
-      ]
     },
     "CreateMpesaPaymentRequest": {
       "type": "object",

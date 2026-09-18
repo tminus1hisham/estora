@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
+import '../../../components/app_glass.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_reveal.dart';
@@ -13,32 +14,51 @@ import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/page_empty_state.dart';
+import '../../../components/surface_atoms.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/status_palette.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../core/utils/money.dart';
+import '../../../domain/entities/billing.dart';
 import '../../../domain/entities/owner.dart';
+import '../../../domain/entities/property.dart';
+import '../../../domain/entities/treasury.dart';
 import '../../../navigation/routes.dart';
+import '../../properties/application/property_controller.dart';
 import '../application/owner_controller.dart';
 
 /// Section 88. Money in.
 ///
-/// What arrived this month, what is still owed and for how long, and the
-/// record of arrivals. The ageing bands are the point of the screen: an owner
-/// with KES 400,000 outstanding cares a great deal whether it is three days
-/// late or three months.
+/// What arrived over a window, what is still owed and for how long, and the
+/// record of arrivals — drawn from the [OwnerReport] the contract serves:
+/// every M-Pesa arrival and every invoice across the owner's properties. The
+/// ageing bands are the point of the screen: an owner with KES 400,000
+/// outstanding cares a great deal whether it is three days late or three
+/// months.
+///
+/// An owner with more than one property is offered a strip under the title
+/// to cut the report to one of them. An owner with one property is not: the
+/// only answer it could give is the one already on screen.
 class OwnerMoneyScreen extends ConsumerWidget {
   const OwnerMoneyScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ledger = ref.watch(ownerLedgerProvider);
+    final report = ref.watch(ownerReportProvider);
+    final selected = ref.watch(reportPropertyProvider);
+    final properties = ref.watch(propertyListProvider).value ?? const [];
+    // Names for the arrivals list, which the till keys by property id only.
+    final names = {for (final property in properties) property.id: property};
+
+    Future<void> refresh() async {
+      await ref.refresh(ownerReportProvider.future).then<void>((_) {});
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Money'),
+        title: const Text('Revenue'),
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
@@ -63,84 +83,178 @@ class OwnerMoneyScreen extends ConsumerWidget {
           ),
           Gap.w8,
         ],
+        bottom: properties.length > 1
+            ? PreferredSize(
+                // Sized here, where there is a context to read the text scale
+                // from; a strip that cannot grow with the type clips it.
+                preferredSize: Size.fromHeight(
+                  PropertyFilterBar.heightOf(context),
+                ),
+                child: PropertyFilterBar(
+                  properties: properties,
+                  selected: selected,
+                  onSelected: (id) =>
+                      ref.read(reportPropertyProvider.notifier).select(id),
+                ),
+              )
+            : null,
       ),
-      body: switch (ledger) {
-        AsyncLoading() when !ledger.hasValue => const AppSkeletonList(
+      body: switch (report) {
+        AsyncLoading() when !report.hasValue => const AppSkeletonList(
           header: true,
         ),
-        AsyncError(error: UnsupportedFeatureFailure()) => PageEmptyState(
-          onRefresh: () async {
-            await ref.refresh(ownerLedgerProvider.future).then<void>((_) {});
-          },
-          icon: Icons.account_balance_wallet_outlined,
-          caption: 'Your money overview',
-          title: 'Money overview is on its way',
-          message:
-              'Collections, outstanding balances and payouts will appear here when money tracking is available.',
-        ),
-        AsyncError(:final error) => ErrorView(
+        AsyncError(:final error) when !report.hasValue => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () async {
-            await ref.refresh(ownerLedgerProvider.future).then<void>((_) {});
-          },
+          onRetry: refresh,
         ),
         _ => _Money(
-          ledger: ledger.requireValue,
-          onRefresh: () async {
-            await ref.refresh(ownerLedgerProvider.future).then<void>((_) {});
-          },
+          report: report.requireValue,
+          // Dimmed, not replaced, while the next property's answer is on its
+          // way — the figures change rather than blank.
+          stale: report.isLoading,
+          properties: names,
+          onRefresh: refresh,
         ),
       },
     );
   }
 }
 
-class _Money extends StatelessWidget {
-  const _Money({required this.ledger, required this.onRefresh});
+/// The strip under the title that cuts the report to one property.
+///
+/// A tab row rather than a menu, so the property in view is always legible
+/// without opening anything. It scrolls sideways — a portfolio of six is a
+/// row wider than any phone — and the first tab is the whole portfolio,
+/// which is where the screen opens.
+class PropertyFilterBar extends StatelessWidget {
+  const PropertyFilterBar({
+    required this.properties,
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
 
-  final OwnerLedger ledger;
+  final List<Property> properties;
+
+  /// The property in view, or null for all of them.
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+
+  /// One row of pills, grown with the type up to the point past which a
+  /// taller strip would be eating the report it filters.
+  static double heightOf(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+    return 36 * scale.clamp(1.0, 1.7) + Gap.md + 1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: heightOf(context),
+      child: GlassSurface(
+        blur: 18,
+        border: false,
+        borderRadius: BorderRadius.zero,
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayout.maxReadingWidth,
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
+                    child: Row(
+                      children: [
+                        _PeriodPill(
+                          label: 'All properties',
+                          selected: selected == null,
+                          onTap: () => onSelected(null),
+                        ),
+                        for (final property in properties) ...[
+                          Gap.w8,
+                          _PeriodPill(
+                            label: property.name,
+                            selected: selected == property.id,
+                            onTap: () => onSelected(property.id),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Hairline(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Money extends StatelessWidget {
+  const _Money({
+    required this.report,
+    required this.stale,
+    required this.properties,
+    required this.onRefresh,
+  });
+
+  final OwnerReport report;
+  final bool stale;
+  final Map<String, Property> properties;
   final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    if (ledger.collectedThisMonth.isZero &&
-        ledger.platformFeeThisMonth.isZero &&
-        ledger.netThisMonth.isZero &&
-        ledger.totalOutstanding.isZero &&
-        !ledger.hasArrears &&
-        ledger.collections.isEmpty &&
-        ledger.history.isEmpty &&
-        ledger.payouts.isEmpty) {
+    if (report.isEmpty) {
       return PageEmptyState(
         icon: Icons.account_balance_wallet_outlined,
         caption: 'Your money overview',
         title: 'No money activity yet',
-        message:
-            'Once payments arrive, you can follow collections, outstanding balances and payouts here.',
+        message: report.propertyId == null
+            ? 'Once payments arrive, you can follow collections and outstanding balances here.'
+            : 'Nothing has been invoiced or received for this property yet.',
         onRefresh: onRefresh,
       );
     }
+    final ageing = report.ageingAt(DateTime.now());
+    final owed = report.outstandingInvoices;
     final sections = <Widget>[
-      _CollectedCard(ledger: ledger),
-      if (ledger.hasArrears) _Ageing(buckets: ledger.ageing),
-      if (ledger.collections.isNotEmpty)
-        _Collections(collections: ledger.collections),
+      _CollectedCard(report: report),
+      if (report.hasArrears) _Ageing(buckets: ageing),
+      if (owed.isNotEmpty) _Outstanding(invoices: owed),
+      if (report.received.isNotEmpty)
+        _Received(rows: report.received, properties: properties),
     ];
 
     return AppRefreshIndicator(
       onRefresh: onRefresh,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppLayout.maxReadingWidth,
-          ),
-          child: ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),
-            itemCount: sections.length,
-            separatorBuilder: (_, _) => Gap.h24,
-            itemBuilder: (context, index) =>
-                AppReveal(index: index, child: sections[index]),
+      child: AnimatedOpacity(
+        opacity: stale ? 0.55 : 1,
+        duration: AppMotion.standard,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppLayout.maxReadingWidth,
+            ),
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                Gap.lg,
+                Gap.xs,
+                Gap.lg,
+                Gap.xxl,
+              ),
+              itemCount: sections.length,
+              separatorBuilder: (_, _) => Gap.h24,
+              itemBuilder: (context, index) =>
+                  AppReveal(index: index, child: sections[index]),
+            ),
           ),
         ),
       ),
@@ -152,83 +266,53 @@ class _Money extends StatelessWidget {
 ///
 /// The month is the default and the figure the screen is named for. The
 /// narrower windows and the custom span are a question the owner asks — "what
-/// landed today?" — and each answer is a fresh server total, never the
-/// ledger's recent arrivals added up here (section 84 rule 7). The last
-/// answer stays on screen while the next loads, so switching tabs changes a
-/// figure rather than blanking a card.
-///
-/// Until the first series arrives, or where the server cannot answer the
-/// query at all, the card shows the month exactly as the ledger states it.
+/// landed today?" — and each answer is cut from the same arrivals the report
+/// holds, by the calendar arithmetic in [CollectionWindow.resolve]. Switching
+/// tabs changes a figure rather than fetching one.
 class _CollectedCard extends ConsumerWidget {
-  const _CollectedCard({required this.ledger});
+  const _CollectedCard({required this.report});
 
-  final OwnerLedger ledger;
+  final OwnerReport report;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final window = ref.watch(collectionWindowProvider);
-    final series = ref.watch(collectionSeriesProvider);
-    final answered = series.hasValue ? series.requireValue : null;
-    final figures = answered == null
-        ? _Figures.fromLedger(ledger)
-        : _Figures.fromSeries(answered);
-    final stale = answered != null && answered.window != window;
-    // A server that cannot answer per-window queries at all leaves the month
-    // as the ledger states it, with no tabs to promise otherwise.
-    final unsupported = series.error is UnsupportedFeatureFailure;
+    final figures = _Figures.of(report.sliceOver(window));
 
     return SectionCard(
       children: [
-        if (!unsupported) ...[
-          _PeriodStrip(
-            window: window,
-            onSelected: (next) =>
-                ref.read(collectionWindowProvider.notifier).select(next),
-            onCustom: () => _pickRange(context, ref, window),
-          ),
-          Gap.h16,
-        ],
-        AnimatedOpacity(
-          // Dimmed, not replaced, while the next window is on its way.
-          opacity: stale || (series.isLoading && answered == null) ? 0.55 : 1,
-          duration: AppMotion.standard,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                figures.caption,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              Gap.h12,
-              MoneyCountUp(figures.collected, scale: AmountScale.hero),
-              Gap.h8,
-              Text(
-                figures.detail,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              if (series.hasError && !series.isLoading && !unsupported) ...[
-                Gap.h8,
-                _SeriesError(
-                  onRetry: () => ref.invalidate(collectionSeriesProvider),
-                ),
-              ],
-              if (figures.points.isNotEmpty) ...[
-                Gap.h24,
-                CollectionColumns(
-                  key: ValueKey(figures.window),
-                  points: figures.points,
-                  height: 120,
-                ),
-              ],
-            ],
+        _PeriodStrip(
+          window: window,
+          onSelected: (next) =>
+              ref.read(collectionWindowProvider.notifier).select(next),
+          onCustom: () => _pickRange(context, ref, window),
+        ),
+        Gap.h16,
+        Text(
+          figures.caption,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 1.2,
           ),
         ),
+        Gap.h12,
+        MoneyCountUp(figures.collected, scale: AmountScale.hero),
+        Gap.h8,
+        Text(
+          figures.detail,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        if (figures.points.isNotEmpty) ...[
+          Gap.h24,
+          CollectionColumns(
+            key: ValueKey(figures.window),
+            points: figures.points,
+            height: 120,
+          ),
+        ],
       ],
     );
   }
@@ -257,7 +341,7 @@ class _CollectedCard extends ConsumerWidget {
   }
 }
 
-/// What the card shows, whichever of its two sources it came from.
+/// What the card shows for one window.
 class _Figures {
   const _Figures({
     required this.window,
@@ -267,16 +351,8 @@ class _Figures {
     required this.points,
   });
 
-  factory _Figures.fromLedger(OwnerLedger ledger) => _Figures(
-    window: const CollectionWindow.month(),
-    caption: 'COLLECTED THIS MONTH',
-    collected: ledger.collectedThisMonth,
-    detail: _dueLine(ledger.netThisMonth, ledger.platformFeeThisMonth),
-    points: [for (final month in ledger.history) CollectionPoint.month(month)],
-  );
-
-  factory _Figures.fromSeries(CollectionSeries series) {
-    final window = series.window;
+  factory _Figures.of(ReportSlice slice) {
+    final window = slice.window;
     final span = switch (window.period) {
       CollectionPeriod.today => 'today',
       CollectionPeriod.yesterday => 'yesterday',
@@ -288,19 +364,18 @@ class _Figures {
         'COLLECTED ${_rangeLabel(window, year: true).toUpperCase()}',
       _ => 'COLLECTED ${span.toUpperCase()}',
     };
-    final count = series.paymentCount;
-    final detail = series.isEmpty
+    final count = slice.paymentCount;
+    final detail = slice.isEmpty
         ? 'Nothing came in $span.'
-        : '${_dueLine(series.net, series.platformFee)} '
-              '$count payment${count == 1 ? '' : 's'}.';
+        : '$count M-Pesa payment${count == 1 ? '' : 's'} $span.';
     return _Figures(
       window: window,
       caption: caption,
-      collected: series.collected,
+      collected: slice.collected,
       detail: detail,
       // An empty window keeps its sentence and loses its chart: a row of
       // nothing is not a picture of anything.
-      points: series.isEmpty ? const [] : series.points,
+      points: slice.isEmpty ? const [] : slice.points,
     );
   }
 
@@ -309,9 +384,6 @@ class _Figures {
   final Money collected;
   final String detail;
   final List<CollectionPoint> points;
-
-  static String _dueLine(Money net, Money fee) =>
-      '${net.format()} due to you after ${fee.format()} in platform fees.';
 }
 
 /// `3 – 14 Sep`, or `14 Sep` when the span is one day.
@@ -441,31 +513,6 @@ class _PeriodPill extends StatelessWidget {
   }
 }
 
-/// One line for a window the server could not answer, and a way to ask again.
-class _SeriesError extends StatelessWidget {
-  const _SeriesError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'That period could not be loaded.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: context.statusColors.resolve(StatusTone.danger),
-            ),
-          ),
-        ),
-        TextButton(onPressed: onRetry, child: const Text('Retry')),
-      ],
-    );
-  }
-}
-
 /// Outstanding money, banded by how long it has been owed.
 class _Ageing extends StatelessWidget {
   const _Ageing({required this.buckets});
@@ -503,19 +550,62 @@ class _Ageing extends StatelessWidget {
   }
 }
 
-class _Collections extends StatelessWidget {
-  const _Collections({required this.collections});
+/// The invoices behind the bands, soonest due first, each with who owes it.
+class _Outstanding extends StatelessWidget {
+  const _Outstanding({required this.invoices});
 
-  final List<OwnerCollection> collections;
+  final List<Invoice> invoices;
 
   @override
   Widget build(BuildContext context) {
     final statuses = context.statusColors;
-    final months = <DateTime, List<OwnerCollection>>{};
+    final now = DateTime.now();
 
-    for (final collection in collections) {
-      final key = DateTime(collection.paidAt.year, collection.paidAt.month);
-      months.putIfAbsent(key, () => []).add(collection);
+    return RecordGroup(
+      heading: 'Outstanding invoices',
+      children: [
+        for (final invoice in invoices)
+          RecordRow(
+            icon: Icons.receipt_long_outlined,
+            iconColor: statuses.resolve(
+              invoice.dueDate.isBefore(now)
+                  ? StatusTone.danger
+                  : StatusTone.neutral,
+            ),
+            title: invoice.tenantName ?? invoice.invoiceNumber,
+            subtitle: _where(invoice) ?? invoice.invoiceNumber,
+            amount: AmountText(invoice.amountDue),
+            caption: 'Due ${AppDate.short(invoice.dueDate)}',
+          ),
+      ],
+    );
+  }
+
+  static String? _where(Invoice invoice) {
+    final parts = [
+      if (invoice.unitNumber != null) invoice.unitNumber!,
+      if (invoice.propertyName != null) invoice.propertyName!,
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+}
+
+/// What the till received, by month, newest first.
+class _Received extends StatelessWidget {
+  const _Received({required this.rows, required this.properties});
+
+  final List<MpesaTransaction> rows;
+  final Map<String, Property> properties;
+
+  @override
+  Widget build(BuildContext context) {
+    final statuses = context.statusColors;
+    final months = <DateTime?, List<MpesaTransaction>>{};
+
+    for (final row in rows) {
+      final at = row.transactedAt ?? row.createdAt;
+      final key = at == null ? null : DateTime(at.year, at.month);
+      months.putIfAbsent(key, () => []).add(row);
     }
 
     return Column(
@@ -524,24 +614,40 @@ class _Collections extends StatelessWidget {
         for (final (index, entry) in months.entries.indexed) ...[
           if (index > 0) Gap.h24,
           RecordGroup(
-            heading: AppDate.monthYear(entry.key),
+            heading: entry.key == null
+                ? 'Received'
+                : 'Received · ${AppDate.monthYear(entry.key!)}',
             children: [
-              for (final collection in entry.value)
+              for (final row in entry.value)
                 RecordRow(
                   icon: Icons.south_west_rounded,
                   iconColor: statuses.positive,
-                  title: collection.tenantName,
-                  subtitle: collection.unitNumber == null
-                      ? collection.propertyName
-                      : '${collection.unitNumber} · '
-                            '${collection.propertyName}',
-                  amount: AmountText(collection.amount),
-                  caption: AppDate.short(collection.paidAt),
+                  title:
+                      row.payerName ??
+                      row.maskedPayerPhone ??
+                      row.transactionId,
+                  subtitle: _where(row),
+                  amount: AmountText(row.amount),
+                  caption: switch (row.transactedAt ?? row.createdAt) {
+                    final at? => AppDate.short(at),
+                    null => row.transactionId,
+                  },
                 ),
             ],
           ),
         ],
       ],
     );
+  }
+
+  String? _where(MpesaTransaction row) {
+    final property = row.propertyId == null
+        ? null
+        : properties[row.propertyId!];
+    final parts = [
+      if (row.hasAccountNumber) row.accountNumber!.trim(),
+      if (property != null) property.name,
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 }

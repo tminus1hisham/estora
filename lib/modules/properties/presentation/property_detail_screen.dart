@@ -5,13 +5,18 @@ import 'package:go_router/go_router.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_media.dart';
+import '../../../components/app_skeleton.dart';
 import '../../../components/app_surface_card.dart';
+import '../../../components/occupancy_meter.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
+import '../../../components/unit_status_strip.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../domain/entities/owner.dart';
 import '../../../navigation/routes.dart';
+import '../../structure/application/structure_controller.dart';
 import '../application/property_controller.dart';
 
 /// A photography-led overview of a property and its available inventory.
@@ -42,20 +47,13 @@ class PropertyDetailScreen extends ConsumerWidget {
               ),
               itemBuilder: (_) => const [
                 PopupMenuItem(value: Routes.blocks, child: Text('Blocks')),
-                PopupMenuItem(
-                  value: Routes.unitCreate,
-                  child: Text('Add a unit'),
-                ),
-                PopupMenuItem(
-                  value: Routes.propertyEdit,
-                  child: Text('Edit this property'),
-                ),
               ],
             ),
         ],
       ),
       body: AppRefreshIndicator(
         onRefresh: () async {
+          if (manager) ref.invalidate(propertyOccupancyProvider(propertyId));
           await ref
               .refresh(propertyDetailProvider(propertyId).future)
               .then<void>((_) {});
@@ -72,7 +70,7 @@ class PropertyDetailScreen extends ConsumerWidget {
                   .then<void>((_) {});
             },
           ),
-          _ => _Body(detail: detail.requireValue),
+          _ => _Body(detail: detail.requireValue, manager: manager),
         },
       ),
       bottomNavigationBar: detail.hasValue
@@ -99,9 +97,10 @@ class PropertyDetailScreen extends ConsumerWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.detail});
+  const _Body({required this.detail, required this.manager});
 
   final PropertyDetail detail;
+  final bool manager;
 
   @override
   Widget build(BuildContext context) {
@@ -196,6 +195,10 @@ class _Body extends StatelessWidget {
             ],
           ],
         ),
+        if (manager) ...[
+          Gap.h12,
+          _OccupancySection(propertyId: property.id, fallback: property.mix),
+        ],
         Gap.h12,
         SectionCard(
           title: 'Property details',
@@ -261,6 +264,82 @@ class _Body extends StatelessWidget {
             ],
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Section 88. How much of the property is let, for the owner.
+///
+/// Counted from the property's unit records. If that count cannot be made,
+/// the mix the property payload itself embedded stands in, so a hiccup on
+/// one route does not blank a figure the list screen just showed.
+class _OccupancySection extends ConsumerWidget {
+  const _OccupancySection({required this.propertyId, this.fallback});
+
+  final String propertyId;
+  final UnitMix? fallback;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final occupancy = ref.watch(propertyOccupancyProvider(propertyId));
+    final mix = occupancy.value?.mix ?? fallback;
+
+    if (mix == null) {
+      if (occupancy.isLoading) {
+        return const SectionCard(
+          title: 'Occupancy',
+          children: [
+            AppSkeleton(height: 28, width: 96),
+            Gap.h12,
+            AppSkeleton(height: 5),
+          ],
+        );
+      }
+      final theme = Theme.of(context);
+      return SectionCard(
+        title: 'Occupancy',
+        children: [
+          Text(
+            'The units could not be counted just now.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Gap.h8,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: () =>
+                  ref.invalidate(propertyOccupancyProvider(propertyId)),
+              child: const Text('Try again'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (mix.isEmpty) {
+      final theme = Theme.of(context);
+      return SectionCard(
+        title: 'Occupancy',
+        children: [
+          Text(
+            'No units yet. Units set up in the blocks will appear here.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return SectionCard(
+      title: 'Occupancy',
+      children: [
+        OccupancyMeter(mix: mix, label: 'Units let'),
+        Gap.h16,
+        UnitStatusStrip(mix: mix),
       ],
     );
   }

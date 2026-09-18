@@ -222,6 +222,7 @@ class DemoInvoiceRepository implements InvoiceRepository {
     unitId: invoice.unitId,
     propertyName: invoice.propertyName,
     unitNumber: invoice.unitNumber,
+    tenantName: invoice.tenantName,
     status: status ?? invoice.status,
     invoiceDate: invoice.invoiceDate,
     dueDate: invoice.dueDate,
@@ -259,6 +260,23 @@ class DemoOwnerRepository implements OwnerRepository {
   @override
   Future<Result<CollectionSeries>> getCollections(CollectionWindow window) =>
       _answer(_fixtures.collectionsOver(window));
+
+  /// The till and the statement, cut to one property when asked — the same
+  /// two lists the live server serves, from the fixtures' side.
+  @override
+  Future<Result<OwnerReport>> getReport({String? propertyId}) => _answer(
+    OwnerReport(
+      propertyId: propertyId,
+      received: _fixtures.mpesa
+          .where((row) => propertyId == null || row.propertyId == propertyId)
+          .toList(growable: false),
+      invoices: _fixtures.invoices.values
+          .where(
+            (invoice) => propertyId == null || invoice.propertyId == propertyId,
+          )
+          .toList(growable: false),
+    ),
+  );
 
   @override
   Future<Result<PropertyOwner>> getOwner() => _inner.getOwner();

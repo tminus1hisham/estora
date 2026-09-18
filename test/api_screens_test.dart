@@ -111,56 +111,6 @@ void main() {
       expect(find.text('The block'), findsOneWidget);
     });
 
-    testWidgets('the new-unit form opens with its blocks loaded', (
-      tester,
-    ) async {
-      usePhone(tester);
-      await tester.pumpWidget(await buildApp());
-      await tester.pumpAndSettle();
-      await signIn(tester, 'owner@karunaholdings.co.ke');
-
-      await open(
-        tester,
-        Routes.unitCreate,
-        pathParameters: {'propertyId': await firstPropertyId(tester)},
-      );
-
-      expect(find.text('Add a unit'), findsOneWidget);
-      expect(find.text('Unit number'), findsOneWidget);
-      // The block picker is the part that had to load something. An empty
-      // dropdown here would mean the form opened before its blocks arrived.
-      expect(find.text('Block'), findsOneWidget);
-      expect(find.text('No block'), findsOneWidget);
-    });
-
-    testWidgets('the property edit form is filled from the record', (
-      tester,
-    ) async {
-      usePhone(tester);
-      await tester.pumpWidget(await buildApp());
-      await tester.pumpAndSettle();
-      await signIn(tester, 'owner@karunaholdings.co.ke');
-
-      await open(
-        tester,
-        Routes.propertyEdit,
-        pathParameters: {'propertyId': await firstPropertyId(tester)},
-      );
-
-      expect(find.text('Edit property'), findsOneWidget);
-      // Seeded, not blank: an edit form that opens empty invites somebody to
-      // overwrite a field they never meant to touch.
-      expect(
-        tester
-            .widget<TextFormField>(
-              find.widgetWithText(TextFormField, 'Property name'),
-            )
-            .controller!
-            .text,
-        isNotEmpty,
-      );
-    });
-
     testWidgets('the till lists what arrived and what is unallocated', (
       tester,
     ) async {
@@ -238,7 +188,7 @@ void main() {
 
       expect(find.text('Sign-in and security'), findsOneWidget);
       expect(find.text('Change password'), findsOneWidget);
-      expect(find.text('Two-factor authentication'), findsOneWidget);
+      expect(find.text('Two-factor authentication'), findsNothing);
       expect(find.text('Contact details'), findsOneWidget);
     });
 

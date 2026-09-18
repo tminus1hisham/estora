@@ -1,5 +1,6 @@
 import '../../core/utils/money.dart';
 import '../enums/domain_enums.dart';
+import 'owner.dart';
 
 /// Section 11. A mall or other commercial property.
 ///
@@ -23,6 +24,7 @@ class Property {
     this.totalArea,
     this.totalUnits,
     this.availableUnits,
+    this.mix,
     this.ownerId,
     this.rentRatePerSqm,
     this.logoUrl,
@@ -50,6 +52,11 @@ class Property {
   /// bookings and leases (section 15 prefers deriving occupancy over storing
   /// it), so the app just displays what it is given.
   final int? availableUnits;
+
+  /// How the units are let, counted from the unit records the payload
+  /// embeds. Null when it embeds none — a property list is not asked to fetch
+  /// every unit just to put a percentage on a card.
+  final UnitMix? mix;
 
   /// Section 88. Who owns the property, if the platform is tracking ownership.
   ///

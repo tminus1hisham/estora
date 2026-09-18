@@ -87,7 +87,7 @@ class _Roll extends StatelessWidget {
               child: EmptyState(
                 icon: Icons.meeting_room_outlined,
                 title: 'No units yet',
-                message: 'Add units to this property to start letting space.',
+                message: 'Units set up for this property will appear here.',
               ),
             ),
           ],

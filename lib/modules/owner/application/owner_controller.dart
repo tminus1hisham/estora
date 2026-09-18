@@ -125,15 +125,35 @@ class CollectionWindowController extends Notifier<CollectionWindow> {
   void select(CollectionWindow window) => state = window;
 }
 
-/// What came in over the selected window, as the server totalled it.
+/// Which property the Revenue screen is cut to; null is every property.
 ///
-/// Re-fetched per window rather than filtered client-side from the ledger's
-/// recent arrivals: the headline is a total, and section 84 rule 7 keeps
-/// totals on the server. The previous answer is kept while the next one
-/// loads, so the card changes figure rather than blanking between tabs.
-final collectionSeriesProvider = FutureProvider<CollectionSeries>((ref) async {
-  final window = ref.watch(collectionWindowProvider);
-  final result = await ref.read(ownerRepositoryProvider).getCollections(window);
+/// Opens on the whole portfolio, which is the report the screen is for. One
+/// property is a question the owner asks of it, and only an owner with more
+/// than one property is offered the question at all.
+final reportPropertyProvider =
+    NotifierProvider<ReportPropertyController, String?>(
+      ReportPropertyController.new,
+    );
+
+class ReportPropertyController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String? propertyId) => state = propertyId;
+}
+
+/// The owner's money as the contract serves it, cut to the chosen property.
+///
+/// Re-fetched per property rather than narrowed from the whole-portfolio
+/// answer, because the contract keys both of its landlord-side money routes
+/// on a property: the filter is the server's, not the app's. The previous
+/// answer is kept while the next one loads, so the screen changes figures
+/// rather than blanking between properties.
+final ownerReportProvider = FutureProvider<OwnerReport>((ref) async {
+  final propertyId = ref.watch(reportPropertyProvider);
+  final result = await ref
+      .read(ownerRepositoryProvider)
+      .getReport(propertyId: propertyId);
   return switch (result) {
     Ok(:final value) => value,
     Err(:final failure) => throw failure,
@@ -229,7 +249,7 @@ class OwnerActions {
     _ref.invalidate(ownerPortfolioProvider);
     _ref.invalidate(ownerTenanciesProvider);
     _ref.invalidate(ownerLedgerProvider);
-    _ref.invalidate(collectionSeriesProvider);
+    _ref.invalidate(ownerReportProvider);
     if (propertyId != null) {
       _ref.invalidate(propertyPerformanceProvider(propertyId));
       _ref.invalidate(repricingImpactProvider(propertyId));

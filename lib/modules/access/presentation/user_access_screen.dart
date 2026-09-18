@@ -187,10 +187,6 @@ class _Body extends ConsumerWidget {
                     label: 'Phone confirmed',
                     value: user.phoneConfirmed ? 'Yes' : 'No',
                   ),
-                  DetailRow(
-                    label: 'Two-factor',
-                    value: user.twoFactorEnabled ? 'On' : 'Off',
-                  ),
                   if (user.lastLoginAt != null)
                     DetailRow(
                       label: 'Last signed in',

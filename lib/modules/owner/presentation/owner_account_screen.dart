@@ -83,7 +83,7 @@ class OwnerAccountScreen extends ConsumerWidget {
             leading: const Icon(Icons.lock_outline_rounded),
             title: const Text('Sign-in and security'),
             subtitle: const Text(
-              'Your password, two-factor, and confirming your contact details.',
+              'Your password and confirming your contact details.',
             ),
             onTap: () => context.pushNamed(Routes.security),
           ),

@@ -214,8 +214,10 @@ void main() {
         await RemoteLeaseRepository(api).listLeases(),
         await RemoteLeaseRepository(api).getAgreement('lease-id'),
         await RemoteBookingRepository(api).cancelBooking('booking-id'),
-        await RemotePaymentRepository(api).listPayments(),
-        await RemotePaymentRepository(api).getPayment('payment-id'),
+        await RemotePaymentRepository(
+          api,
+          AccountIdentity(api),
+        ).getPayment('payment-id'),
         await RemoteReceiptRepository(api).listReceipts(),
         await RemoteDocumentRepository(api).listDocuments(),
         await RemoteDocumentRepository(api).upload(

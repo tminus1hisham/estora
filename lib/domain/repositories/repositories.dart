@@ -470,6 +470,11 @@ abstract interface class OwnerRepository {
   /// server (section 84 rule 7): the Money screen never adds up payments.
   Future<Result<CollectionSeries>> getCollections(CollectionWindow window);
 
+  /// The owner's money as the contract serves it: every M-Pesa arrival and
+  /// every invoice across the properties they hold, or across one property
+  /// when [propertyId] is given. The Revenue screen is drawn from this.
+  Future<Result<OwnerReport>> getReport({String? propertyId});
+
   Future<Result<Property>> createProperty({
     required PropertyDraft draft,
     required String idempotencyKey,

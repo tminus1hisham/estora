@@ -71,9 +71,6 @@ class Routes {
   static const ownerProperty = 'owner-property';
   static const ownerPropertyPath = ':propertyId';
 
-  static const ownerAddProperty = 'owner-add-property';
-  static const ownerAddPropertyPath = 'new';
-
   /// The tenant's own property screen, shown to the owner as a preview.
   ///
   /// Lives under `/owner` rather than pointing at `/browse/property/:id`
@@ -115,23 +112,15 @@ class Routes {
   // keyed on the block rather than nested under its property: a block already
   // knows which property it belongs to, and repeating that in the path would
   // mean every link needed both ids to hand.
-  static const propertyEdit = 'property-edit';
-  static const propertyEditPath = ':propertyId/edit';
 
   static const blocks = 'blocks';
   static const blocksPath = ':propertyId/blocks';
-
-  static const blockCreate = 'block-create';
-  static const blockCreatePath = ':propertyId/blocks/new';
 
   static const blockDetail = 'block-detail';
   static const blockDetailPath = 'block/:blockId';
 
   static const blockEdit = 'block-edit';
   static const blockEditPath = 'block/:blockId/edit';
-
-  static const unitCreate = 'unit-create';
-  static const unitCreatePath = ':propertyId/units/new';
 
   static const unitEdit = 'unit-edit';
   static const unitEditPath = 'unit/:unitId/edit';

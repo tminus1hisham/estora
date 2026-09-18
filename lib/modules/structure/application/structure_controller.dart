@@ -4,6 +4,7 @@ import '../../../core/error/result.dart';
 import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
 import '../../../domain/entities/unit.dart';
+import '../../../domain/repositories/repositories.dart';
 import '../../../services/providers.dart';
 import '../../owner/application/owner_controller.dart';
 import '../../properties/application/property_controller.dart';
@@ -48,6 +49,25 @@ final blockUnitsProvider = FutureProvider.family<List<Unit>, String>((
     Err(:final failure) => throw failure,
   };
 });
+
+/// How a property's units are let, whole and by block.
+///
+/// Counted from the unit records rather than read off the property, because
+/// the contract publishes no occupancy figure and the block list needs the
+/// split anyway. One call for the whole property; the block screen counts
+/// from the units it has already fetched.
+final propertyOccupancyProvider =
+    FutureProvider.family<PropertyOccupancy, String>((ref, propertyId) async {
+      final result = await ref
+          .read(unitRepositoryProvider)
+          .listUnits(
+            filter: UnitFilter(propertyId: propertyId, availableOnly: false),
+          );
+      return switch (result) {
+        Ok(:final value) => PropertyOccupancy.of(value.items),
+        Err(:final failure) => throw failure,
+      };
+    });
 
 /// Writes against the shape of a property.
 final structureActionsProvider = Provider<StructureActions>(
@@ -165,6 +185,7 @@ class StructureActions {
   void _invalidateProperty(String propertyId) {
     _ref.invalidate(propertyBlocksProvider(propertyId));
     _ref.invalidate(propertyDetailProvider(propertyId));
+    _ref.invalidate(propertyOccupancyProvider(propertyId));
     _ref.invalidate(propertyListProvider);
     _ref.invalidate(propertyPerformanceProvider(propertyId));
     _ref.invalidate(ownerPortfolioProvider);

@@ -184,15 +184,12 @@ class HomeActionPanel extends StatelessWidget {
                 ),
                 label: Text(manager ? 'View properties' : 'View invoices'),
               ),
-              OutlinedButton.icon(
-                onPressed: () => manager
-                    ? context.pushNamed(Routes.ownerAddProperty)
-                    : context.goNamed(Routes.browse),
-                icon: Icon(
-                  manager ? Icons.add_rounded : Icons.explore_outlined,
+              if (!manager)
+                OutlinedButton.icon(
+                  onPressed: () => context.goNamed(Routes.browse),
+                  icon: const Icon(Icons.explore_outlined),
+                  label: const Text('Browse properties'),
                 ),
-                label: Text(manager ? 'Add property' : 'Browse properties'),
-              ),
             ],
           ),
         ],
@@ -235,14 +232,14 @@ class HomeWelcomeCard extends StatelessWidget {
           Gap.h16,
           Text(
             manager
-                ? 'Room for your first property.'
+                ? 'Nothing in your portfolio yet.'
                 : 'A fresh start. A clear view.',
             style: theme.textTheme.titleLarge,
           ),
           Gap.h8,
           Text(
             manager
-                ? 'Bring your spaces together. Add your first property and start making yourself at home.'
+                ? 'Properties assigned to you will appear here, with their spaces and rent all in one place.'
                 : 'No invoices yet. When one arrives, you’ll find the details here. In the meantime, explore a space that feels right for you.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -252,10 +249,10 @@ class HomeWelcomeCard extends StatelessWidget {
           Gap.h16,
           TextButton.icon(
             onPressed: () => manager
-                ? context.pushNamed(Routes.ownerAddProperty)
+                ? context.goNamed(Routes.ownerProperties)
                 : context.goNamed(Routes.browse),
             icon: const Icon(Icons.arrow_forward_rounded),
-            label: Text(manager ? 'Add your first property' : 'Explore spaces'),
+            label: Text(manager ? 'Open your portfolio' : 'Explore spaces'),
           ),
         ],
       ),

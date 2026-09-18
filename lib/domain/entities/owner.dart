@@ -2,6 +2,9 @@ import 'package:intl/intl.dart';
 
 import '../../core/utils/money.dart';
 import '../enums/domain_enums.dart';
+import 'billing.dart';
+import 'treasury.dart';
+import 'unit.dart';
 
 /// Section 88. The individual or company that owns a property and lets it.
 ///
@@ -169,9 +172,14 @@ class RepricingImpact {
 /// How a property's units are distributed across the states that matter to an
 /// owner.
 ///
-/// Counts rather than a rate, because this is what the status strip draws. The
-/// occupancy *rate* is supplied separately by the server — deriving it here as
-/// well would give the app two answers to the same question.
+/// Counts rather than a rate, because this is what the status strip draws.
+/// Where the server reports occupancy itself ([PropertyPerformance] carries
+/// its own `occupancyRate`) that figure is the one shown. The published
+/// contract reports none, so a property or block read off the live API has
+/// its mix counted from the unit records the server sent, and [occupancy] is
+/// section 71's rule applied to that count — let units over all units, the
+/// same arithmetic the reporting side uses. It is derived from records the
+/// server holds, never from anything the app made up.
 class UnitMix {
   const UnitMix({
     this.leased = 0,
@@ -179,6 +187,32 @@ class UnitMix {
     this.available = 0,
     this.unavailable = 0,
   });
+
+  /// Counted from unit records, one to a status.
+  factory UnitMix.of(Iterable<Unit> units) {
+    var leased = 0;
+    var booked = 0;
+    var available = 0;
+    var unavailable = 0;
+    for (final unit in units) {
+      switch (unit.status) {
+        case UnitStatus.leased:
+          leased++;
+        case UnitStatus.reserved || UnitStatus.booked:
+          booked++;
+        case UnitStatus.available:
+          available++;
+        case _:
+          unavailable++;
+      }
+    }
+    return UnitMix(
+      leased: leased,
+      booked: booked,
+      available: available,
+      unavailable: unavailable,
+    );
+  }
 
   /// Let, and earning.
   final int leased;
@@ -193,6 +227,43 @@ class UnitMix {
 
   int get total => leased + booked + available + unavailable;
   bool get isEmpty => total == 0;
+
+  /// Share of units let, 0–1. Zero when there are no units to let.
+  double get occupancy => total == 0 ? 0 : (leased / total).clamp(0, 1);
+
+  int get occupancyPercent => (occupancy * 100).round();
+
+  /// `9 of 12 let`.
+  String get occupancyLabel => '$leased of $total let';
+}
+
+/// A property's [UnitMix], whole and split by block.
+///
+/// One count of the property's unit records serves both the property screen
+/// and its block list, so the two never disagree about the same units.
+class PropertyOccupancy {
+  const PropertyOccupancy({required this.mix, required this.byBlock});
+
+  factory PropertyOccupancy.of(Iterable<Unit> units) {
+    final grouped = <String, List<Unit>>{};
+    for (final unit in units) {
+      final blockId = unit.buildingId;
+      if (blockId != null) (grouped[blockId] ??= <Unit>[]).add(unit);
+    }
+    return PropertyOccupancy(
+      mix: UnitMix.of(units),
+      byBlock: {
+        for (final entry in grouped.entries) entry.key: UnitMix.of(entry.value),
+      },
+    );
+  }
+
+  final UnitMix mix;
+
+  /// Keyed on block id. A block with no units has no entry.
+  final Map<String, UnitMix> byBlock;
+
+  UnitMix? forBlock(String blockId) => byBlock[blockId];
 }
 
 /// What was billed and what came in, for one month.
@@ -833,4 +904,178 @@ class OwnerPortfolio {
   bool get hasProperties => properties.isNotEmpty;
   bool get hasAlerts => alerts.isNotEmpty;
   bool get hasOutstanding => outstanding.isPositive;
+}
+
+/// Section 88. The owner's money, as the published contract states it.
+///
+/// The contract has no ledger route. What it serves an owner is records: every
+/// M-Pesa arrival across the properties they hold (or one property's), and
+/// every invoice raised on those properties. This is those two lists, with
+/// the questions the Revenue screen asks answered from them — what came in
+/// over a window, what is still owed and for how long. Each figure is arrived
+/// at the way [UnitMix.of] arrives at occupancy: counted from records the
+/// server holds, never from anything the app made up, and counted here rather
+/// than in a widget so every screen that asks gets the same answer.
+///
+/// Nothing is netted. The contract does not state a platform fee, so no fee
+/// is invented and no "net" is shown.
+class OwnerReport {
+  OwnerReport({
+    required List<MpesaTransaction> received,
+    required List<Invoice> invoices,
+    this.propertyId,
+    String? currency,
+  }) : currency =
+           currency ??
+           invoices.firstOrNull?.currency ??
+           received.firstOrNull?.amount.currency ??
+           'KES',
+       received = List<MpesaTransaction>.unmodifiable(
+         [...received]..sort((a, b) => _when(b).compareTo(_when(a))),
+       ),
+       invoices = List<Invoice>.unmodifiable(
+         [...invoices]..sort((a, b) => b.invoiceDate.compareTo(a.invoiceDate)),
+       );
+
+  /// The property the report is cut to, or null for every property the owner
+  /// holds.
+  final String? propertyId;
+
+  /// The currency the figures are added up in: the records' own, where there
+  /// are any.
+  final String currency;
+
+  /// Every M-Pesa transaction the till received for these properties, newest
+  /// first.
+  final List<MpesaTransaction> received;
+
+  /// Every invoice raised on these properties, newest first.
+  final List<Invoice> invoices;
+
+  bool get isEmpty => received.isEmpty && invoices.isEmpty;
+
+  /// The invoices still carrying a balance, soonest due first.
+  List<Invoice> get outstandingInvoices =>
+      invoices.where((invoice) => invoice.status.isOutstanding).toList()
+        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+
+  /// What is still owed across [outstandingInvoices].
+  Money get outstanding =>
+      _sum(outstandingInvoices.map((invoice) => invoice.amountDue));
+
+  bool get hasArrears => outstandingInvoices.isNotEmpty;
+
+  /// Outstanding money, banded by how long it has been owed — the same bands
+  /// the demo ledger uses, so the screen reads the same whichever served it.
+  List<ArrearsBucket> ageingAt(DateTime now) {
+    final owed = outstandingInvoices;
+    ArrearsBucket bucket(String label, bool Function(int days) test) {
+      final matching = owed
+          .where((invoice) => test(now.difference(invoice.dueDate).inDays))
+          .toList(growable: false);
+      return ArrearsBucket(
+        label: label,
+        amount: _sum(matching.map((invoice) => invoice.amountDue)),
+        invoiceCount: matching.length,
+      );
+    }
+
+    return [
+      bucket('Not yet due', (days) => days <= 0),
+      bucket('1–30 days', (days) => days > 0 && days <= 30),
+      bucket('31–60 days', (days) => days > 30 && days <= 60),
+      bucket('Over 60 days', (days) => days > 60),
+    ];
+  }
+
+  /// What came in over [window], with a column per bucket the window draws.
+  ///
+  /// A transaction is placed by the time the till stamped it; one the till did
+  /// not stamp falls back to when the platform recorded it, and one with
+  /// neither cannot be placed in any window and is left out of every one. A
+  /// month's column also carries what was invoiced in it, because the gap
+  /// between billed and collected is what that view exists to show.
+  ReportSlice sliceOver(CollectionWindow window, {DateTime? now}) {
+    final bounds = window.resolve(now ?? DateTime.now());
+    final inWindow = received
+        .where((row) {
+          final at = _whenOrNull(row);
+          return at != null &&
+              !at.isBefore(bounds.from) &&
+              at.isBefore(bounds.to);
+        })
+        .toList(growable: false);
+
+    return ReportSlice(
+      window: window,
+      from: bounds.from,
+      to: bounds.to,
+      collected: _sum(inWindow.map((row) => row.amount)),
+      paymentCount: inWindow.length,
+      points: [
+        for (final bucket in bounds.buckets)
+          CollectionPoint(
+            at: bucket.start,
+            label: bucket.label,
+            name: bucket.name,
+            // Counted over everything received, not just the window: a
+            // month's view draws the five months before it for comparison.
+            collected: _sum(
+              received
+                  .where((row) => bucket.contains(_when(row)))
+                  .map((row) => row.amount),
+            ),
+            billed: bucket.isBillingPeriod
+                ? _sum(
+                    invoices
+                        .where(
+                          (invoice) => bucket.contains(invoice.invoiceDate),
+                        )
+                        .map((invoice) => invoice.total),
+                  )
+                : null,
+          ),
+      ],
+    );
+  }
+
+  /// Adds up amounts in the report's [currency]. An amount in another currency
+  /// is not converted — there is no rate to convert it at — and so is not
+  /// counted; the record itself still appears in the lists.
+  Money _sum(Iterable<Money> amounts) => amounts
+      .where((amount) => amount.currency == currency)
+      .fold(Money.zero(currency), (total, amount) => total + amount);
+
+  static DateTime? _whenOrNull(MpesaTransaction row) =>
+      row.transactedAt ?? row.createdAt;
+
+  /// For ordering only: a row with no time at all sorts last.
+  static DateTime _when(MpesaTransaction row) =>
+      _whenOrNull(row) ?? DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+/// One [CollectionWindow] of an [OwnerReport].
+class ReportSlice {
+  const ReportSlice({
+    required this.window,
+    required this.from,
+    required this.to,
+    required this.collected,
+    required this.paymentCount,
+    required this.points,
+  });
+
+  final CollectionWindow window;
+
+  /// Half-open.
+  final DateTime from;
+  final DateTime to;
+
+  final Money collected;
+  final int paymentCount;
+
+  /// Oldest first.
+  final List<CollectionPoint> points;
+
+  bool get isEmpty => paymentCount == 0;
 }

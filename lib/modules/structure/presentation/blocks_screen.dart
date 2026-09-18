@@ -10,6 +10,7 @@ import '../../../components/status_chip.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/status_palette.dart';
+import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
@@ -37,14 +38,6 @@ class BlocksScreen extends ConsumerWidget {
         title: const Text('Blocks'),
         backgroundColor: Colors.transparent,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.pushNamed(
-          Routes.blockCreate,
-          pathParameters: {'propertyId': propertyId},
-        ),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add block'),
-      ),
       body: switch (blocks) {
         AsyncLoading() when !blocks.hasValue => const AppSkeletonList(),
         AsyncError(:final error) => ErrorView(
@@ -59,6 +52,7 @@ class BlocksScreen extends ConsumerWidget {
           blocks: blocks.requireValue,
           propertyId: propertyId,
           onRefresh: () async {
+            ref.invalidate(propertyOccupancyProvider(propertyId));
             await ref
                 .refresh(propertyBlocksProvider(propertyId).future)
                 .then<void>((_) {});
@@ -69,7 +63,7 @@ class BlocksScreen extends ConsumerWidget {
   }
 }
 
-class _BlockList extends StatelessWidget {
+class _BlockList extends ConsumerWidget {
   const _BlockList({
     required this.blocks,
     required this.propertyId,
@@ -81,7 +75,12 @@ class _BlockList extends StatelessWidget {
   final Future<void> Function() onRefresh;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // One count of the property's units, split by block. While it is on its
+    // way, or if it fails, the rows simply carry no figure — a block list
+    // without percentages is still a block list.
+    final occupancy = ref.watch(propertyOccupancyProvider(propertyId)).value;
+
     if (blocks.isEmpty) {
       return AppRefreshIndicator(
         onRefresh: onRefresh,
@@ -94,8 +93,8 @@ class _BlockList extends StatelessWidget {
                 icon: Icons.dashboard_outlined,
                 title: 'No blocks yet',
                 message:
-                    'Divide the property into wings or blocks so unit numbers '
-                    'mean something. Units can then be created inside them.',
+                    'Wings or blocks set up for this property will appear '
+                    'here, with their units inside them.',
               ),
             ),
           ],
@@ -128,6 +127,17 @@ class _BlockList extends StatelessWidget {
                       subtitle: block.shapeLabel.isEmpty
                           ? block.description
                           : block.shapeLabel,
+                      amount: switch (occupancy?.forBlock(block.id)) {
+                        final UnitMix mix when !mix.isEmpty => _Percent(
+                          mix: mix,
+                        ),
+                        _ => null,
+                      },
+                      caption: switch (occupancy?.forBlock(block.id)) {
+                        final UnitMix mix when !mix.isEmpty =>
+                          mix.occupancyLabel,
+                        _ => null,
+                      },
                       footnote: block.status == BlockStatus.active
                           ? null
                           : StatusChip(
@@ -148,4 +158,24 @@ class _BlockList extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The block's occupancy figure, in the row's amount slot.
+///
+/// Medium weight and tabular, the way [AmountText] sets money: a percentage
+/// beside a percentage should line up, and neither should shout.
+class _Percent extends StatelessWidget {
+  const _Percent({required this.mix});
+
+  final UnitMix mix;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    '${mix.occupancyPercent}% let',
+    textAlign: TextAlign.end,
+    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+      fontWeight: AppTypography.medium,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    ),
+  );
 }

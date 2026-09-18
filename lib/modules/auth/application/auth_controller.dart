@@ -439,6 +439,8 @@ class AuthController extends Notifier<AuthState> {
     ref.invalidate(ownerTenanciesProvider);
     ref.invalidate(ownerTenancyProvider);
     ref.invalidate(ownerLedgerProvider);
+    ref.invalidate(reportPropertyProvider);
+    ref.invalidate(ownerReportProvider);
     ref.invalidate(platformUsersProvider);
     ref.invalidate(accessRolesProvider);
     ref.invalidate(userRolesProvider);
