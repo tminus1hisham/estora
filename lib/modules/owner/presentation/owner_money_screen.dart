@@ -12,7 +12,6 @@ import '../../../components/app_surface_card.dart';
 import '../../../components/collection_columns.dart';
 import '../../../components/even_grid.dart';
 import '../../../components/money_count_up.dart';
-import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
 import '../../../components/page_empty_state.dart';
 import '../../../components/surface_atoms.dart';
@@ -223,14 +222,11 @@ class _Money extends StatelessWidget {
         onRefresh: onRefresh,
       );
     }
-    final ageing = report.ageingAt(DateTime.now());
-    // The invoices and arrivals themselves live behind the tiles above; the
-    // page keeps only what summarises them.
+    // The invoices and arrivals themselves live behind the tiles; the page
+    // keeps only what summarises them, and both summaries share one card.
     final sections = <Widget>[
-      _CollectedCard(report: report),
+      _OverviewCard(report: report),
       _LedgerTabs(report: report, bankCount: bankCount),
-      if (report.hasArrears)
-        _Ageing(buckets: ageing, outstanding: report.outstanding),
     ];
 
     return AppRefreshIndicator(
@@ -457,23 +453,33 @@ class _CountTile extends StatelessWidget {
   }
 }
 
-/// What came in, over the window the owner picks.
+/// The two faces of the overview card: what came in, and what is still owed.
+enum _Face { collected, outstanding }
+
+/// The screen's one figure card, with two faces the owner switches between:
+/// what came in over a window, and what is still owed and for how long.
 ///
-/// The month is the default and the figure the screen is named for. The
-/// narrower windows and the custom span are a question the owner asks — "what
-/// landed today?" — and each answer is cut from the same arrivals the report
-/// holds, by the calendar arithmetic in [CollectionWindow.resolve]. Switching
-/// tabs changes a figure rather than fetching one.
-class _CollectedCard extends ConsumerWidget {
-  const _CollectedCard({required this.report});
+/// One card rather than two so that neither question needs a scroll to
+/// answer — the owner opening the screen to check arrears should not have to
+/// go looking for them under the collections chart. Which face is showing is
+/// the card's own state; it survives a property switch, so an owner reading
+/// arrears across the portfolio can cut to one property and still be reading
+/// arrears.
+class _OverviewCard extends ConsumerStatefulWidget {
+  const _OverviewCard({required this.report});
 
   final OwnerReport report;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_OverviewCard> createState() => _OverviewCardState();
+}
+
+class _OverviewCardState extends ConsumerState<_OverviewCard> {
+  _Face _face = _Face.collected;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final window = ref.watch(collectionWindowProvider);
-    final figures = _Figures.of(report.sliceOver(window));
 
     return AppSurfaceCard(
       gradient: AppGradients.brandHero,
@@ -494,8 +500,11 @@ class _CollectedCard extends ConsumerWidget {
                     color: AppPalette.brass300.withValues(alpha: 0.25),
                   ),
                 ),
-                child: const Icon(
-                  Icons.account_balance_outlined,
+                child: Icon(
+                  switch (_face) {
+                    _Face.collected => Icons.account_balance_outlined,
+                    _Face.outstanding => Icons.hourglass_bottom_rounded,
+                  },
                   size: 22,
                   color: AppPalette.brass300,
                 ),
@@ -503,7 +512,10 @@ class _CollectedCard extends ConsumerWidget {
               Gap.w12,
               Expanded(
                 child: Text(
-                  'Collection overview',
+                  switch (_face) {
+                    _Face.collected => 'Collection overview',
+                    _Face.outstanding => 'Outstanding bills',
+                  },
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -512,65 +524,177 @@ class _CollectedCard extends ConsumerWidget {
               ),
             ],
           ),
+          Gap.h16,
+          _FaceSwitch(
+            face: _face,
+            onChanged: (next) => setState(() => _face = next),
+          ),
           Gap.h24,
-          _PeriodStrip(
-            window: window,
-            onSelected: (next) =>
-                ref.read(collectionWindowProvider.notifier).select(next),
-            onCustom: () => _pickRange(context, ref, window),
+          // Sized to whichever face is showing, so switching moves the tiles
+          // below smoothly rather than snapping them.
+          AnimatedSize(
+            duration: AppMotion.standard,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: switch (_face) {
+              _Face.collected => _CollectedFace(report: widget.report),
+              _Face.outstanding => _OutstandingFace(report: widget.report),
+            },
           ),
-          Gap.h32,
-          Text(
-            figures.caption,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppPalette.brass300,
-              letterSpacing: 1.6,
-            ),
-          ),
-          Gap.h12,
-          MoneyCountUp(
-            figures.collected,
-            scale: AmountScale.hero,
-            color: Colors.white,
-          ),
-          Gap.h8,
-          Text(
-            figures.detail,
-            style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
-          ),
-          if (figures.points.isNotEmpty) ...[
-            Gap.h24,
-            Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
-            Gap.h16,
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              spacing: Gap.md,
-              runSpacing: Gap.sm,
-              children: [
-                Text(
-                  'Collection history',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: Colors.white70,
-                  ),
-                ),
-                Text(
-                  'Tap a column to explore',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: Colors.white70,
-                  ),
-                ),
-              ],
-            ),
-            Gap.h12,
-            CollectionColumns(
-              key: ValueKey(figures.window),
-              points: figures.points,
-              height: 140,
-              ink: Colors.white,
-            ),
-          ],
         ],
       ),
+    );
+  }
+}
+
+/// Two equal segments on the dark card. The selected one is brass, which is
+/// the card's one accent and so the only thing on it that reads as "on".
+class _FaceSwitch extends StatelessWidget {
+  const _FaceSwitch({required this.face, required this.onChanged});
+
+  final _Face face;
+  final ValueChanged<_Face> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          for (final (label, value) in const [
+            ('Collected', _Face.collected),
+            ('Outstanding', _Face.outstanding),
+          ])
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: face == value,
+                label: label,
+                excludeSemantics: true,
+                child: Material(
+                  color: face == value
+                      ? AppPalette.brass300
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => onChanged(value),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Gap.md,
+                        vertical: Gap.sm,
+                      ),
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: face == value
+                              ? AppPalette.navy900
+                              : Colors.white,
+                          fontWeight: face == value
+                              ? AppTypography.bold
+                              : AppTypography.semibold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// What came in, over the window the owner picks.
+///
+/// The month is the default and the figure the screen is named for. The
+/// narrower windows and the custom span are a question the owner asks — "what
+/// landed today?" — and each answer is cut from the same arrivals the report
+/// holds, by the calendar arithmetic in [CollectionWindow.resolve]. Switching
+/// tabs changes a figure rather than fetching one.
+class _CollectedFace extends ConsumerWidget {
+  const _CollectedFace({required this.report});
+
+  final OwnerReport report;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final window = ref.watch(collectionWindowProvider);
+    final figures = _Figures.of(report.sliceOver(window));
+
+    return Column(
+      key: const ValueKey(_Face.collected),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _PeriodStrip(
+          window: window,
+          onSelected: (next) =>
+              ref.read(collectionWindowProvider.notifier).select(next),
+          onCustom: () => _pickRange(context, ref, window),
+        ),
+        Gap.h32,
+        Text(
+          figures.caption,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: AppPalette.brass300,
+            letterSpacing: 1.6,
+          ),
+        ),
+        Gap.h12,
+        MoneyCountUp(
+          figures.collected,
+          scale: AmountScale.hero,
+          color: Colors.white,
+        ),
+        Gap.h8,
+        Text(
+          figures.detail,
+          style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+        ),
+        if (figures.points.isNotEmpty) ...[
+          Gap.h24,
+          Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
+          Gap.h16,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: Gap.md,
+            runSpacing: Gap.sm,
+            children: [
+              Text(
+                'Collection history',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: Colors.white70,
+                ),
+              ),
+              Text(
+                'Tap a column to explore',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: Colors.white70,
+                ),
+              ),
+            ],
+          ),
+          Gap.h12,
+          CollectionColumns(
+            key: ValueKey(figures.window),
+            points: figures.points,
+            height: 140,
+            ink: Colors.white,
+          ),
+        ],
+      ],
     );
   }
 
@@ -784,82 +908,129 @@ class _PeriodPill extends StatelessWidget {
   }
 }
 
-/// Outstanding money, banded by how long it has been owed.
-class _Ageing extends StatelessWidget {
-  const _Ageing({required this.buckets, required this.outstanding});
+/// What is still owed, banded by how long it has been owed.
+///
+/// The bands are the point: an owner with KES 400,000 outstanding cares a
+/// great deal whether it is three days late or three months. Drawn on the
+/// dark card in the same order the collected face draws its own figure —
+/// caption, amount, one line of detail — so switching faces swaps a question,
+/// not a layout.
+class _OutstandingFace extends StatelessWidget {
+  const _OutstandingFace({required this.report});
 
-  final List<ArrearsBucket> buckets;
-  final Money outstanding;
+  final OwnerReport report;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final statuses = context.statusColors;
-    final showing = buckets.where((bucket) => !bucket.isEmpty).toList();
+    final buckets = report
+        .ageingAt(DateTime.now())
+        .where((bucket) => !bucket.isEmpty)
+        .toList(growable: false);
+    final count = report.outstandingInvoices.length;
 
-    return RecordGroup(
-      heading: 'Owed to you',
+    return Column(
+      key: const ValueKey(_Face.outstanding),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(Gap.xl),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Total outstanding',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Gap.h8,
-              AmountText(outstanding, scale: AmountScale.title),
-              Gap.h16,
-              ClipRRect(
-                borderRadius: AppRadius.small,
-                child: SizedBox(
-                  height: 6,
-                  child: Row(
-                    children: [
-                      for (final bucket in showing)
-                        if (bucket.amount.minorUnits > 0)
-                          Expanded(
-                            flex: bucket.amount.minorUnits,
-                            child: ColoredBox(
-                              color: statuses.resolve(_tone(bucket)),
-                              child: const SizedBox.expand(),
-                            ),
-                          ),
-                    ],
-                  ),
-                ),
-              ),
-              Gap.h12,
-              Text(
-                'Balances by age · All invoice dates',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+        Text(
+          'TOTAL OUTSTANDING',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: AppPalette.brass300,
+            letterSpacing: 1.6,
           ),
         ),
-        for (final (index, bucket) in showing.indexed)
-          RecordRow(
-            icon: index == 0
-                ? Icons.schedule_rounded
-                : Icons.warning_amber_rounded,
-            // The bands darken as they age, which is the only thing the icons
-            // and colours here are being asked to say.
-            iconColor: statuses.resolve(_tone(bucket)),
-            title: bucket.label,
-            subtitle:
-                '${bucket.invoiceCount} invoice'
-                '${bucket.invoiceCount == 1 ? '' : 's'}',
-            amount: AmountText(bucket.amount),
+        Gap.h12,
+        MoneyCountUp(
+          report.outstanding,
+          scale: AmountScale.hero,
+          color: Colors.white,
+        ),
+        Gap.h8,
+        Text(
+          count == 0
+              ? 'Nothing is owed to you.'
+              : '$count unpaid invoice${count == 1 ? '' : 's'}, by age.',
+          style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+        ),
+        if (buckets.isNotEmpty) ...[
+          Gap.h16,
+          ClipRRect(
+            borderRadius: AppRadius.small,
+            child: SizedBox(
+              height: 6,
+              child: Row(
+                children: [
+                  for (final bucket in buckets)
+                    if (bucket.amount.minorUnits > 0)
+                      Expanded(
+                        flex: bucket.amount.minorUnits,
+                        child: ColoredBox(
+                          color: statuses.resolve(_tone(bucket)),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                ],
+              ),
+            ),
           ),
+          Gap.h16,
+          Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
+          for (final (index, bucket) in buckets.indexed) ...[
+            if (index > 0)
+              Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Gap.md),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: statuses.resolve(_tone(bucket)),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  Gap.w12,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          bucket.label,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: AppTypography.medium,
+                          ),
+                        ),
+                        Text(
+                          '${bucket.invoiceCount} invoice'
+                          '${bucket.invoiceCount == 1 ? '' : 's'}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Gap.w12,
+                  AmountText(
+                    bucket.amount,
+                    color: Colors.white,
+                    align: TextAlign.end,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ],
     );
   }
 
+  /// The bands darken as they age, which is the only thing the colours here
+  /// are being asked to say.
   static StatusTone _tone(ArrearsBucket bucket) => switch (bucket.label) {
     'Not yet due' => StatusTone.neutral,
     '1–30 days' => StatusTone.warning,

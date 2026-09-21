@@ -162,21 +162,27 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('OWED TO YOU'),
-      200,
-      scrollable: find
-          .byWidgetPredicate(
-            (widget) =>
-                widget is Scrollable &&
-                widget.axisDirection == AxisDirection.down,
-          )
-          .last,
-    );
-    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('TOTAL OUTSTANDING'), findsNothing);
+
+    // Arrears are the card's other face, a switch away rather than a scroll.
+    await tester.tap(find.text('Outstanding'));
     await tester.pumpAndSettle();
-    expect(find.text('OWED TO YOU'), findsOneWidget);
-    expect(find.text('Total outstanding'), findsOneWidget);
+    expect(find.text('Outstanding bills'), findsOneWidget);
+    expect(find.text('TOTAL OUTSTANDING'), findsOneWidget);
+    expect(find.text('COLLECTED THIS MONTH'), findsNothing);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(OwnerShell)),
+    );
+    final report = container.read(ownerReportProvider).requireValue;
+    expect(report.hasArrears, isTrue);
+    final band = report
+        .ageingAt(DateTime.now())
+        .firstWhere((bucket) => !bucket.isEmpty);
+    expect(find.text(band.label), findsOneWidget);
+
+    await tester.tap(find.text('Collected'));
+    await tester.pumpAndSettle();
+    expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
