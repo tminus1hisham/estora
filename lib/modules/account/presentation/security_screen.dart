@@ -163,14 +163,9 @@ class _Body extends StatelessWidget {
               Gap.h12,
               SectionCard(
                 title: 'Contact details',
-                trailing: TextButton(
-                  onPressed: () => context.pushNamed(Routes.editContact),
-                  child: const Text('Edit'),
-                ),
                 children: [
                   Text(
-                    'Where we reach you about a payment or a password reset. '
-                    'Keep them current.',
+                    'Where we reach you about a payment or a password reset.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -196,8 +191,7 @@ class _Body extends StatelessWidget {
   }
 }
 
-/// One contact detail. Tapping it opens the account editor: the user owns
-/// these values, and changing them is an edit, not a verification.
+/// One contact detail, read-only.
 class _ContactRow extends StatelessWidget {
   const _ContactRow({
     required this.icon,
@@ -218,8 +212,6 @@ class _ContactRow extends StatelessWidget {
       leading: Icon(icon),
       title: Text(label),
       subtitle: Text(missing ? 'Not on file' : value!),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => context.pushNamed(Routes.editContact),
     );
   }
 }

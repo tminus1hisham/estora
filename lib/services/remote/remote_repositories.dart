@@ -451,9 +451,25 @@ class RemoteAccountRepository implements AccountRepository {
   final ApiClient _api;
   final AccountIdentity _identity;
 
+  /// A tenant's token cannot read `/auth/get/account` — the live server
+  /// answers 401 or 403 — but the account was learned at sign-in and saved.
+  /// The saved copy stands in, exactly as it does for
+  /// [RemoteAuthRepository.restoreSession]; only when there is nothing saved
+  /// does the refusal reach the screen.
   @override
   Future<Result<PlatformUser>> getAccount() async {
     final result = await _identity.load(refresh: true);
+    if (result case Err(:final failure)
+        when failure is UnauthorizedFailure || failure is ForbiddenFailure) {
+      final saved = _identity.saved;
+      if (saved != null) {
+        DebugLog.write(
+          'account',
+          'Account route refused ($failure); showing the saved account',
+        );
+        return Ok(platformUserFromJson(saved));
+      }
+    }
     return result.map(platformUserFromJson);
   }
 
@@ -949,6 +965,23 @@ class RemoteBookingRepository implements BookingRepository {
       }(),
     };
   }
+
+  /// Posts the enquiry to the booking route and keeps the acknowledgement.
+  ///
+  /// The route is the contract's `Payments_bookUnit`, and its request is an
+  /// enquiry's shape: a property and the applicant. It answers `{message,
+  /// success}` and no record, so the receipt is the server's message and
+  /// nothing is read back.
+  @override
+  Future<Result<EnquiryReceipt>> sendEnquiry(
+    PropertyEnquiry enquiry, {
+    required String idempotencyKey,
+  }) => _api.post<EnquiryReceipt>(
+    Endpoints.bookUnit,
+    body: enquiryToJson(enquiry),
+    idempotencyKey: idempotencyKey,
+    parse: enquiryReceiptFromJson,
+  );
 
   /// The bookings route takes no parameter: whose bookings come back is the
   /// server's decision, made from the bearer token, and the app shows what it

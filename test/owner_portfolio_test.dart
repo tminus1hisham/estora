@@ -404,14 +404,21 @@ void main() {
       expect(series.points.last.billed, ledger.history.last.billed);
     });
 
-    test('a day is bucketed by the hour and totalled once', () {
+    test('three months are bucketed by the month and totalled once', () {
       final series = server.ownerCollections(
         ownerId,
-        const CollectionWindow.today(),
+        const CollectionWindow.threeMonths(),
       );
 
-      expect(series.points, hasLength(24));
-      expect(series.points.every((point) => point.billed == null), isTrue);
+      expect(series.points, hasLength(3));
+      expect(series.points.every((point) => point.billed != null), isTrue);
+      expect(
+        series.collected,
+        series.points.fold(
+          Money.zero(series.collected.currency),
+          (sum, point) => sum + point.collected,
+        ),
+      );
       expect(series.net, series.collected - series.platformFee);
     });
 

@@ -554,7 +554,7 @@ class OwnerCollection {
 }
 
 /// Which slice of the owner's collections is being looked at.
-enum CollectionPeriod { today, yesterday, month, custom }
+enum CollectionPeriod { month, threeMonths, custom }
 
 /// A request for a slice of the owner's collections.
 ///
@@ -563,19 +563,15 @@ enum CollectionPeriod { today, yesterday, month, custom }
 /// the owner picked, not the timestamps the query runs between — the server
 /// widens "14 September" to the whole of that day, in its own timezone.
 class CollectionWindow {
-  const CollectionWindow.today()
-    : period = CollectionPeriod.today,
-      from = null,
-      to = null;
-
-  const CollectionWindow.yesterday()
-    : period = CollectionPeriod.yesterday,
-      from = null,
-      to = null;
-
   /// The calendar month in progress.
   const CollectionWindow.month()
     : period = CollectionPeriod.month,
+      from = null,
+      to = null;
+
+  /// The calendar month in progress and the two before it.
+  const CollectionWindow.threeMonths()
+    : period = CollectionPeriod.threeMonths,
       from = null,
       to = null;
 
@@ -601,25 +597,27 @@ class CollectionWindow {
   /// differently. Neither sums anything here.
   ///
   /// The buckets are chosen for the shape of the window rather than for its
-  /// length alone. A day is drawn by the hour; a month is drawn against the
-  /// five before it, billed beside collected, because the gap between the two
-  /// is what that view exists to show; a custom span is drawn by the day up to
-  /// five weeks and by the month beyond.
+  /// length alone. A month is drawn against the five before it, billed beside
+  /// collected, because the gap between the two is what that view exists to
+  /// show; three months are drawn as themselves, the same way; a custom span
+  /// is drawn by the day up to five weeks and by the month beyond.
   CollectionBounds resolve(DateTime now) {
-    final today = _day(now);
     switch (period) {
-      case CollectionPeriod.today:
-        return _hours(today);
-      case CollectionPeriod.yesterday:
-        return _hours(today.subtract(const Duration(days: 1)));
       case CollectionPeriod.month:
-        final start = DateTime(now.year, now.month);
-        final end = DateTime(now.year, now.month + 1);
         return CollectionBounds(
-          from: start,
-          to: end,
+          from: DateTime(now.year, now.month),
+          to: DateTime(now.year, now.month + 1),
           buckets: [
             for (var back = 5; back >= 0; back--)
+              _monthBucket(DateTime(now.year, now.month - back)),
+          ],
+        );
+      case CollectionPeriod.threeMonths:
+        return CollectionBounds(
+          from: DateTime(now.year, now.month - 2),
+          to: DateTime(now.year, now.month + 1),
+          buckets: [
+            for (var back = 2; back >= 0; back--)
               _monthBucket(DateTime(now.year, now.month - back)),
           ],
         );
@@ -647,24 +645,6 @@ class CollectionWindow {
     }
   }
 
-  static CollectionBounds _hours(DateTime day) {
-    final end = day.add(const Duration(days: 1));
-    return CollectionBounds(
-      from: day,
-      to: end,
-      buckets: [
-        for (var hour = 0; hour < 24; hour++)
-          CollectionBucket(
-            start: day.add(Duration(hours: hour)),
-            end: day.add(Duration(hours: hour + 1)),
-            // Four ticks across the day; every hour labelled is a smear.
-            label: hour % 6 == 0 ? _hourLabel(hour) : '',
-            name: '${_hourLabel(hour)}–${_hourLabel(hour + 1)}',
-          ),
-      ],
-    );
-  }
-
   static CollectionBucket _dayBucket(DateTime day, int index, int count) =>
       CollectionBucket(
         start: day,
@@ -684,13 +664,6 @@ class CollectionWindow {
     name: DateFormat('MMMM yyyy').format(month),
     isBillingPeriod: true,
   );
-
-  static String _hourLabel(int hour) {
-    final h = hour % 24;
-    if (h == 0) return '12am';
-    if (h == 12) return '12pm';
-    return h < 12 ? '${h}am' : '${h - 12}pm';
-  }
 
   @override
   bool operator ==(Object other) =>

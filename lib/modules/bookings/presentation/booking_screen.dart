@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/async_button.dart';
-import '../../../components/country_code_field.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
@@ -20,6 +19,7 @@ import '../../../navigation/routes.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../units/application/unit_controller.dart';
 import '../application/booking_controller.dart';
+import 'widgets/applicant_fields.dart';
 
 /// Section 77's Booking screen.
 ///
@@ -158,8 +158,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     );
     if (!mounted) return;
     // Go rather than push: coming "back" to a confirmation screen for a
-    // booking that now exists makes no sense, and the Bookings tab is where
-    // the new one is paid for.
+    // booking that now exists makes no sense, and My bookings is where the
+    // new one is paid for.
     context.goNamed(Routes.bookings);
   }
 
@@ -458,83 +458,15 @@ class _ApplicantSection extends StatelessWidget {
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           Gap.h16,
-          TextFormField(
-            controller: nameController,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Full name',
-              prefixIcon: Icon(Icons.person_outline_rounded),
-            ),
-            validator: (value) => (value?.trim().isEmpty ?? true)
-                ? 'Enter the name for the booking'
-                : null,
-          ),
-          Gap.h12,
-          TextFormField(
-            controller: phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              labelText: 'Phone number',
-              hintText: country.example,
-              prefixIcon: CountryCodeField(
-                value: country,
-                onChanged: onCountryChanged,
-              ),
-              prefixIconConstraints: CountryCodeField.constraints,
-            ),
-            validator: (value) {
-              final text = value?.trim() ?? '';
-              if (text.isEmpty) return 'Enter a phone number';
-              // The selector says which country the digits belong to, so the
-              // count they are held to is that country's own.
-              return PhoneNumber.isValid(text, country: country)
-                  ? null
-                  : 'Enter a valid ${country.name} number';
-            },
-          ),
-          Gap.h12,
-          TextFormField(
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email address',
-              prefixIcon: Icon(Icons.mail_outline_rounded),
-            ),
-            validator: (value) {
-              final text = value?.trim() ?? '';
-              if (text.isEmpty) return 'Enter an email address';
-              return text.contains('@') && text.contains('.')
-                  ? null
-                  : 'Enter a valid email address';
-            },
-          ),
-          Gap.h12,
-          TextFormField(
-            controller: companyController,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              labelText: 'Trading name',
-              prefixIcon: Icon(Icons.storefront_outlined),
-            ),
-            validator: (value) => (value?.trim().isEmpty ?? true)
-                ? 'Enter the trading name'
-                : null,
-          ),
-          Gap.h12,
-          DropdownButtonFormField<String>(
-            initialValue: businessType,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Type of business',
-              prefixIcon: Icon(Icons.category_outlined),
-            ),
-            items: [
-              for (final type in BookingApplicant.businessTypes)
-                DropdownMenuItem(value: type, child: Text(type)),
-            ],
-            onChanged: onBusinessTypeChanged,
-            validator: (value) =>
-                value == null ? 'Choose what will trade from the unit' : null,
+          ApplicantFields(
+            nameController: nameController,
+            phoneController: phoneController,
+            country: country,
+            onCountryChanged: onCountryChanged,
+            emailController: emailController,
+            companyController: companyController,
+            businessType: businessType,
+            onBusinessTypeChanged: onBusinessTypeChanged,
           ),
         ],
       ),

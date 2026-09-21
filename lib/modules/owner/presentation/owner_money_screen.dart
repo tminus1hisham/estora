@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' show DateFormat;
@@ -10,7 +11,6 @@ import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/collection_columns.dart';
-import '../../../components/even_grid.dart';
 import '../../../components/money_count_up.dart';
 import '../../../components/state_views.dart';
 import '../../../components/page_empty_state.dart';
@@ -37,7 +37,7 @@ import 'owner_invoices_screen.dart';
 /// outstanding cares a great deal whether it is three days late or three
 /// months.
 ///
-/// Under the heading sit four doors off/// Under the collected card sit four doors off the screen — paid and unpaid
+/// Under the collected card sit four doors off the screen — paid and unpaid
 /// invoices, then bank and M-Pesa arrivals — each carrying how many it opens
 /// onto. They are the only way into the full lists; the page itself is the
 /// summary, and repeats none of the rows.
@@ -222,13 +222,6 @@ class _Money extends StatelessWidget {
         onRefresh: onRefresh,
       );
     }
-    // The invoices and arrivals themselves live behind the tiles; the page
-    // keeps only what summarises them, and both summaries share one card.
-    final sections = <Widget>[
-      _OverviewCard(report: report),
-      _LedgerTabs(report: report, bankCount: bankCount),
-    ];
-
     return AppRefreshIndicator(
       onRefresh: onRefresh,
       child: AnimatedOpacity(
@@ -239,19 +232,65 @@ class _Money extends StatelessWidget {
             constraints: const BoxConstraints(
               maxWidth: AppLayout.maxReadingWidth,
             ),
-            child: ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              // The card opens the page, so it sits close under the title.
-              padding: const EdgeInsets.fromLTRB(
-                Gap.lg,
-                Gap.sm,
-                Gap.lg,
-                Gap.xxl,
-              ),
-              itemCount: sections.length,
-              separatorBuilder: (_, _) => Gap.h24,
-              itemBuilder: (context, index) =>
-                  AppReveal(index: index, child: sections[index]),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // The invoices and arrivals themselves live behind the tiles;
+                // the page keeps only what summarises them, and both summaries
+                // share one card. The card is as tall as its arrears face
+                // needs, and the tiles take whatever the page has left, so
+                // that a phone is filled without a scroll and a taller screen
+                // is not a card over a strip of empty page.
+                final abreast = _LedgerTabs.fitsAbreast(
+                  context,
+                  constraints.maxWidth - 2 * Gap.lg,
+                );
+                return CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        Gap.lg,
+                        Gap.sm,
+                        Gap.lg,
+                        0,
+                      ),
+                      sliver: SliverToBoxAdapter(
+                        child: AppReveal(
+                          index: 0,
+                          child: _OverviewCard(report: report),
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        Gap.lg,
+                        Gap.md,
+                        Gap.lg,
+                        0,
+                      ),
+                      // The tiles are stretched to the foot of the page, and
+                      // past it only when they must be — a small phone at a
+                      // large text size — which is when the page scrolls.
+                      sliver: SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Padding(
+                          // Inside the fill rather than on the sliver, which
+                          // would not count it and so overrun the page by it.
+                          padding: const EdgeInsets.only(bottom: Gap.sm),
+                          child: AppReveal(
+                            index: 1,
+                            child: _LedgerTabs(
+                              report: report,
+                              bankCount: bankCount,
+                              abreast: abreast,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -269,10 +308,28 @@ class _Money extends StatelessWidget {
 /// read from the owner-wide bank list, which is the only place the contract
 /// serves it.
 class _LedgerTabs extends StatelessWidget {
-  const _LedgerTabs({required this.report, required this.bankCount});
+  const _LedgerTabs({
+    required this.report,
+    required this.bankCount,
+    required this.abreast,
+  });
 
   final OwnerReport report;
   final int? bankCount;
+
+  /// Whether each pair of tiles sits side by side or one above the other.
+  final bool abreast;
+
+  /// Whether two tiles fit side by side in [width]: the same rule an
+  /// [EvenGrid] of them would apply, read here from the page's own width
+  /// because the tiles are sized by the page rather than by their content.
+  static bool fitsAbreast(BuildContext context, double width) {
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    return width >= 2 * _tileMinWidth * scale + Gap.md;
+  }
+
+  /// The narrowest a tile may be before its pair stacks.
+  static const double _tileMinWidth = 140;
 
   @override
   Widget build(BuildContext context) {
@@ -285,6 +342,7 @@ class _LedgerTabs extends StatelessWidget {
       children: [
         _TabGroup(
           heading: 'Invoices',
+          abreast: abreast,
           tiles: [
             _CountTile(
               label: 'Paid',
@@ -313,9 +371,10 @@ class _LedgerTabs extends StatelessWidget {
             ),
           ],
         ),
-        Gap.h24,
+        Gap.h16,
         _TabGroup(
           heading: 'Transactions',
+          abreast: abreast,
           tiles: [
             _CountTile(
               label: 'Bank',
@@ -341,44 +400,70 @@ class _LedgerTabs extends StatelessWidget {
 }
 
 /// A small-caps heading over a pair of tiles the same size as each other.
+///
+/// The group takes an equal share of the height the page gives the tiles,
+/// and its tiles split that share, so the two groups are two equal bands
+/// however tall the page is. Laid out by hand rather than with an [EvenGrid]
+/// because a grid measures its tiles to size itself, and these are sized the
+/// other way round.
 class _TabGroup extends StatelessWidget {
-  const _TabGroup({required this.heading, required this.tiles});
+  const _TabGroup({
+    required this.heading,
+    required this.tiles,
+    required this.abreast,
+  });
 
   final String heading;
   final List<Widget> tiles;
 
+  /// Side by side down to a narrow phone; stacked once the text is large
+  /// enough that two abreast would squeeze the figure.
+  final bool abreast;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Gap.xs, 0, Gap.xs, Gap.sm),
-          child: Text(
-            heading.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 1.2,
+    final spaced = [
+      for (final (index, tile) in tiles.indexed) ...[
+        if (index > 0) abreast ? Gap.w16 : Gap.h16,
+        Expanded(child: tile),
+      ],
+    ];
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Gap.xs, 0, Gap.xs, Gap.xs),
+            child: Text(
+              heading.toUpperCase(),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                letterSpacing: 1.2,
+              ),
             ),
           ),
-        ),
-        // Side by side down to a narrow phone; stacked once the text is
-        // large enough that two abreast would squeeze the figure.
-        EvenGrid(
-          minTileWidth: 140,
-          maxColumns: 2,
-          spacing: Gap.md,
-          children: tiles,
-        ),
-      ],
+          Expanded(
+            child: abreast
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: spaced,
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: spaced,
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 /// One door: what is behind it, how many, and a corner arrow that says it
-/// opens. The figure is set medium, like every other figure on the screen —
-/// a count of twelve unpaid invoices is information, not an alarm.
+/// opens — on one line, so a pair of them is a row and the four together are
+/// two. The figure is set medium, like every other figure on the screen: a
+/// count of twelve unpaid invoices is information, not an alarm.
 class _CountTile extends StatelessWidget {
   const _CountTile({
     required this.label,
@@ -409,44 +494,39 @@ class _CountTile extends StatelessWidget {
 
     return AppSurfaceCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(Gap.lg),
+      padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.md),
       semanticLabel: '$label $detail, $figure',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.small,
-                ),
-                child: Icon(icon, size: 18, color: color),
-              ),
-              Gap.w8,
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.textTheme.labelMedium?.copyWith(color: muted),
-                ),
-              ),
-              Icon(Icons.north_east_rounded, size: 14, color: muted),
-            ],
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: AppRadius.small,
+            ),
+            child: Icon(icon, size: 18, color: color),
           ),
-          Gap.h12,
+          Gap.w8,
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: AppTypography.medium,
+              ),
+            ),
+          ),
+          Gap.w8,
           Text(
             figure,
-            style: theme.textTheme.headlineSmall?.copyWith(
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: AppTypography.medium,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          Gap.h4,
-          Text(
-            detail,
-            style: theme.textTheme.bodySmall?.copyWith(color: muted),
-          ),
+          Gap.w4,
+          Icon(Icons.north_east_rounded, size: 14, color: muted),
         ],
       ),
     );
@@ -465,6 +545,13 @@ enum _Face { collected, outstanding }
 /// the card's own state; it survives a property switch, so an owner reading
 /// arrears across the portfolio can cut to one property and still be reading
 /// arrears.
+///
+/// The card is one height whichever face is showing, so switching faces
+/// changes what is on the card and nothing under it. The outstanding face
+/// sets that height — its bands are the part that grows — and the collected
+/// face fills it, its chart taking whatever the figure leaves. When the
+/// arrears are short, one band or none, the card is held at the least the
+/// chart needs to say anything.
 class _OverviewCard extends ConsumerStatefulWidget {
   const _OverviewCard({required this.report});
 
@@ -479,71 +566,112 @@ class _OverviewCardState extends ConsumerState<_OverviewCard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final collected = _face == _Face.collected;
 
     return AppSurfaceCard(
       gradient: AppGradients.brandHero,
       borderRadius: AppRadius.extraLarge,
       borderColor: AppPalette.brass300.withValues(alpha: 0.3),
-      padding: const EdgeInsets.all(Gap.xl),
+      padding: const EdgeInsets.all(Gap.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppPalette.brass300.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.small,
-                  border: Border.all(
-                    color: AppPalette.brass300.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Icon(
-                  switch (_face) {
-                    _Face.collected => Icons.account_balance_outlined,
-                    _Face.outstanding => Icons.hourglass_bottom_rounded,
-                  },
-                  size: 22,
-                  color: AppPalette.brass300,
-                ),
-              ),
-              Gap.w12,
-              Expanded(
-                child: Text(
-                  switch (_face) {
-                    _Face.collected => 'Collection overview',
-                    _Face.outstanding => 'Outstanding bills',
-                  },
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Gap.h16,
+          // The switch is the card's title: its two words are the two things
+          // the card can be showing, and a heading above it would say one of
+          // them again.
           _FaceSwitch(
             face: _face,
             onChanged: (next) => setState(() => _face = next),
           ),
-          Gap.h24,
-          // Sized to whichever face is showing, so switching moves the tiles
-          // below smoothly rather than snapping them.
-          AnimatedSize(
-            duration: AppMotion.standard,
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: switch (_face) {
-              _Face.collected => _CollectedFace(report: widget.report),
-              _Face.outstanding => _OutstandingFace(report: widget.report),
-            },
+          Gap.h16,
+          ConstrainedBox(
+            constraints: BoxConstraints(minHeight: _collectedLeast * scale),
+            child: Stack(
+              children: [
+                // Always laid out, so the card is its height either way;
+                // only painted and touchable while it is the face showing.
+                _Ghost(
+                  hidden: collected,
+                  child: TickerMode(
+                    enabled: !collected,
+                    child: _OutstandingFace(report: widget.report),
+                  ),
+                ),
+                if (collected)
+                  Positioned.fill(child: _CollectedFace(report: widget.report)),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  /// The collected face at text scale one with its chart at the shortest it
+  /// is worth drawing: the period strip, caption, figure and detail line, the
+  /// chart's readout, plot and ticks, and the gaps and rule between them.
+  /// Everything in it is text and pills that grow with the type, so it is
+  /// scaled with the type.
+  static const double _collectedLeast = 348;
+}
+
+/// [child] at its full size but, while [hidden], neither painted, touched
+/// nor read — and, like an [Offstage] child, not there to a widget test's
+/// finders. What [Offstage] cannot do is keep the child's size, and keeping
+/// it is the point: the card holds the outstanding face's height under the
+/// collected face without showing two faces at once.
+class _Ghost extends SingleChildRenderObjectWidget {
+  const _Ghost({required this.hidden, required super.child});
+
+  final bool hidden;
+
+  @override
+  _RenderGhost createRenderObject(BuildContext context) =>
+      _RenderGhost(hidden: hidden);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderGhost renderObject) {
+    renderObject.hidden = hidden;
+  }
+
+  @override
+  SingleChildRenderObjectElement createElement() => _GhostElement(this);
+}
+
+class _GhostElement extends SingleChildRenderObjectElement {
+  _GhostElement(_Ghost super.widget);
+
+  @override
+  void debugVisitOnstageChildren(ElementVisitor visitor) {
+    if (!(widget as _Ghost).hidden) super.debugVisitOnstageChildren(visitor);
+  }
+}
+
+class _RenderGhost extends RenderProxyBox {
+  _RenderGhost({required bool hidden}) : _hidden = hidden;
+
+  bool get hidden => _hidden;
+  bool _hidden;
+  set hidden(bool value) {
+    if (value == _hidden) return;
+    _hidden = value;
+    markNeedsPaint();
+    markNeedsSemanticsUpdate();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (!hidden) super.paint(context, offset);
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) =>
+      !hidden && super.hitTest(result, position: position);
+
+  @override
+  void visitChildrenForSemantics(RenderObjectVisitor visitor) {
+    if (!hidden) super.visitChildrenForSemantics(visitor);
   }
 }
 
@@ -619,10 +747,14 @@ class _FaceSwitch extends StatelessWidget {
 /// What came in, over the window the owner picks.
 ///
 /// The month is the default and the figure the screen is named for. The
-/// narrower windows and the custom span are a question the owner asks — "what
-/// landed today?" — and each answer is cut from the same arrivals the report
+/// wider windows are a question the owner asks — "what has the quarter
+/// brought in?" — and each answer is cut from the same arrivals the report
 /// holds, by the calendar arithmetic in [CollectionWindow.resolve]. Switching
 /// tabs changes a figure rather than fetching one.
+///
+/// Fills the height it is given — the card's, set by the other face — with
+/// the chart taking whatever the figure leaves. So it must be placed with a
+/// bounded height.
 class _CollectedFace extends ConsumerWidget {
   const _CollectedFace({required this.report});
 
@@ -644,7 +776,7 @@ class _CollectedFace extends ConsumerWidget {
               ref.read(collectionWindowProvider.notifier).select(next),
           onCustom: () => _pickRange(context, ref, window),
         ),
-        Gap.h32,
+        Gap.h16,
         Text(
           figures.caption,
           style: theme.textTheme.labelSmall?.copyWith(
@@ -664,34 +796,18 @@ class _CollectedFace extends ConsumerWidget {
           style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
         ),
         if (figures.points.isNotEmpty) ...[
-          Gap.h24,
-          Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
           Gap.h16,
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            spacing: Gap.md,
-            runSpacing: Gap.sm,
-            children: [
-              Text(
-                'Collection history',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: Colors.white70,
-                ),
-              ),
-              Text(
-                'Tap a column to explore',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: Colors.white70,
-                ),
-              ),
-            ],
-          ),
+          Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
           Gap.h12,
-          CollectionColumns(
-            key: ValueKey(figures.window),
-            points: figures.points,
-            height: 140,
-            ink: Colors.white,
+          // The columns carry their own readout, which is the caption the
+          // chart needs; a second one above it was a line spent twice.
+          Expanded(
+            child: CollectionColumns(
+              key: ValueKey(figures.window),
+              points: figures.points,
+              height: null,
+              ink: Colors.white,
+            ),
           ),
         ],
       ],
@@ -735,9 +851,8 @@ class _Figures {
   factory _Figures.of(ReportSlice slice) {
     final window = slice.window;
     final span = switch (window.period) {
-      CollectionPeriod.today => 'today',
-      CollectionPeriod.yesterday => 'yesterday',
       CollectionPeriod.month => 'this month',
+      CollectionPeriod.threeMonths => 'in the last 3 months',
       CollectionPeriod.custom => 'between these dates',
     };
     final caption = switch (window.period) {
@@ -780,7 +895,7 @@ String _rangeLabel(CollectionWindow window, {bool year = false}) {
   return '${format(from)} – ${format(to)}';
 }
 
-/// Today, yesterday, the month, or two dates of the owner's choosing.
+/// The month, the three months to date, or two dates of the owner's choosing.
 class _PeriodStrip extends StatelessWidget {
   const _PeriodStrip({
     required this.window,
@@ -803,9 +918,8 @@ class _PeriodStrip extends StatelessWidget {
       runSpacing: Gap.sm,
       children: [
         for (final (label, choice) in const [
-          ('Today', CollectionWindow.today()),
-          ('Yesterday', CollectionWindow.yesterday()),
           ('This month', CollectionWindow.month()),
+          ('Last 3 months', CollectionWindow.threeMonths()),
         ])
           _PeriodPill(
             label: label,

@@ -218,6 +218,17 @@ abstract interface class BookingRepository {
     required String idempotencyKey,
   });
 
+  /// Sends an enquiry about a property (`POST /payments/book/unit`).
+  ///
+  /// The contract's request is who is asking and what they are looking for,
+  /// against a property — no block, size or unit. The answer is an
+  /// acknowledgement, not a record; nothing is created that the app can read
+  /// back, and nothing is paid. [idempotencyKey] makes a retry safe.
+  Future<Result<EnquiryReceipt>> sendEnquiry(
+    PropertyEnquiry enquiry, {
+    required String idempotencyKey,
+  });
+
   Future<Result<Page<Booking>>> listBookings({
     BookingStatus? status,
     int page = 1,

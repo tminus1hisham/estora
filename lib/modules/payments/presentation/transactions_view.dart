@@ -17,32 +17,32 @@ import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
 import '../application/payment_controller.dart';
 
-/// Section 77's Payment History screen.
+/// Section 77's Payment History, as the Transactions pane of the invoices
+/// tab. A body rather than a screen: the app bar and the tab strip above it
+/// belong to the tab, which holds the invoices and the money paid against
+/// them side by side.
 ///
 /// Failed and cancelled payments are listed alongside successful ones. Section
 /// 84 rule 2 forbids deleting a successful payment, and section 85 expects the
 /// system to answer who paid and when — a history that quietly hid attempts
 /// would be a worse record than one that shows them.
-class PaymentHistoryScreen extends ConsumerWidget {
-  const PaymentHistoryScreen({super.key});
+class TransactionsView extends ConsumerWidget {
+  const TransactionsView({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final payments = ref.watch(paymentHistoryProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Payment history')),
-      body: switch (payments) {
-        AsyncLoading() when !payments.hasValue => const AppSkeletonList(
-          header: true,
-        ),
-        AsyncError(:final error) => ErrorView(
-          failure: error is Failure ? error : UnknownFailure(error.toString()),
-          onRetry: () => ref.read(paymentHistoryProvider.notifier).refresh(),
-        ),
-        _ => _PaymentList(payments: payments.requireValue),
-      },
-    );
+    return switch (payments) {
+      AsyncLoading() when !payments.hasValue => const AppSkeletonList(
+        header: true,
+      ),
+      AsyncError(:final error) => ErrorView(
+        failure: error is Failure ? error : UnknownFailure(error.toString()),
+        onRetry: () => ref.read(paymentHistoryProvider.notifier).refresh(),
+      ),
+      _ => _PaymentList(payments: payments.requireValue),
+    };
   }
 }
 
@@ -59,7 +59,7 @@ class _PaymentList extends ConsumerWidget {
           await ref.read(paymentHistoryProvider.notifier).refresh();
         },
         icon: Icons.payments_outlined,
-        title: 'No payments yet',
+        title: 'No transactions yet',
         message: 'Payments you make will be listed here with their receipts.',
       );
     }

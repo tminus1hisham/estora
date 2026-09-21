@@ -728,8 +728,8 @@ By signing below, the Tenant confirms that they have read and accept these terms
   /// This is the fixture playing the server for a query the ledger itself
   /// does not answer, so it is the one place in the demo layer that adds
   /// money up — as the server would, from the payments it holds. The month
-  /// view answers from the same figures the ledger already states, so the two
-  /// can never disagree about what this month collected.
+  /// views answer from the same figures the ledger already states, so the two
+  /// can never disagree about what a month collected.
   CollectionSeries collectionsOver(CollectionWindow window) {
     final bounds = window.resolve(now);
     final byMonth = {for (final month in ledger.history) month.month: month};
@@ -757,6 +757,10 @@ By signing below, the Tenant confirms that they have read and accept these terms
         ),
     ];
 
+    final inWindow = ledger.collections.where(
+      (c) => !c.paidAt.isBefore(bounds.from) && c.paidAt.isBefore(bounds.to),
+    );
+
     if (window.period == CollectionPeriod.month) {
       return CollectionSeries(
         window: window,
@@ -765,19 +769,21 @@ By signing below, the Tenant confirms that they have read and accept these terms
         collected: ledger.collectedThisMonth,
         platformFee: ledger.platformFeeThisMonth,
         net: ledger.netThisMonth,
-        paymentCount: ledger.collections
-            .where((c) => !c.paidAt.isBefore(bounds.from))
-            .length,
+        paymentCount: inWindow.length,
         points: points,
       );
     }
 
-    final inWindow = ledger.collections.where(
-      (c) => !c.paidAt.isBefore(bounds.from) && c.paidAt.isBefore(bounds.to),
-    );
     var collected = Money.zero(currency);
-    for (final collection in inWindow) {
-      collected += collection.amount;
+    if (window.period == CollectionPeriod.threeMonths) {
+      // Whole months, so the figure is the columns added up.
+      for (final point in points) {
+        collected += point.collected;
+      }
+    } else {
+      for (final collection in inWindow) {
+        collected += collection.amount;
+      }
     }
     // The 2% platform fee of section 41, off the top.
     final fee = collected.percentage(2);

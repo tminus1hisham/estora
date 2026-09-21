@@ -61,10 +61,11 @@ void main() {
       expect(find.byType(SecurityScreen), findsOneWidget);
       expect(find.byType(HomeScreen), findsNothing);
 
-      // Editing contact details from here must stay on the root navigator.
+      // Opening the contact editor from here must stay on the root navigator.
       // Pushing a tenant-shell route from a root route rebuilt the shell page
-      // under a duplicate key and asserted inside the Navigator.
-      await tester.tap(find.text('Edit'));
+      // under a duplicate key and asserted inside the Navigator. The security
+      // screen no longer links to it, so push the route directly.
+      router.pushNamed(Routes.editContact);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(EditContactScreen), findsOneWidget);

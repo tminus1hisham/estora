@@ -138,12 +138,14 @@ void main() {
       expect(find.text('MAIN'), findsNothing);
       // One route, once. No unit records were asked for.
       expect(repository.calls, 1);
-      expect(find.widgetWithText(FilledButton, 'Book'), findsNWidgets(3));
+      // The sizes are listed, not booked: the one action is an enquiry.
+      expect(find.widgetWithText(FilledButton, 'Book'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Send enquiry'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets('a property the engine no longer names has nothing to book', (
+  testWidgets('a property the engine no longer names still takes an enquiry', (
     tester,
   ) async {
     final repository = _Units()..records = [riverside];
@@ -155,8 +157,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Nothing left to book here'), findsOneWidget);
+    expect(find.text('Nothing listed here right now'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Book'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Send enquiry'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

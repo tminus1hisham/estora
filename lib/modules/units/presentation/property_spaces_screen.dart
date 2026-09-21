@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/page_header.dart';
@@ -19,9 +20,10 @@ import '../application/unit_controller.dart';
 /// first — `GET /properties/available/units/to/book` — and nothing else. The
 /// engine answers in blocks and sizes, not unit records, so that is what is
 /// listed: each block the property has stock in, and under it each size with
-/// how many are left. A tenant books a size in a block; the server picks the
-/// unit. The unit routes are never asked, because a tenant's token cannot
-/// read them and because the engine has already said what can be had.
+/// how many are left. The tenant's next step is an enquiry, not a booking:
+/// the one action here tells the landlord what they are after. The unit
+/// routes are never asked, because a tenant's token cannot read them and
+/// because the engine has already said what can be had.
 class PropertySpacesScreen extends ConsumerWidget {
   const PropertySpacesScreen({required this.propertyId, super.key});
 
@@ -49,6 +51,20 @@ class PropertySpacesScreen extends ConsumerWidget {
         ),
         _ => _SpacesList(blocks: blocks.requireValue),
       },
+      // Offered whenever the engine has answered, even with nothing listed:
+      // an enquiry is how a tenant asks about space that is not in stock yet.
+      bottomNavigationBar: availability.hasValue
+          ? AppBottomActionBar(
+              child: FilledButton.icon(
+                onPressed: () => context.pushNamed(
+                  Routes.enquiry,
+                  pathParameters: {'propertyId': propertyId},
+                ),
+                icon: const Icon(Icons.send_outlined),
+                label: const Text('Send enquiry'),
+              ),
+            )
+          : null,
     );
   }
 }
@@ -68,10 +84,10 @@ class _SpacesList extends ConsumerWidget {
           await ref.read(availabilityProvider.notifier).refresh();
         },
         icon: Icons.storefront_outlined,
-        title: 'Nothing left to book here',
+        title: 'Nothing listed here right now',
         message:
             'Every space in this property has been taken. Pull down to check '
-            'again, or browse other properties.',
+            'again, send an enquiry, or browse other properties.',
         action: FilledButton.tonal(
           onPressed: () => context.goNamed(Routes.browse),
           child: const Text('Back to browse'),
@@ -95,9 +111,9 @@ class _SpacesList extends ConsumerWidget {
                 eyebrow: 'Available now',
                 title: blocks.first.propertyName,
                 subtitle:
-                    '$count ${count == 1 ? 'space' : 'spaces'} you can book '
-                    'today. Choose a size, and the unit is allocated when '
-                    'you book.',
+                    '$count ${count == 1 ? 'space is' : 'spaces are'} '
+                    'available today. Send an enquiry and the landlord will '
+                    'get back to you.',
                 compact: true,
               ),
               Gap.h16,
@@ -114,7 +130,7 @@ class _SpacesList extends ConsumerWidget {
                   ),
                   children: [
                     for (final size in block.bySize)
-                      if (size.count > 0) _SizeRow(block: block, size: size),
+                      if (size.count > 0) _SizeRow(size: size),
                   ],
                 ),
                 if (block != blocks.last) Gap.h16,
@@ -127,11 +143,10 @@ class _SpacesList extends ConsumerWidget {
   }
 }
 
-/// One size in a block, and the way to book it.
+/// One size in a block, and how many of it are left.
 class _SizeRow extends StatelessWidget {
-  const _SizeRow({required this.block, required this.size});
+  const _SizeRow({required this.size});
 
-  final UnitAvailability block;
   final UnitAvailabilitySize size;
 
   @override
@@ -143,27 +158,6 @@ class _SizeRow extends StatelessWidget {
       iconColor: scheme.primary,
       title: size.label,
       subtitle: '${size.count} ${size.count == 1 ? 'unit' : 'units'} left',
-      footnote: Align(
-        alignment: AlignmentDirectional.centerEnd,
-        child: FilledButton.icon(
-          onPressed: () => _book(context),
-          style: FilledButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: Gap.md),
-          ),
-          icon: const Icon(Icons.event_available_outlined, size: 18),
-          label: const Text('Book'),
-        ),
-      ),
-      onTap: () => _book(context),
     );
   }
-
-  void _book(BuildContext context) => context.pushNamed(
-    Routes.booking,
-    pathParameters: {'propertyId': block.propertyId, 'blockId': block.blockId},
-    queryParameters: {
-      if (size.size > 0) Routes.bookingSizeQuery: size.size.toString(),
-    },
-  );
 }

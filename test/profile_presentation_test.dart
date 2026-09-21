@@ -96,22 +96,32 @@ void main() {
   testWidgets('profile actions keep their destinations and animations settle', (
     tester,
   ) async {
+    // Transactions is a pane of the invoices tab, so the profile switches to
+    // it with the pane in the query rather than pushing a page.
     final destinations = {
-      'Edit profile': Routes.editProfile,
-      'Payment history': Routes.paymentHistory,
-      'Documents': Routes.documents,
-      'My lease': Routes.leases,
-      'Sign-in and security': Routes.security,
-      'Settings': Routes.settings,
+      'My bookings': (route: Routes.bookings, query: '', pushed: true),
+      'Documents': (route: Routes.documents, query: '', pushed: true),
+      'Transactions': (
+        route: Routes.invoices,
+        query: '?${Routes.invoicesTabQuery}=${Routes.invoicesTransactionsTab}',
+        pushed: false,
+      ),
+      'Sign-in and security': (route: Routes.security, query: '', pushed: true),
+      'Settings': (route: Routes.settings, query: '', pushed: true),
     };
     final router = GoRouter(
       routes: [
         GoRoute(path: '/', builder: (_, _) => const ProfileScreen()),
-        for (final name in destinations.values)
+        for (final name in destinations.values.map((d) => d.route))
           GoRoute(
             path: '/$name',
             name: name,
-            builder: (_, _) => Scaffold(body: Text('Destination: $name')),
+            builder: (_, state) => Scaffold(
+              body: Text(
+                'Destination: $name'
+                '${state.uri.hasQuery ? '?${state.uri.query}' : ''}',
+              ),
+            ),
           ),
       ],
     );
@@ -129,8 +139,16 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(action);
       await tester.pumpAndSettle();
-      expect(find.text('Destination: ${destination.value}'), findsOneWidget);
-      router.pop();
+      final target = destination.value;
+      expect(
+        find.text('Destination: ${target.route}${target.query}'),
+        findsOneWidget,
+      );
+      if (target.pushed) {
+        router.pop();
+      } else {
+        router.go('/');
+      }
       await tester.pumpAndSettle();
     }
     expect(tester.takeException(), isNull);

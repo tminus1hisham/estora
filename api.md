@@ -2221,10 +2221,163 @@
             "x-nullable": false,
             "description": "",
             "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Tenant"
-              }
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/properties/terminate/lease/{leaseId}": {
+      "put": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_terminateLease",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "leaseId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/properties/unassign/unit/from/tenant": {
+      "post": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_UnassignUnitFromTenant",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UnassignUnitRequest"
+            },
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/properties/delete/tenant/{tenantId}": {
+      "delete": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_DeleteTenant",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/properties/update/tenant/{tenantId}": {
+      "put": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_UpdateTenant",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "tenantId",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          },
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateTenantRequest"
+            },
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
             }
           },
           "400": {
@@ -3635,6 +3788,7 @@
         "serviceChargeAmount",
         "depositMonths",
         "bookingFeePercentage",
+        "gracePeriodDays",
         "isDeleted",
         "isAvailable",
         "createdByName",
@@ -3706,6 +3860,10 @@
         "bookingFeePercentage": {
           "type": "number",
           "format": "decimal"
+        },
+        "gracePeriodDays": {
+          "type": "integer",
+          "format": "int32"
         },
         "wing": {
           "type": "string"
@@ -3854,6 +4012,7 @@
         "updatedByName",
         "updatedByUserId",
         "unitIds",
+        "isDeleted",
         "status",
         "createdAt",
         "updatedAt",
@@ -3918,6 +4077,9 @@
         "unitIds": {
           "type": "string"
         },
+        "isDeleted": {
+          "type": "boolean"
+        },
         "status": {
           "$ref": "#/definitions/TenantStatus"
         },
@@ -3976,34 +4138,23 @@
       "required": [
         "id",
         "propertyId",
+        "blockId",
         "unitId",
         "tenantId",
-        "leaseNumber",
+        "leaseAgreementUrls",
         "status",
         "startDate",
         "endDate",
-        "durationMonths",
         "monthlyRent",
-        "rentPerSqFeet",
         "depositAmount",
-        "bookingFee",
-        "serviceCharge",
-        "paymentDueDay",
+        "serviceChargePerMonth",
         "gracePeriodDays",
-        "termsAndConditions",
-        "specialConditions",
         "createdByName",
         "createdByUserId",
         "updatedByName",
         "updatedByUserId",
         "createdAt",
-        "updatedAt",
-        "property",
-        "unit",
-        "block",
-        "tenant",
-        "invoices",
-        "payments"
+        "updatedAt"
       ],
       "properties": {
         "id": {
@@ -4011,6 +4162,10 @@
           "format": "int64"
         },
         "propertyId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "blockId": {
           "type": "integer",
           "format": "int64"
         },
@@ -4022,11 +4177,11 @@
           "type": "integer",
           "format": "int64"
         },
-        "leaseNumber": {
+        "leaseAgreementUrls": {
           "type": "string"
         },
         "status": {
-          "$ref": "#/definitions/LeaseStatus"
+          "type": "string"
         },
         "startDate": {
           "type": "string",
@@ -4036,23 +4191,7 @@
           "type": "string",
           "format": "date-time"
         },
-        "durationMonths": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "nextRenewalDate": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "terminationDate": {
-          "type": "string",
-          "format": "date-time"
-        },
         "monthlyRent": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "rentPerSqFeet": {
           "type": "number",
           "format": "decimal"
         },
@@ -4060,17 +4199,9 @@
           "type": "number",
           "format": "decimal"
         },
-        "bookingFee": {
+        "serviceChargePerMonth": {
           "type": "number",
           "format": "decimal"
-        },
-        "serviceCharge": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "paymentDueDay": {
-          "type": "integer",
-          "format": "int32"
         },
         "gracePeriodDays": {
           "type": "integer",
@@ -4080,20 +4211,6 @@
           "type": "string"
         },
         "specialConditions": {
-          "type": "string"
-        },
-        "tenantSignedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "managerSignedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "tenantSignatureUrl": {
-          "type": "string"
-        },
-        "managerSignatureUrl": {
           "type": "string"
         },
         "createdByName": {
@@ -4107,131 +4224,6 @@
         },
         "updatedByUserId": {
           "type": "string"
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "property": {
-          "$ref": "#/definitions/Property"
-        },
-        "unit": {
-          "$ref": "#/definitions/PropertyUnit"
-        },
-        "block": {
-          "$ref": "#/definitions/PropertyBlock"
-        },
-        "tenant": {
-          "$ref": "#/definitions/Tenant"
-        },
-        "invoices": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Invoice"
-          }
-        },
-        "payments": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/MpesaValidations"
-          }
-        }
-      }
-    },
-    "LeaseStatus": {
-      "type": "integer",
-      "description": "",
-      "x-enumNames": [
-        "Draft",
-        "PendingSignature",
-        "Signed",
-        "Active",
-        "Expiring",
-        "TerminationRequested",
-        "Terminated",
-        "Expired",
-        "Cancelled"
-      ],
-      "enum": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8
-      ]
-    },
-    "MpesaValidations": {
-      "type": "object",
-      "required": [
-        "id",
-        "schoolId",
-        "transactionType",
-        "transID",
-        "transTime",
-        "transAmount",
-        "businessShortCode",
-        "billRefNumber",
-        "invoiceNumber",
-        "orgAccountBalance",
-        "thirdPartyTransID",
-        "msisdn",
-        "firstName",
-        "processed",
-        "createdAt",
-        "updatedAt"
-      ],
-      "properties": {
-        "id": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "schoolId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "transactionType": {
-          "type": "string"
-        },
-        "transID": {
-          "type": "string"
-        },
-        "transTime": {
-          "type": "string"
-        },
-        "transAmount": {
-          "type": "string"
-        },
-        "businessShortCode": {
-          "type": "string"
-        },
-        "billRefNumber": {
-          "type": "string"
-        },
-        "invoiceNumber": {
-          "type": "string"
-        },
-        "orgAccountBalance": {
-          "type": "string"
-        },
-        "thirdPartyTransID": {
-          "type": "string"
-        },
-        "msisdn": {
-          "type": "string"
-        },
-        "firstName": {
-          "type": "string"
-        },
-        "processed": {
-          "type": "boolean"
         },
         "createdAt": {
           "type": "string",
@@ -4919,8 +4911,8 @@
       "required": [
         "unitId",
         "tenantId",
-        "blockId",
-        "propertyId"
+        "startDate",
+        "leaseAgreementUrls"
       ],
       "properties": {
         "unitId": {
@@ -4931,13 +4923,36 @@
           "type": "integer",
           "format": "int64"
         },
-        "blockId": {
+        "startDate": {
+          "type": "string",
+          "format": "date-time",
+          "minLength": 1
+        },
+        "leaseAgreementUrls": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "UnassignUnitRequest": {
+      "type": "object",
+      "required": [
+        "unitId",
+        "tenantId",
+        "reason"
+      ],
+      "properties": {
+        "unitId": {
           "type": "integer",
           "format": "int64"
         },
-        "propertyId": {
+        "tenantId": {
           "type": "integer",
           "format": "int64"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },

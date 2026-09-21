@@ -22,7 +22,6 @@ class ProfileScreen extends ConsumerWidget {
     final tenant = auth.tenant;
     final profile = tenant?.profile;
     final scheme = Theme.of(context).colorScheme;
-    void edit() => context.pushNamed(Routes.editProfile);
 
     final details = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -30,7 +29,6 @@ class ProfileScreen extends ConsumerWidget {
         _Panel(
           title: 'Personal details',
           subtitle: 'The essentials, all in one place.',
-          action: TextButton(onPressed: edit, child: const Text('Edit')),
           children: [
             _ContactField(
               icon: Icons.person_outline_rounded,
@@ -152,7 +150,6 @@ class ProfileScreen extends ConsumerWidget {
                             'Your account',
                         initials: user?.initials ?? '?',
                         type: tenant?.tenantType.label ?? 'Tenant account',
-                        onEdit: edit,
                       ),
                     ),
                     Gap.h16,
@@ -161,17 +158,17 @@ class ProfileScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Your tenancy, within reach',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          Gap.h12,
-                          const _QuickLinks(),
+                          // Text(
+                          //   'Your tenancy, within reach',
+                          //   style: Theme.of(context).textTheme.titleSmall
+                          //       ?.copyWith(fontWeight: FontWeight.w800),
+                          // ),
+                          // Gap.h12,
+                          // const _QuickLinks(),
                         ],
                       ),
                     ),
-                    Gap.h16,
+                    // Gap.h16,
                     LayoutBuilder(
                       builder: (context, constraints) {
                         if (constraints.maxWidth >= 760) {
@@ -237,12 +234,10 @@ class _ProfileHero extends StatelessWidget {
     required this.name,
     required this.initials,
     required this.type,
-    required this.onEdit,
   });
   final String name;
   final String initials;
   final String type;
-  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -288,19 +283,6 @@ class _ProfileHero extends StatelessWidget {
         ),
       ],
     );
-    final edit = FilledButton.icon(
-      onPressed: onEdit,
-      style: FilledButton.styleFrom(
-        backgroundColor: AppPalette.stone0,
-        foregroundColor: AppPalette.navy900,
-        minimumSize: const Size(0, 40),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        visualDensity: VisualDensity.compact,
-      ),
-      icon: const Icon(Icons.edit_outlined, size: 16),
-      label: const Text('Edit profile'),
-    );
-
     return AppSurfaceCard(
       padding: EdgeInsets.zero,
       borderRadius: BorderRadius.circular(20),
@@ -351,37 +333,12 @@ class _ProfileHero extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final stacked =
-                    constraints.maxWidth < 360 ||
-                    MediaQuery.textScalerOf(context).scale(14) > 21;
-                if (stacked) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          avatar,
-                          Gap.w12,
-                          Expanded(child: identity),
-                        ],
-                      ),
-                      Gap.h12,
-                      edit,
-                    ],
-                  );
-                }
-                return Row(
-                  children: [
-                    avatar,
-                    Gap.w12,
-                    Expanded(child: identity),
-                    Gap.w12,
-                    edit,
-                  ],
-                );
-              },
+            child: Row(
+              children: [
+                avatar,
+                Gap.w12,
+                Expanded(child: identity),
+              ],
             ),
           ),
         ],
@@ -396,12 +353,14 @@ class _QuickLinks extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Transactions is a pane of the invoices tab, so it is switched to rather
+    // than pushed; the other two are pages of this tab.
     final links = [
       (
-        Icons.receipt_long_outlined,
-        'Payment history',
-        'Every payment, in view',
-        Routes.paymentHistory,
+        Icons.event_available_outlined,
+        'My bookings',
+        'Holds, past and present',
+        () => context.pushNamed(Routes.bookings),
         scheme.primaryContainer,
         scheme.onPrimaryContainer,
       ),
@@ -409,15 +368,20 @@ class _QuickLinks extends StatelessWidget {
         Icons.folder_open_rounded,
         'Documents',
         'Your files, organised',
-        Routes.documents,
+        () => context.pushNamed(Routes.documents),
         scheme.tertiaryContainer,
         scheme.onTertiaryContainer,
       ),
       (
-        Icons.description_outlined,
-        'My lease',
-        'The details of your space',
-        Routes.leases,
+        Icons.receipt_long_outlined,
+        'Transactions',
+        'Every payment, in view',
+        () => context.goNamed(
+          Routes.invoices,
+          queryParameters: {
+            Routes.invoicesTabQuery: Routes.invoicesTransactionsTab,
+          },
+        ),
         scheme.secondaryContainer,
         scheme.onSecondaryContainer,
       ),
@@ -440,7 +404,7 @@ class _QuickLinks extends StatelessWidget {
                 child: AppPressable(
                   child: AppSurfaceCard(
                     padding: const EdgeInsets.all(12),
-                    onTap: () => context.pushNamed(link.$4),
+                    onTap: link.$4,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -493,12 +457,10 @@ class _Panel extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.children,
-    this.action,
   });
   final String title;
   final String subtitle;
   final List<Widget> children;
-  final Widget? action;
 
   @override
   Widget build(BuildContext context) => AppSurfaceCard(
@@ -506,18 +468,11 @@ class _Panel extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ),
-            ?action,
-          ],
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
         ),
         Gap.h4,
         Text(

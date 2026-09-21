@@ -16,10 +16,7 @@ import '../application/lease_controller.dart';
 import 'widgets/lease_hero_card.dart';
 import 'widgets/lease_list.dart';
 
-/// Section 45's "My Lease" screen, reached from Profile and the home quick
-/// actions rather than the bottom bar. The bar's slot went to bookings: a hold
-/// with a clock on it is checked daily, whereas a signed lease is read once and
-/// then kept, which is what a profile row is for.
+/// Section 45's "My Lease" screen: the Lease tab.
 ///
 /// A tenant usually has one live lease, but section 54 requires a renewal to
 /// create a new lease rather than overwrite the old one, so the history has to

@@ -414,6 +414,19 @@ class MockBookingRepository with _MockLatency implements BookingRepository {
     );
   });
 
+  /// Enquiries produce nothing to read back, on the live server or here:
+  /// the property has to exist, and then the enquiry is acknowledged.
+  @override
+  Future<Result<EnquiryReceipt>> sendEnquiry(
+    PropertyEnquiry enquiry, {
+    required String idempotencyKey,
+  }) => guard(() {
+    if (!_server.properties.containsKey(enquiry.propertyId)) {
+      throw const MockNotFound('Property not found');
+    }
+    return const EnquiryReceipt(message: 'Enquiry received.');
+  });
+
   @override
   Future<Result<Page<Booking>>> listBookings({
     BookingStatus? status,

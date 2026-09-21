@@ -25,8 +25,10 @@ class QuickActions extends StatelessWidget {
             ),
             _Action(
               icon: Icons.account_balance_wallet_rounded,
-              label: 'Payments',
-              route: Routes.paymentHistory,
+              label: 'Transactions',
+              route: Routes.invoices,
+              query: {Routes.invoicesTabQuery: Routes.invoicesTransactionsTab},
+              tab: true,
             ),
             _Action(
               icon: Icons.folder_copy_rounded,
@@ -36,7 +38,8 @@ class QuickActions extends StatelessWidget {
             _Action(
               icon: Icons.description_rounded,
               label: 'My lease',
-              route: Routes.leases,
+              route: Routes.lease,
+              tab: true,
             ),
           ]
         : const [
@@ -50,7 +53,6 @@ class QuickActions extends StatelessWidget {
               icon: Icons.event_available_rounded,
               label: 'Bookings',
               route: Routes.bookings,
-              tab: true,
             ),
             _Action(
               icon: Icons.folder_copy_rounded,
@@ -100,12 +102,16 @@ class _Action {
     required this.icon,
     required this.label,
     required this.route,
+    this.query = const {},
     this.tab = false,
   });
 
   final IconData icon;
   final String label;
   final String route;
+
+  /// Query parameters the route takes, such as the pane a tab opens on.
+  final Map<String, String> query;
 
   /// Set for the shell's own tabs, which are switched to rather than pushed.
   final bool tab;
@@ -136,8 +142,8 @@ class _ActionTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => action.tab
-            ? context.goNamed(action.route)
-            : context.pushNamed(action.route),
+            ? context.goNamed(action.route, queryParameters: action.query)
+            : context.pushNamed(action.route, queryParameters: action.query),
         borderRadius: AppRadius.medium,
         child: Padding(
           padding: const EdgeInsets.symmetric(

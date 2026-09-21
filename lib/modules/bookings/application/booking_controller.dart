@@ -115,6 +115,27 @@ class BookingActions {
     return result;
   }
 
+  /// Sends an enquiry about a property.
+  ///
+  /// Nothing is booked, priced or paid: the request is who is asking and
+  /// what they want, and the answer is an acknowledgement. The idempotency
+  /// key is derived from the intent and persisted, so a retry after a
+  /// dropped connection reuses it and the landlord is not asked twice. It is
+  /// released once the server has acknowledged, so a later enquiry about the
+  /// same property is a new one.
+  Future<Result<EnquiryReceipt>> sendEnquiry(PropertyEnquiry enquiry) async {
+    final keys = _ref.read(idempotencyKeysProvider);
+    final intent = IdempotencyKeys.enquiryIntent(enquiry.intent);
+    final idempotencyKey = await keys.forIntent(intent);
+
+    final result = await _ref
+        .read(bookingRepositoryProvider)
+        .sendEnquiry(enquiry, idempotencyKey: idempotencyKey);
+
+    if (result.isOk) await keys.release(intent);
+    return result;
+  }
+
   /// Section 24. Asks the server to prompt [phoneNumber] for the booking fee.
   ///
   /// The amount on the request is [Booking.bookingFee] — the figure the

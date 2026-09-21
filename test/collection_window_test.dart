@@ -8,27 +8,28 @@ import 'package:mall/domain/entities/owner.dart';
 void main() {
   final now = DateTime(2026, 9, 16, 14, 30);
 
-  test('a day is drawn by the hour with four ticks', () {
-    final bounds = const CollectionWindow.today().resolve(now);
+  test('three months are bounded to themselves and drawn as themselves', () {
+    final bounds = const CollectionWindow.threeMonths().resolve(now);
 
-    expect(bounds.from, DateTime(2026, 9, 16));
-    expect(bounds.to, DateTime(2026, 9, 17));
-    expect(bounds.buckets, hasLength(24));
-    expect(
-      bounds.buckets.where((b) => b.label.isNotEmpty).map((b) => b.label),
-      ['12am', '6am', '12pm', '6pm'],
-    );
-    expect(bounds.buckets[14].name, '2pm–3pm');
-    expect(bounds.buckets.every((b) => !b.isBillingPeriod), isTrue);
+    expect(bounds.from, DateTime(2026, 7));
+    expect(bounds.to, DateTime(2026, 10));
+    expect(bounds.buckets.map((b) => b.label), ['Jul', 'Aug', 'Sep']);
+    expect(bounds.buckets.every((b) => b.isBillingPeriod), isTrue);
+    expect(bounds.buckets.first.name, 'July 2026');
   });
 
-  test('yesterday is the whole of the day before', () {
-    final bounds = const CollectionWindow.yesterday().resolve(now);
+  test('three months step back across a year end', () {
+    final bounds = const CollectionWindow.threeMonths().resolve(
+      DateTime(2027, 1, 9),
+    );
 
-    expect(bounds.from, DateTime(2026, 9, 15));
-    expect(bounds.to, DateTime(2026, 9, 16));
-    expect(bounds.buckets.first.contains(DateTime(2026, 9, 15, 0, 20)), true);
-    expect(bounds.buckets.last.contains(DateTime(2026, 9, 16)), false);
+    expect(bounds.from, DateTime(2026, 11));
+    expect(bounds.to, DateTime(2027, 2));
+    expect(bounds.buckets.map((b) => b.name), [
+      'November 2026',
+      'December 2026',
+      'January 2027',
+    ]);
   });
 
   test('the month is bounded to itself but drawn against the five before', () {
@@ -87,7 +88,7 @@ void main() {
   });
 
   test('windows compare by what they ask for', () {
-    expect(const CollectionWindow.today(), const CollectionWindow.today());
+    expect(const CollectionWindow.month(), const CollectionWindow.month());
     expect(
       CollectionWindow.custom(
         from: DateTime(2026, 9, 1),
@@ -99,8 +100,8 @@ void main() {
       ),
     );
     expect(
-      const CollectionWindow.today(),
-      isNot(const CollectionWindow.yesterday()),
+      const CollectionWindow.month(),
+      isNot(const CollectionWindow.threeMonths()),
     );
   });
 }

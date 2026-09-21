@@ -269,15 +269,14 @@ void main() {
       expect(month.points.last.billed, Money.fromMajor(17000, 'KES'));
       expect(month.points[4].collected, Money.fromMajor(20000, 'KES'));
 
-      final yesterday = report.sliceOver(
-        const CollectionWindow.yesterday(),
+      final quarter = report.sliceOver(
+        const CollectionWindow.threeMonths(),
         now: now,
       );
-      expect(yesterday.collected, Money.fromMajor(80000, 'KES'));
-      expect(yesterday.paymentCount, 1);
-
-      final today = report.sliceOver(const CollectionWindow.today(), now: now);
-      expect(today.isEmpty, isTrue);
+      expect(quarter.collected, Money.fromMajor(250000, 'KES'));
+      expect(quarter.paymentCount, 3);
+      expect(quarter.points.map((p) => p.label), ['Jul', 'Aug', 'Sep']);
+      expect(quarter.points[1].collected, Money.fromMajor(20000, 'KES'));
     });
   });
 

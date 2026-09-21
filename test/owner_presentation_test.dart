@@ -167,7 +167,6 @@ void main() {
     // Arrears are the card's other face, a switch away rather than a scroll.
     await tester.tap(find.text('Outstanding'));
     await tester.pumpAndSettle();
-    expect(find.text('Outstanding bills'), findsOneWidget);
     expect(find.text('TOTAL OUTSTANDING'), findsOneWidget);
     expect(find.text('COLLECTED THIS MONTH'), findsNothing);
     final container = ProviderScope.containerOf(
@@ -183,6 +182,39 @@ void main() {
     await tester.tap(find.text('Collected'));
     await tester.pumpAndSettle();
     expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the revenue page fits a phone without scrolling', (
+    tester,
+  ) async {
+    useViewport(tester, const Size(390, 844));
+
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+    await tester.tap(find.text('Revenue'));
+    await tester.pumpAndSettle();
+
+    ScrollPosition position() => tester
+        .state<ScrollableState>(
+          find
+              .byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable &&
+                    widget.axisDirection == AxisDirection.down,
+              )
+              .last,
+        )
+        .position;
+
+    // Both faces, and the tiles under them, are on screen at once.
+    expect(position().maxScrollExtent, 0);
+    expect(find.text('TRANSACTIONS'), findsOneWidget);
+
+    await tester.tap(find.text('Outstanding'));
+    await tester.pumpAndSettle();
+    expect(position().maxScrollExtent, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -291,7 +323,7 @@ void main() {
     useViewport(tester, const Size(320, 640), textScale: 2);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('Today'),
+      find.text('Last 3 months'),
       150,
       scrollable: find
           .byWidgetPredicate(
@@ -303,10 +335,10 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Today'));
+    await tester.tap(find.text('Last 3 months'));
     await tester.pumpAndSettle();
 
-    expect(find.text('COLLECTED TODAY'), findsOneWidget);
+    expect(find.text('COLLECTED IN THE LAST 3 MONTHS'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

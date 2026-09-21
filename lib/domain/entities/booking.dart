@@ -49,6 +49,45 @@ class BookingApplicant {
   ];
 }
 
+/// An enquiry about a property: who is asking, what they trade, and what
+/// they are looking for.
+///
+/// This is the shape `POST /payments/book/unit` takes — a property and the
+/// applicant, with free text for the rest. Nothing on it names a block, a
+/// size or a unit: the tenant describes what they want and the landlord
+/// answers. It is not a booking and produces no record the app can read
+/// back; the server acknowledges it and the conversation continues off-app.
+class PropertyEnquiry {
+  const PropertyEnquiry({
+    required this.propertyId,
+    required this.applicant,
+    required this.message,
+  });
+
+  final String propertyId;
+  final BookingApplicant applicant;
+
+  /// What the tenant is after, in their own words — the size, the trade,
+  /// when they want to move in. The contract's `description`.
+  final String message;
+
+  /// The intent this enquiry represents, for the idempotency key. Asking
+  /// about the same property again is the same intent until the first
+  /// enquiry is acknowledged.
+  String get intent => 'enquiry:$propertyId';
+}
+
+/// The server's acknowledgement of a [PropertyEnquiry].
+///
+/// The route answers `{message, success}` and nothing to read back, so this
+/// is all there is: the server's own words, when it sent any, for the
+/// confirmation to quote.
+class EnquiryReceipt {
+  const EnquiryReceipt({this.message});
+
+  final String? message;
+}
+
 /// What a booking is for, as the contract identifies it.
 ///
 /// The published request names a property and a block, and nothing smaller:

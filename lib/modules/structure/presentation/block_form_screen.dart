@@ -272,7 +272,7 @@ class _BlockFormScreenState extends ConsumerState<BlockFormScreen> {
                       ),
                       Gap.h12,
                       NumberField(
-                        label: 'Total units',
+                        label: 'Blocks',
                         controller: _totalUnitsController,
                         validator: (_) => null,
                       ),

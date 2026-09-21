@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
@@ -12,13 +11,11 @@ import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../components/unit_status_strip.dart';
 import '../../../core/error/failure.dart';
-import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/status_palette.dart';
 import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
 import '../../../domain/entities/unit.dart';
-import '../../../navigation/routes.dart';
 import '../application/structure_controller.dart';
 
 /// One block, and the units inside it.
@@ -26,51 +23,6 @@ class BlockScreen extends ConsumerWidget {
   const BlockScreen({required this.blockId, super.key});
 
   final String blockId;
-
-  Future<void> _confirmDelete(
-    BuildContext context,
-    WidgetRef ref,
-    Building block,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Remove ${block.name}?'),
-        content: const Text(
-          'The block is removed from the property. Units inside it have to be '
-          'moved or removed first.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    final result = await ref
-        .read(structureActionsProvider)
-        .deleteBlock(blockId: block.id, propertyId: block.propertyId);
-    if (!context.mounted) return;
-
-    switch (result) {
-      case Ok():
-        Navigator.of(context).pop();
-      case Err(:final failure):
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(failure.message),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -81,22 +33,6 @@ class BlockScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(block.hasValue ? block.requireValue.name : 'Block'),
         backgroundColor: Colors.transparent,
-        actions: [
-          if (block.hasValue)
-            PopupMenuButton<String>(
-              onSelected: (action) => switch (action) {
-                'edit' => context.pushNamed(
-                  Routes.blockEdit,
-                  pathParameters: {'blockId': blockId},
-                ),
-                _ => _confirmDelete(context, ref, block.requireValue),
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'edit', child: Text('Edit block')),
-                PopupMenuItem(value: 'delete', child: Text('Remove block')),
-              ],
-            ),
-        ],
       ),
       body: switch (block) {
         AsyncLoading() when !block.hasValue => const AppSkeletonList(),
@@ -233,9 +169,7 @@ class _UnitList extends StatelessWidget {
       return const SectionCard(
         title: 'Units',
         children: [
-          Text(
-            'No units in this block yet. Add one to start letting space here.',
-          ),
+          Text('No units in this block yet.'),
         ],
       );
     }
@@ -254,10 +188,6 @@ class _UnitList extends StatelessWidget {
             ].join(' · '),
             amount: AmountText(unit.baseRent, align: TextAlign.end),
             caption: unit.status.label,
-            onTap: () => context.pushNamed(
-              Routes.unitEdit,
-              pathParameters: {'unitId': unit.id},
-            ),
           ),
       ],
     );

@@ -516,6 +516,31 @@ Json bookingRequestToJson({
       : '${UnitAvailabilitySize(size: target.size!, count: 0).label} unit',
 };
 
+/// The published `CreateBookingRequest` as an enquiry: a property, who is
+/// asking, and what they are looking for in the contract's `description`.
+Json enquiryToJson(PropertyEnquiry enquiry) => {
+  'propertyId': _idToApi(enquiry.propertyId),
+  'fullName': enquiry.applicant.fullName,
+  'phoneNumber': PhoneNumber.normalize(enquiry.applicant.phoneNumber),
+  'email': enquiry.applicant.email,
+  'companyName': enquiry.applicant.companyName,
+  'businessType': enquiry.applicant.businessType,
+  'description': enquiry.message,
+};
+
+/// Reads the answer to an enquiry: the contract's `SuccessResponse`,
+/// `{message, success}`. A `success: false` under a 200 is a refusal and is
+/// thrown as one; otherwise the server's message is kept for the
+/// confirmation to quote.
+EnquiryReceipt enquiryReceiptFromJson(Json json) {
+  if (json.containsKey('success') && !_bool(json['success'], true)) {
+    throw FormatException(
+      _str(json['message'], 'The enquiry was not accepted.'),
+    );
+  }
+  return EnquiryReceipt(message: _strOrNull(json['message']));
+}
+
 BookingRequirement bookingRequirementFromJson(Json json) => BookingRequirement(
   id: _str(json['id']),
   requirementType: RequirementType.fromApi(_strOrNull(json['requirementType'])),

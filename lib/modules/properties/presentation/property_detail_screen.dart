@@ -88,22 +88,28 @@ class PropertyDetailScreen extends ConsumerWidget {
           ),
         },
       ),
+      // The owner goes on to the structure. A tenant's next step is a
+      // conversation, not a transaction: they tell the landlord what they
+      // are after and nothing is booked or paid on the way.
       bottomNavigationBar: detail.hasValue
           ? AppBottomActionBar(
-              child: FilledButton.icon(
-                onPressed: () => context.pushNamed(
-                  manager ? Routes.blocks : Routes.availableUnits,
-                  pathParameters: {'propertyId': propertyId},
-                ),
-                icon: const Icon(Icons.meeting_room_outlined),
-                label: Text(
-                  manager
-                      ? 'View blocks and units'
-                      : (available ?? 0) > 0
-                      ? 'View $available available units'
-                      : 'View all units',
-                ),
-              ),
+              child: manager
+                  ? FilledButton.icon(
+                      onPressed: () => context.pushNamed(
+                        Routes.blocks,
+                        pathParameters: {'propertyId': propertyId},
+                      ),
+                      icon: const Icon(Icons.meeting_room_outlined),
+                      label: const Text('View blocks and units'),
+                    )
+                  : FilledButton.icon(
+                      onPressed: () => context.pushNamed(
+                        Routes.enquiry,
+                        pathParameters: {'propertyId': propertyId},
+                      ),
+                      icon: const Icon(Icons.send_outlined),
+                      label: const Text('Send enquiry'),
+                    ),
             )
           : null,
     );
@@ -199,7 +205,7 @@ class _Body extends StatelessWidget {
               child: _MetricTile(
                 icon: Icons.domain_outlined,
                 value: property.totalUnits?.toString() ?? '—',
-                label: 'Total units',
+                label: 'Blocks',
               ),
             ),
             if (property.totalArea != null) ...[

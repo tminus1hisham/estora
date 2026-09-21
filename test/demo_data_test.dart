@@ -152,26 +152,25 @@ void main() {
       }
     });
 
-    test('yesterday holds the one arrival seeded there', () {
+    test('the last three months add up their own columns', () {
       final series = fixtures.collectionsOver(
-        const CollectionWindow.yesterday(),
+        const CollectionWindow.threeMonths(),
       );
 
-      expect(series.paymentCount, 1);
-      expect(series.collected, Money.fromMajor(100000, 'KES'));
+      final months = fixtures.ledger.history.sublist(
+        fixtures.ledger.history.length - 3,
+      );
+      expect(series.points, hasLength(3));
+      for (final (i, point) in series.points.indexed) {
+        expect(point.collected, months[i].collected);
+        expect(point.billed, months[i].billed);
+      }
+      expect(
+        series.collected,
+        months.fold(Money.zero('KES'), (sum, m) => sum + m.collected),
+      );
       expect(series.net, series.collected - series.platformFee);
-      // Bahari paid at 11:00, so that hour's column carries the whole figure
-      // and nothing else is drawn as billed.
-      expect(series.points, hasLength(24));
-      expect(series.points[11].collected, series.collected);
-      expect(series.points.every((point) => point.billed == null), isTrue);
-    });
-
-    test('today is honestly empty', () {
-      final series = fixtures.collectionsOver(const CollectionWindow.today());
-
-      expect(series.isEmpty, isTrue);
-      expect(series.collected.isZero, isTrue);
+      expect(series.paymentCount, greaterThan(0));
     });
 
     test('a custom span of this month agrees with the ledger’s arrivals', () {
@@ -361,23 +360,20 @@ void main() {
 
       expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
 
-      await tester.tap(find.text('Yesterday'));
+      await tester.tap(find.text('Last 3 months'));
       await settle(tester);
 
-      // Bahari's rent and the orphaned Rafiki payment both landed yesterday.
-      expect(find.text('COLLECTED YESTERDAY'), findsOneWidget);
-      expect(find.text('KES 235,000'), findsWidgets);
+      expect(find.text('COLLECTED IN THE LAST 3 MONTHS'), findsOneWidget);
       expect(
-        find.textContaining('2 M-Pesa payments yesterday.'),
+        find.textContaining('M-Pesa payments in the last 3 months.'),
         findsOneWidget,
       );
+      expect(find.byType(CollectionColumns), findsOneWidget);
 
-      await tester.tap(find.text('Today'));
+      await tester.tap(find.text('This month'));
       await settle(tester);
 
-      expect(find.text('COLLECTED TODAY'), findsOneWidget);
-      expect(find.text('Nothing came in today.'), findsOneWidget);
-      expect(find.byType(CollectionColumns), findsNothing);
+      expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

@@ -40,7 +40,7 @@ class CollectionColumns extends StatefulWidget {
   /// The six-month history the ledger and portfolio already carry.
   CollectionColumns.monthly({
     required List<MonthlyCollection> months,
-    double height = 132,
+    double? height = 132,
     Color? ink,
     bool readout = true,
     Key? key,
@@ -55,7 +55,11 @@ class CollectionColumns extends StatefulWidget {
   final List<CollectionPoint> points;
 
   /// The plotting area, excluding the readout above and the ticks beneath.
-  final double height;
+  ///
+  /// Null when the chart is to fill whatever height it is given: the readout
+  /// and ticks take their own lines and the plot takes the rest. A chart
+  /// filling must then be placed somewhere with a bounded height.
+  final double? height;
 
   /// The colour of the rules, ticks and billed bars. Defaults to the theme's
   /// `onSurfaceVariant`; a chart on a dark brand card passes its own.
@@ -113,12 +117,13 @@ class _CollectionColumnsState extends State<CollectionColumns> {
         : points[_selected!.clamp(0, points.length - 1)];
     final hasBilled = points.any((point) => point.billed != null);
 
+    final fills = widget.height == null;
     return Semantics(
       label: _semanticsLabel,
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: fills ? MainAxisSize.max : MainAxisSize.min,
         children: [
           if (widget.readout) ...[
             _Readout(
@@ -130,96 +135,111 @@ class _CollectionColumnsState extends State<CollectionColumns> {
             ),
             Gap.h12,
           ],
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: settled ? 1 : 0, end: 1),
-            duration: settled ? Duration.zero : AppMotion.slow,
-            curve: AppMotion.emphasized,
-            builder: (context, t, _) => LayoutBuilder(
-              builder: (context, constraints) {
-                // The plot stops short of the right edge, where the rule
-                // figures sit.
-                final width = constraints.maxWidth - _gutter;
-                final column = width / points.length;
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapDown: (d) =>
-                      _select(d.localPosition.dx, column, toggle: true),
-                  onHorizontalDragStart: (d) =>
-                      _select(d.localPosition.dx, column),
-                  onHorizontalDragUpdate: (d) =>
-                      _select(d.localPosition.dx, column),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        height: widget.height,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            CustomPaint(
-                              painter: _Rules(
-                                ink: ink,
-                                ceiling: Money(ceiling, currency),
-                                textStyle: theme.textTheme.labelSmall,
-                              ),
+          _fill(
+            fills,
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: settled ? 1 : 0, end: 1),
+              duration: settled ? Duration.zero : AppMotion.slow,
+              curve: AppMotion.emphasized,
+              builder: (context, t, _) => LayoutBuilder(
+                builder: (context, constraints) {
+                  // The plot stops short of the right edge, where the rule
+                  // figures sit.
+                  final width = constraints.maxWidth - _gutter;
+                  final column = width / points.length;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (d) =>
+                        _select(d.localPosition.dx, column, toggle: true),
+                    onHorizontalDragStart: (d) =>
+                        _select(d.localPosition.dx, column),
+                    onHorizontalDragUpdate: (d) =>
+                        _select(d.localPosition.dx, column),
+                    child: Column(
+                      mainAxisSize: fills ? MainAxisSize.max : MainAxisSize.min,
+                      children: [
+                        _fill(
+                          fills,
+                          SizedBox(
+                            height: widget.height,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                CustomPaint(
+                                  painter: _Rules(
+                                    ink: ink,
+                                    ceiling: Money(ceiling, currency),
+                                    textStyle: theme.textTheme.labelSmall,
+                                  ),
+                                ),
+                                Padding(
+                                  // Room for the rule figures on the right.
+                                  padding: const EdgeInsets.only(
+                                    right: _gutter,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      for (final (i, point) in points.indexed)
+                                        Expanded(
+                                          child: _Bar(
+                                            billed: point.billed == null
+                                                ? null
+                                                : point.billed!.minorUnits /
+                                                      ceiling *
+                                                      t,
+                                            collected:
+                                                point.collected.minorUnits /
+                                                ceiling *
+                                                t,
+                                            ink: ink,
+                                            fill: fill,
+                                            // Every column steps back a little
+                                            // except the one being read.
+                                            emphasis: _selected == null
+                                                ? 1
+                                                : i == _selected
+                                                ? 1
+                                                : 0.45,
+                                            gap: (column * 0.16).clamp(
+                                              1.0,
+                                              5.0,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            Padding(
-                              // Room for the rule figures on the right.
-                              padding: const EdgeInsets.only(right: _gutter),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  for (final (i, point) in points.indexed)
-                                    Expanded(
-                                      child: _Bar(
-                                        billed: point.billed == null
-                                            ? null
-                                            : point.billed!.minorUnits /
-                                                  ceiling *
-                                                  t,
-                                        collected:
-                                            point.collected.minorUnits /
-                                            ceiling *
-                                            t,
-                                        ink: ink,
-                                        fill: fill,
-                                        // Every column steps back a little
-                                        // except the one being read.
-                                        emphasis: _selected == null
-                                            ? 1
-                                            : i == _selected
-                                            ? 1
-                                            : 0.45,
-                                        gap: (column * 0.16).clamp(1.0, 5.0),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Gap.h8,
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: _Ticks(
-                          points: points,
-                          width: width,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: ink.withValues(alpha: 0.8),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                        Gap.h8,
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: _Ticks(
+                            points: points,
+                            width: width,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: ink.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  /// [child], taking the rest of its column when the chart fills.
+  static Widget _fill(bool fills, Widget child) =>
+      fills ? Expanded(child: child) : child;
 
   void _select(double dx, double column, {bool toggle = false}) {
     final index = (dx / column).floor().clamp(0, widget.points.length - 1);

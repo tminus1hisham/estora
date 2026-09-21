@@ -44,6 +44,10 @@ class IdempotencyKeys {
   /// `BookingTarget.intent`: the space or the unit being asked for.
   static String bookingIntent(String target) => 'booking-create:$target';
 
+  /// Intent identifier for an enquiry about a property. [enquiry] is
+  /// `PropertyEnquiry.intent`: the property being asked about.
+  static String enquiryIntent(String enquiry) => 'enquiry-send:$enquiry';
+
   /// Intent identifier for paying a specific invoice. Keyed by invoice so that
   /// paying invoice A and invoice B are separate intents, while retrying
   /// invoice A is the same one.

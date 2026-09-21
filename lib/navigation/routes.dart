@@ -34,11 +34,17 @@ class Routes {
   static const browse = 'browse';
   static const browsePath = '/browse';
 
-  static const bookings = 'bookings';
-  static const bookingsPath = '/bookings';
+  static const lease = 'lease';
+  static const leasePath = '/lease';
 
   static const invoices = 'invoices';
   static const invoicesPath = '/invoices';
+
+  /// Which of the invoices tab's two panes opens: `?tab=transactions` lands
+  /// on the payments, anything else on the invoices. A query rather than a
+  /// segment because the panes are one screen, not two pages.
+  static const invoicesTabQuery = 'tab';
+  static const invoicesTransactionsTab = 'transactions';
 
   static const profile = 'profile';
   static const profilePath = '/profile';
@@ -99,7 +105,7 @@ class Routes {
   /// The tenant's read-only agreement screen, reached from the owner's side.
   ///
   /// Under `/owner` for the same reason as [ownerPreview]: the redirect keeps
-  /// an owner out of `/profile/leases`, so linking there would bounce them home.
+  /// an owner out of `/lease`, so linking there would bounce them home.
   static const ownerAgreement = 'owner-agreement';
   static const ownerAgreementPath = 'agreement/:leaseId';
 
@@ -157,6 +163,11 @@ class Routes {
   static const propertyDetail = 'property-detail';
   static const propertyDetailPath = 'property/:propertyId';
 
+  /// An enquiry about a property: the property screen's main action. Keyed
+  /// by property alone, because that is all the request names.
+  static const enquiry = 'enquiry';
+  static const enquiryPath = 'property/:propertyId/enquire';
+
   /// The spaces the availability engine lists for one property.
   static const availableUnits = 'available-units';
   static const availableUnitsPath = 'property/:propertyId/units';
@@ -176,13 +187,8 @@ class Routes {
 
   // -- Lease sub-routes -----------------------------------------------------
   //
-  // Under the profile tab. The bottom bar carries bookings, not the lease: a
-  // booking is the thing a tenant checks on daily while it is live, whereas a
-  // signed lease is read once and then kept. Everything below nests under
-  // [leases], so a lease id never has to be resolved from anywhere else.
-  static const leases = 'leases';
-  static const leasesPath = 'leases';
-
+  // Under the lease tab. Everything below nests under [lease], so a lease id
+  // never has to be resolved from anywhere else.
   static const leaseDetail = 'lease-detail';
   static const leaseDetailPath = ':leaseId';
 
@@ -206,8 +212,11 @@ class Routes {
   static const receiptPath = 'receipt/:receiptId';
 
   // -- Account sub-routes ---------------------------------------------------
-  static const paymentHistory = 'payment-history';
-  static const paymentHistoryPath = 'payments';
+
+  /// The tenant's bookings, past and present. A profile row rather than a
+  /// tab: the bar's slot went to the lease, which is what a booking becomes.
+  static const bookings = 'bookings';
+  static const bookingsPath = 'bookings';
 
   static const documents = 'documents';
   static const documentsPath = 'documents';
@@ -236,9 +245,6 @@ class Routes {
 
   static const deferInvoice = 'defer-invoice';
   static const deferInvoicePath = ':invoiceId/defer';
-
-  static const editProfile = 'edit-profile';
-  static const editProfilePath = 'edit';
 
   // -- Reachable from the home tab ------------------------------------------
   static const notifications = 'notifications';

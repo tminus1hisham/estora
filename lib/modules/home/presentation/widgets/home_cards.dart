@@ -43,7 +43,12 @@ class RecentPaymentsCard extends StatelessWidget {
               ),
               Gap.w12,
               TextButton(
-                onPressed: () => context.pushNamed(Routes.paymentHistory),
+                onPressed: () => context.goNamed(
+                  Routes.invoices,
+                  queryParameters: {
+                    Routes.invoicesTabQuery: Routes.invoicesTransactionsTab,
+                  },
+                ),
                 child: const Text('See all'),
               ),
             ],
