@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../components/app_pressable.dart';
 import '../../../../components/app_surface_card.dart';
+import '../../../../components/even_grid.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
 import '../../../../core/utils/date_format.dart';
@@ -29,31 +30,15 @@ class InsightTiles extends StatelessWidget {
     ];
 
     if (tiles.isEmpty) return const SizedBox.shrink();
-    if (tiles.length == 1) return tiles.single;
 
     // Side by side while the platform's text still allows it; two figures on
     // one line is the whole point of the pair, but not at the cost of
-    // truncating either of them.
-    if (homePrefersStacked(context)) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [tiles.first, Gap.h12, tiles.last],
-      );
-    }
-
-    // IntrinsicHeight so the pair matches: one tile carrying a meter and the
-    // other not would otherwise leave a step between two cards on one line.
-    // Stretching alone cannot do it inside a scroll view, where the row's own
-    // height is unbounded.
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: tiles.first),
-          Gap.w12,
-          Expanded(child: tiles.last),
-        ],
-      ),
+    // truncating either of them. The grid matches their heights, so one tile
+    // carrying a meter and the other not leaves no step between them.
+    return EvenGrid(
+      minTileWidth: 144,
+      maxColumns: homePrefersStacked(context) ? 1 : 2,
+      children: tiles,
     );
   }
 }
@@ -163,12 +148,12 @@ class _InsightTile extends StatelessWidget {
     return AppPressable(
       child: AppSurfaceCard(
         onTap: onTap,
-        padding: const EdgeInsets.all(Gap.lg),
+        padding: const EdgeInsets.all(Gap.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            ToneIconTile(icon: icon, color: color, size: 34),
+            ToneIconTile(icon: icon, color: color, size: 28),
             Gap.h12,
             Text(
               label,
@@ -184,7 +169,7 @@ class _InsightTile extends StatelessWidget {
               value,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
+              style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: AppTypography.bold,
               ),
             ),

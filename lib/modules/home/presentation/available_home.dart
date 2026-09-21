@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../components/app_refresh_indicator.dart';
-import '../../../components/record_group.dart';
 import '../../../components/app_media.dart';
+import '../../../components/even_grid.dart';
 import '../../../components/occupancy_meter.dart';
 import 'widgets/premium_home.dart';
+import 'widgets/tenant_welcome.dart';
+import '../../../components/app_reveal.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
@@ -15,7 +17,7 @@ import '../../../navigation/routes.dart';
 import '../../../services/providers.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../invoices/application/invoice_controller.dart';
-import '../../invoices/presentation/widgets/invoice_list.dart';
+import 'widgets/recent_invoices.dart';
 
 // Separate from the browse search so a search never filters the home page.
 final homePropertiesProvider = FutureProvider.autoDispose<List<Property>>((
@@ -53,11 +55,14 @@ class AvailableHome extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.zero,
         children: [
-          PremiumHomeHero(manager: manager, name: name),
+          if (manager)
+            PremiumHomeHero(manager: true, name: name)
+          else
+            TenantWelcome(name: name),
           Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: AppLayout.maxReadingWidth,
+              constraints: BoxConstraints(
+                maxWidth: manager ? AppLayout.maxReadingWidth : 1080,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
@@ -71,20 +76,48 @@ class AvailableHome extends ConsumerWidget {
                     else
                       Transform.translate(
                         offset: const Offset(0, -28),
-                        child: HomeActionPanel(manager: manager),
+                        child: const AppReveal(
+                          index: 3,
+                          child: TenantActionPanel(),
+                        ),
                       ),
-                    Text(
-                      manager ? 'Your properties' : 'Recent invoices',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      children: [
+                        Text(
+                          manager ? 'Your properties' : 'Recent invoices',
+                          style: manager
+                              ? Theme.of(context).textTheme.titleLarge
+                              : Theme.of(context).textTheme.titleMedium,
+                        ),
+                        if (!manager)
+                          TextButton.icon(
+                            onPressed: () => context.goNamed(Routes.invoices),
+                            icon: const Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                            ),
+                            iconAlignment: IconAlignment.end,
+                            label: const Text('View all'),
+                          ),
+                      ],
                     ),
                     Gap.h4,
                     Text(
                       manager
                           ? 'A place for every part of your portfolio.'
-                          : 'The details that keep your day running smoothly.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                          : 'Your latest bills, with payment details at a glance.',
+                      style:
+                          (manager
+                                  ? Theme.of(context).textTheme.bodyMedium
+                                  : Theme.of(context).textTheme.bodySmall)
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                     ),
                     Gap.h16,
                     if (manager)
@@ -96,57 +129,17 @@ class AvailableHome extends ConsumerWidget {
                               error,
                               () => ref.invalidate(homePropertiesProvider),
                             ),
+                            // One column on a phone, more as the window
+                            // allows, and every card the size of its
+                            // neighbours whether or not it carries a meter.
                             data: (properties) => properties.isEmpty
                                 ? HomeWelcomeCard(manager: true)
-                                : Column(
+                                : EvenGrid(
+                                    minTileWidth: 300,
+                                    spacing: Gap.lg,
                                     children: [
-                                      for (final property in properties) ...[
-                                        Card(
-                                          margin: EdgeInsets.zero,
-                                          clipBehavior: Clip.antiAlias,
-                                          child: InkWell(
-                                            onTap: () => context.pushNamed(
-                                              Routes.ownerProperty,
-                                              pathParameters: {
-                                                'propertyId': property.id,
-                                              },
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.stretch,
-                                              children: [
-                                                AppMedia(
-                                                  source: property.imageUrl,
-                                                  height: 150,
-                                                  semanticLabel: property.name,
-                                                ),
-                                                ListTile(
-                                                  title: Text(property.name),
-                                                  subtitle: Text(property.city),
-                                                  trailing: const Icon(
-                                                    Icons.arrow_forward_rounded,
-                                                  ),
-                                                ),
-                                                if (property.mix != null)
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.fromLTRB(
-                                                          Gap.lg,
-                                                          0,
-                                                          Gap.lg,
-                                                          Gap.lg,
-                                                        ),
-                                                    child: OccupancyMeter(
-                                                      mix: property.mix!,
-                                                      dense: true,
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        Gap.h16,
-                                      ],
+                                      for (final property in properties)
+                                        _PropertyCard(property: property),
                                     ],
                                   ),
                           )
@@ -161,22 +154,10 @@ class AvailableHome extends ConsumerWidget {
                                   .read(invoiceListProvider.notifier)
                                   .refresh(),
                             ),
-                            data: (invoices) {
-                              if (invoices.isEmpty) {
-                                return const HomeWelcomeCard(manager: false);
-                              }
-                              final recent = [...invoices]
-                                ..sort(
-                                  (a, b) =>
-                                      b.invoiceDate.compareTo(a.invoiceDate),
-                                );
-                              return RecordGroup(
-                                children: [
-                                  for (final invoice in recent.take(5))
-                                    InvoiceRow(invoice: invoice),
-                                ],
-                              );
-                            },
+                            data: (invoices) => AppReveal(
+                              index: 4,
+                              child: RecentInvoices(invoices: invoices),
+                            ),
                           ),
                     Gap.h24,
                     const HomeFooter(),
@@ -194,5 +175,48 @@ class AvailableHome extends ConsumerWidget {
   Widget _sectionError(Object error, VoidCallback onRetry) => HomeSectionError(
     failure: error is Failure ? error : UnknownFailure(error.toString()),
     onRetry: onRetry,
+  );
+}
+
+/// One property in the manager's home grid.
+///
+/// The photograph is a fixed height so that a row of cards agrees on where
+/// its titles start; everything under it is content-sized, and the grid
+/// squares up the rest.
+class _PropertyCard extends StatelessWidget {
+  const _PropertyCard({required this.property});
+
+  final Property property;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: () => context.pushNamed(
+        Routes.ownerProperty,
+        pathParameters: {'propertyId': property.id},
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppMedia(
+            source: property.imageUrl,
+            height: 150,
+            semanticLabel: property.name,
+          ),
+          ListTile(
+            title: Text(property.name),
+            subtitle: Text(property.city),
+            trailing: const Icon(Icons.arrow_forward_rounded),
+          ),
+          if (property.mix != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.lg),
+              child: OccupancyMeter(mix: property.mix!, dense: true),
+            ),
+        ],
+      ),
+    ),
   );
 }

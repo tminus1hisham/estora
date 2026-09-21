@@ -6,12 +6,16 @@ import 'package:intl/intl.dart';
 import '../../../../components/app_media.dart';
 import '../../../../components/app_reveal.dart';
 import '../../../../components/app_surface_card.dart';
+import '../../../../components/even_grid.dart';
 import '../../../../components/occupancy_meter.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/property.dart';
 import '../../../../navigation/routes.dart';
 
-/// Content-sized rows keep large text readable without fixed card heights.
+/// The dashboard's cards, laid out so that every card in a row is the same
+/// size. Heights still come from the content — [EvenGrid] matches the row to
+/// its tallest card rather than pinning one in — so larger text widens the
+/// slots and drops a column instead of clipping.
 class OwnerWidgetGrid extends StatelessWidget {
   const OwnerWidgetGrid({
     required this.children,
@@ -22,25 +26,12 @@ class OwnerWidgetGrid extends StatelessWidget {
   final double minWidth;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-      final columns = ((constraints.maxWidth + 12) / (minWidth * scale + 12))
-          .floor()
-          .clamp(1, 4);
-      final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
-      return Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          for (final (index, child) in children.indexed)
-            SizedBox(
-              width: width,
-              child: AppReveal(index: index, child: child),
-            ),
-        ],
-      );
-    },
+  Widget build(BuildContext context) => EvenGrid(
+    minTileWidth: minWidth,
+    children: [
+      for (final (index, child) in children.indexed)
+        AppReveal(index: index, child: child),
+    ],
   );
 }
 

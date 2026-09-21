@@ -106,6 +106,11 @@ class Routes {
   static const ownerPayouts = 'owner-payouts';
   static const ownerPayoutsPath = 'payouts';
 
+  /// The owner's invoices, cut to the paid or the unpaid ones. The segment is
+  /// an [OwnerInvoiceFilter] slug, so a link says which list it opens.
+  static const ownerInvoices = 'owner-invoices';
+  static const ownerInvoicesPath = 'invoices/:filter';
+
   // -- Property structure ---------------------------------------------------
   //
   // Blocks and units, under the properties branch. A block's own routes are
@@ -218,6 +223,8 @@ class Routes {
 
   static const changePassword = 'change-password';
   static const changePasswordPath = 'security/password';
+  static const editContact = 'edit-contact';
+  static const editContactPath = 'security/contact';
 
   /// `channel` is `email` or `phone`.
   static const verifyContact = 'verify-contact';

@@ -10,6 +10,7 @@ import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/collection_columns.dart';
+import '../../../components/even_grid.dart';
 import '../../../components/money_count_up.dart';
 import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
@@ -20,14 +21,13 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/status_palette.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../core/utils/money.dart';
-import '../../../domain/entities/billing.dart';
 import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
-import '../../../domain/entities/treasury.dart';
 import '../../../navigation/routes.dart';
 import '../../properties/application/property_controller.dart';
+import '../../treasury/application/treasury_controller.dart';
 import '../application/owner_controller.dart';
-import 'widgets/invoice_payments_sheet.dart';
+import 'owner_invoices_screen.dart';
 
 /// Section 88. Money in.
 ///
@@ -37,6 +37,11 @@ import 'widgets/invoice_payments_sheet.dart';
 /// ageing bands are the point of the screen: an owner with KES 400,000
 /// outstanding cares a great deal whether it is three days late or three
 /// months.
+///
+/// Under the heading sit four doors off/// Under the collected card sit four doors off the screen — paid and unpaid
+/// invoices, then bank and M-Pesa arrivals — each carrying how many it opens
+/// onto. They are the only way into the full lists; the page itself is the
+/// summary, and repeats none of the rows.
 ///
 /// An owner with more than one property is offered a strip under the title
 /// to cut the report to one of them. An owner with one property is not: the
@@ -49,8 +54,16 @@ class OwnerMoneyScreen extends ConsumerWidget {
     final report = ref.watch(ownerReportProvider);
     final selected = ref.watch(reportPropertyProvider);
     final properties = ref.watch(propertyListProvider).value ?? const [];
-    // Names for the arrivals list, which the till keys by property id only.
-    final names = {for (final property in properties) property.id: property};
+    // Bank arrivals are not part of the report — the contract serves them as
+    // one owner-wide list — so the tile counts them from that list, cut to
+    // the property in view when there is one. Null while they are still on
+    // their way, or failed: the tile then shows a dash rather than a zero it
+    // would have to take back.
+    final bankCount = ref
+        .watch(bankPaymentsProvider)
+        .value
+        ?.where((payment) => selected == null || payment.propertyId == selected)
+        .length;
 
     Future<void> refresh() async {
       await ref.refresh(ownerReportProvider.future).then<void>((_) {});
@@ -66,21 +79,6 @@ class OwnerMoneyScreen extends ConsumerWidget {
             tooltip: 'Payouts',
             onPressed: () => context.pushNamed(Routes.ownerPayouts),
             icon: const Icon(Icons.account_balance_wallet_outlined),
-          ),
-          // What actually arrived, as opposed to what the ledger says is owed.
-          // Two different questions, so two entries rather than one.
-          PopupMenuButton<String>(
-            tooltip: 'Received',
-            icon: const Icon(Icons.inbox_outlined),
-            onSelected: (action) => context.pushNamed(
-              action == 'mpesa'
-                  ? Routes.mpesaTransactions
-                  : Routes.bankPayments,
-            ),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'mpesa', child: Text('M-Pesa payments')),
-              PopupMenuItem(value: 'bank', child: Text('Bank payments')),
-            ],
           ),
           Gap.w8,
         ],
@@ -113,7 +111,7 @@ class OwnerMoneyScreen extends ConsumerWidget {
           // Dimmed, not replaced, while the next property's answer is on its
           // way — the figures change rather than blank.
           stale: report.isLoading,
-          properties: names,
+          bankCount: bankCount,
           onRefresh: refresh,
         ),
       },
@@ -201,13 +199,15 @@ class _Money extends StatelessWidget {
   const _Money({
     required this.report,
     required this.stale,
-    required this.properties,
+    required this.bankCount,
     required this.onRefresh,
   });
 
   final OwnerReport report;
   final bool stale;
-  final Map<String, Property> properties;
+
+  /// How many bank payments the owner has, or null while unknown.
+  final int? bankCount;
   final Future<void> Function() onRefresh;
 
   @override
@@ -224,15 +224,13 @@ class _Money extends StatelessWidget {
       );
     }
     final ageing = report.ageingAt(DateTime.now());
-    final owed = report.outstandingInvoices;
+    // The invoices and arrivals themselves live behind the tiles above; the
+    // page keeps only what summarises them.
     final sections = <Widget>[
-      _RevenueHeading(propertyName: properties[report.propertyId]?.name),
       _CollectedCard(report: report),
+      _LedgerTabs(report: report, bankCount: bankCount),
       if (report.hasArrears)
         _Ageing(buckets: ageing, outstanding: report.outstanding),
-      if (owed.isNotEmpty) _Outstanding(invoices: owed),
-      if (report.received.isNotEmpty)
-        _Received(rows: report.received, properties: properties),
     ];
 
     return AppRefreshIndicator(
@@ -247,9 +245,10 @@ class _Money extends StatelessWidget {
             ),
             child: ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
+              // The card opens the page, so it sits close under the title.
               padding: const EdgeInsets.fromLTRB(
                 Gap.lg,
-                Gap.lg,
+                Gap.sm,
                 Gap.lg,
                 Gap.xxl,
               ),
@@ -265,40 +264,195 @@ class _Money extends StatelessWidget {
   }
 }
 
-class _RevenueHeading extends StatelessWidget {
-  const _RevenueHeading({this.propertyName});
+/// The four doors off the screen, in two groups: the invoices, paid and
+/// unpaid, then the arrivals, bank and M-Pesa. Each tile says how many rows
+/// it opens onto, and tapping it opens them.
+///
+/// The invoice counts and the M-Pesa count are the report's own, so a tile
+/// and the list it opens are counted from the same records. The bank count is
+/// read from the owner-wide bank list, which is the only place the contract
+/// serves it.
+class _LedgerTabs extends StatelessWidget {
+  const _LedgerTabs({required this.report, required this.bankCount});
 
-  final String? propertyName;
+  final OwnerReport report;
+  final int? bankCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final statuses = context.statusColors;
+    final primary = Theme.of(context).colorScheme.primary;
+    final unpaid = report.outstandingInvoices.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _TabGroup(
+          heading: 'Invoices',
+          tiles: [
+            _CountTile(
+              label: 'Paid',
+              noun: 'invoice',
+              count: report.paidInvoices.length,
+              icon: Icons.task_alt_rounded,
+              color: statuses.positive,
+              onTap: () => context.pushNamed(
+                Routes.ownerInvoices,
+                pathParameters: {'filter': OwnerInvoiceFilter.paid.slug},
+              ),
+            ),
+            _CountTile(
+              label: 'Unpaid',
+              noun: 'invoice',
+              count: unpaid,
+              icon: Icons.pending_actions_rounded,
+              // Unpaid is only a warning once there is something unpaid.
+              color: statuses.resolve(
+                unpaid == 0 ? StatusTone.neutral : StatusTone.warning,
+              ),
+              onTap: () => context.pushNamed(
+                Routes.ownerInvoices,
+                pathParameters: {'filter': OwnerInvoiceFilter.unpaid.slug},
+              ),
+            ),
+          ],
+        ),
+        Gap.h24,
+        _TabGroup(
+          heading: 'Transactions',
+          tiles: [
+            _CountTile(
+              label: 'Bank',
+              noun: 'payment',
+              count: bankCount,
+              icon: Icons.account_balance_outlined,
+              color: primary,
+              onTap: () => context.pushNamed(Routes.bankPayments),
+            ),
+            _CountTile(
+              label: 'M-Pesa',
+              noun: 'payment',
+              count: report.received.length,
+              icon: Icons.phone_android_rounded,
+              color: primary,
+              onTap: () => context.pushNamed(Routes.mpesaTransactions),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// A small-caps heading over a pair of tiles the same size as each other.
+class _TabGroup extends StatelessWidget {
+  const _TabGroup({required this.heading, required this.tiles});
+
+  final String heading;
+  final List<Widget> tiles;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'FINANCIAL OVERVIEW',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            letterSpacing: 2,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.xs, 0, Gap.xs, Gap.sm),
+          child: Text(
+            heading.toUpperCase(),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 1.2,
+            ),
           ),
         ),
-        Gap.h8,
-        Text(
-          'Your portfolio. In perspective.',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.8,
-          ),
-        ),
-        Gap.h8,
-        Text(
-          propertyName ?? 'Collections and balances across your properties.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        // Side by side down to a narrow phone; stacked once the text is
+        // large enough that two abreast would squeeze the figure.
+        EvenGrid(
+          minTileWidth: 140,
+          maxColumns: 2,
+          spacing: Gap.md,
+          children: tiles,
         ),
       ],
+    );
+  }
+}
+
+/// One door: what is behind it, how many, and a corner arrow that says it
+/// opens. The figure is set medium, like every other figure on the screen —
+/// a count of twelve unpaid invoices is information, not an alarm.
+class _CountTile extends StatelessWidget {
+  const _CountTile({
+    required this.label,
+    required this.noun,
+    required this.count,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+
+  /// Singular; pluralised against [count].
+  final String noun;
+
+  /// Null while the count is not yet known.
+  final int? count;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final figure = count == null ? '—' : '$count';
+    final detail = count == 1 ? noun : '${noun}s';
+
+    return AppSurfaceCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(Gap.lg),
+      semanticLabel: '$label $detail, $figure',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.small,
+                ),
+                child: Icon(icon, size: 18, color: color),
+              ),
+              Gap.w8,
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.labelMedium?.copyWith(color: muted),
+                ),
+              ),
+              Icon(Icons.north_east_rounded, size: 14, color: muted),
+            ],
+          ),
+          Gap.h12,
+          Text(
+            figure,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: AppTypography.medium,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          Gap.h4,
+          Text(
+            detail,
+            style: theme.textTheme.bodySmall?.copyWith(color: muted),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -711,108 +865,4 @@ class _Ageing extends StatelessWidget {
     '1–30 days' => StatusTone.warning,
     _ => StatusTone.danger,
   };
-}
-
-/// The invoices behind the bands, soonest due first, each with who owes it.
-/// Tapping one opens what has been paid against it.
-class _Outstanding extends StatelessWidget {
-  const _Outstanding({required this.invoices});
-
-  final List<Invoice> invoices;
-
-  @override
-  Widget build(BuildContext context) {
-    final statuses = context.statusColors;
-    final now = DateTime.now();
-
-    return RecordGroup(
-      heading: 'Outstanding invoices',
-      children: [
-        for (final invoice in invoices)
-          RecordRow(
-            icon: Icons.receipt_long_outlined,
-            iconColor: statuses.resolve(
-              invoice.dueDate.isBefore(now)
-                  ? StatusTone.danger
-                  : StatusTone.neutral,
-            ),
-            title: invoice.tenantName ?? invoice.invoiceNumber,
-            subtitle: _where(invoice) ?? invoice.invoiceNumber,
-            amount: AmountText(invoice.amountDue),
-            caption: 'Due ${AppDate.short(invoice.dueDate)}',
-            onTap: () => showInvoicePaymentsSheet(context, invoice),
-          ),
-      ],
-    );
-  }
-
-  static String? _where(Invoice invoice) {
-    final parts = [
-      if (invoice.unitNumber != null) invoice.unitNumber!,
-      if (invoice.propertyName != null) invoice.propertyName!,
-    ];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
-}
-
-/// What the till received, by month, newest first.
-class _Received extends StatelessWidget {
-  const _Received({required this.rows, required this.properties});
-
-  final List<MpesaTransaction> rows;
-  final Map<String, Property> properties;
-
-  @override
-  Widget build(BuildContext context) {
-    final statuses = context.statusColors;
-    final months = <DateTime?, List<MpesaTransaction>>{};
-
-    for (final row in rows) {
-      final at = row.transactedAt ?? row.createdAt;
-      final key = at == null ? null : DateTime(at.year, at.month);
-      months.putIfAbsent(key, () => []).add(row);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final (index, entry) in months.entries.indexed) ...[
-          if (index > 0) Gap.h24,
-          RecordGroup(
-            heading: entry.key == null
-                ? 'Received'
-                : 'Received · ${AppDate.monthYear(entry.key!)}',
-            children: [
-              for (final row in entry.value)
-                RecordRow(
-                  icon: Icons.south_west_rounded,
-                  iconColor: statuses.positive,
-                  title:
-                      row.payerName ??
-                      row.maskedPayerPhone ??
-                      row.transactionId,
-                  subtitle: _where(row),
-                  amount: AmountText(row.amount),
-                  caption: switch (row.transactedAt ?? row.createdAt) {
-                    final at? => AppDate.short(at),
-                    null => row.transactionId,
-                  },
-                ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  String? _where(MpesaTransaction row) {
-    final property = row.propertyId == null
-        ? null
-        : properties[row.propertyId!];
-    final parts = [
-      if (row.hasAccountNumber) row.accountNumber!.trim(),
-      if (property != null) property.name,
-    ];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
 }

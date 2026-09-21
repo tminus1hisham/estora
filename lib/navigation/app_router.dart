@@ -10,6 +10,7 @@ import '../modules/access/presentation/roles_screen.dart';
 import '../modules/access/presentation/user_access_screen.dart';
 import '../modules/access/presentation/users_screen.dart';
 import '../modules/account/presentation/change_password_screen.dart';
+import '../modules/account/presentation/edit_contact_screen.dart';
 import '../modules/account/presentation/security_screen.dart';
 import '../modules/account/presentation/verify_contact_screen.dart';
 import '../modules/auth/application/auth_controller.dart';
@@ -33,6 +34,7 @@ import '../modules/leases/presentation/leases_screen.dart';
 import '../modules/leases/presentation/sign_agreement_screen.dart';
 import '../modules/notifications/presentation/notifications_screen.dart';
 import '../modules/owner/presentation/owner_account_screen.dart';
+import '../modules/owner/presentation/owner_invoices_screen.dart';
 import '../modules/owner/presentation/owner_money_screen.dart';
 import '../modules/owner/presentation/owner_payouts_screen.dart';
 import '../modules/owner/presentation/owner_portfolio_screen.dart';
@@ -195,6 +197,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: Routes.changePassword,
         pageBuilder: (_, state) =>
             lateralPage(state: state, child: const ChangePasswordScreen()),
+      ),
+      GoRoute(
+        path: '/profile/${Routes.editContactPath}',
+        name: Routes.editContact,
+        pageBuilder: (_, state) =>
+            lateralPage(state: state, child: const EditContactScreen()),
       ),
       GoRoute(
         path: '/profile/${Routes.verifyContactPath}',
@@ -709,6 +717,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     pageBuilder: (_, state) => lateralPage(
                       state: state,
                       child: const OwnerPayoutsScreen(),
+                    ),
+                  ),
+                  GoRoute(
+                    path: Routes.ownerInvoicesPath,
+                    name: Routes.ownerInvoices,
+                    pageBuilder: (_, state) => lateralPage(
+                      state: state,
+                      child: OwnerInvoicesScreen(
+                        filter: OwnerInvoiceFilter.fromSlug(
+                          state.pathParameters['filter'],
+                        ),
+                      ),
                     ),
                   ),
                   GoRoute(

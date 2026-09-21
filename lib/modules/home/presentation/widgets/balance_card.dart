@@ -85,7 +85,7 @@ class BalanceCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(Gap.xl),
+            padding: const EdgeInsets.all(Gap.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -122,12 +122,12 @@ class BalanceCard extends StatelessWidget {
                   ),
                 ],
                 if (summary.nextInvoiceAmount != null) ...[
-                  Gap.h24,
+                  Gap.h16,
                   const Hairline(onDark: true),
                   Gap.h16,
                   _NextInvoice(summary: summary, stacked: stacked),
                 ],
-                Gap.h24,
+                Gap.h16,
                 _Actions(summary: summary, stacked: stacked),
               ],
             ),

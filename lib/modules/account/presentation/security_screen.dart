@@ -163,10 +163,14 @@ class _Body extends StatelessWidget {
               Gap.h12,
               SectionCard(
                 title: 'Contact details',
+                trailing: TextButton(
+                  onPressed: () => context.pushNamed(Routes.editContact),
+                  child: const Text('Edit'),
+                ),
                 children: [
                   Text(
-                    'Confirming these is how we can reach you about a payment '
-                    'or reset your password.',
+                    'Where we reach you about a payment or a password reset. '
+                    'Keep them current.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -176,15 +180,11 @@ class _Body extends StatelessWidget {
                     icon: Icons.mail_outline_rounded,
                     label: 'Email',
                     value: account.emailAddress,
-                    confirmed: account.emailConfirmed,
-                    channel: 'email',
                   ),
                   _ContactRow(
                     icon: Icons.phone_outlined,
                     label: 'Phone number',
                     value: account.phoneNumber,
-                    confirmed: account.phoneConfirmed,
-                    channel: 'phone',
                   ),
                 ],
               ),
@@ -196,20 +196,18 @@ class _Body extends StatelessWidget {
   }
 }
 
+/// One contact detail. Tapping it opens the account editor: the user owns
+/// these values, and changing them is an edit, not a verification.
 class _ContactRow extends StatelessWidget {
   const _ContactRow({
     required this.icon,
     required this.label,
     required this.value,
-    required this.confirmed,
-    required this.channel,
   });
 
   final IconData icon;
   final String label;
   final String? value;
-  final bool confirmed;
-  final String channel;
 
   @override
   Widget build(BuildContext context) {
@@ -220,23 +218,8 @@ class _ContactRow extends StatelessWidget {
       leading: Icon(icon),
       title: Text(label),
       subtitle: Text(missing ? 'Not on file' : value!),
-      trailing: confirmed
-          ? const StatusChip(
-              label: 'Confirmed',
-              tone: StatusTone.positive,
-              dense: true,
-              icon: Icons.check_rounded,
-            )
-          : const Icon(Icons.chevron_right_rounded),
-      // A confirmed detail has nothing to do, and one that is not on file has
-      // nothing to confirm — that is an edit on the profile screen, not a
-      // verification here.
-      onTap: confirmed || missing
-          ? null
-          : () => context.pushNamed(
-              Routes.verifyContact,
-              pathParameters: {'channel': channel},
-            ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () => context.pushNamed(Routes.editContact),
     );
   }
 }

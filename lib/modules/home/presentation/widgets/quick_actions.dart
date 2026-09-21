@@ -2,19 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../components/even_grid.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/dashboard_summary.dart';
 import '../../../../navigation/routes.dart';
 
-/// The four places a tenant goes next.
-///
-/// Deliberately not a card. The screen runs heavy — a photographic header and
-/// a dark balance card — and a row of open tiles between that and the cards
-/// below is what stops the page reading as one unbroken stack of panels.
-///
-/// Section 45 puts eight destinations in the app and the bottom bar carries
-/// five; these are the shortcuts to the three that are otherwise a tab and a
-/// tap away, plus the one the tenant is most likely to want.
+/// Responsive shortcuts with staggered entrances and generous touch targets.
 class QuickActions extends StatelessWidget {
   const QuickActions({required this.summary, super.key});
 
@@ -74,17 +67,28 @@ class QuickActions extends StatelessWidget {
 
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final (index, action) in actions.indexed)
-          Expanded(
-            child: _ActionTile(
-              action: action,
-              index: index,
-              reduceMotion: reduceMotion,
-            ),
-          ),
+        Text(
+          'A few useful shortcuts',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        Gap.h12,
+        // Two up on a phone, four on anything wider, and two again once the
+        // platform's text has grown enough that four would start clipping the
+        // labels. Every tile in a row is the same size either way.
+        EvenGrid(
+          minTileWidth: 148,
+          children: [
+            for (final (index, action) in actions.indexed)
+              _ActionTile(
+                action: action,
+                index: index,
+                reduceMotion: reduceMotion,
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -123,51 +127,65 @@ class _ActionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    final Widget tile = InkWell(
-      onTap: () => action.tab
-          ? context.goNamed(action.route)
-          : context.pushNamed(action.route),
-      borderRadius: AppRadius.medium,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: Gap.sm, horizontal: 2),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    scheme.surfaceContainerLowest,
-                    scheme.primaryContainer.withValues(alpha: 0.45),
-                  ],
+    final Widget tile = Material(
+      color: scheme.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .5)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => action.tab
+            ? context.goNamed(action.route)
+            : context.pushNamed(action.route),
+        borderRadius: AppRadius.medium,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: Gap.md,
+            horizontal: Gap.sm,
+          ),
+          child: Column(
+            // The grid gives every tile in a row the height of the tallest, so
+            // a one-line label centres against a neighbour that wrapped.
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.surfaceContainerLowest,
+                      scheme.primaryContainer.withValues(alpha: 0.45),
+                    ],
+                  ),
+                  borderRadius: AppRadius.medium,
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                  boxShadow: AppElevation.lifted(
+                    scheme.shadow,
+                    brightness: theme.brightness,
+                  ),
                 ),
-                borderRadius: AppRadius.medium,
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.4),
-                ),
-                boxShadow: AppElevation.lifted(
-                  scheme.shadow,
-                  brightness: theme.brightness,
+                child: Icon(action.icon, size: 20, color: scheme.primary),
+              ),
+              Gap.h8,
+              Text(
+                action.label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: AppTypography.bold,
                 ),
               ),
-              child: Icon(action.icon, size: 22, color: scheme.primary),
-            ),
-            Gap.h8,
-            Text(
-              action.label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: AppTypography.bold,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

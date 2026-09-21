@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'support/repository_overrides.dart';
 import 'package:mall/app.dart';
+import 'package:mall/components/app_surface_card.dart';
 import 'package:mall/components/collection_columns.dart';
 import 'package:mall/components/unit_status_strip.dart';
 import 'package:mall/core/theme/app_theme.dart';
@@ -11,6 +12,7 @@ import 'package:mall/domain/entities/owner.dart';
 import 'package:mall/modules/owner/application/owner_controller.dart';
 import 'package:mall/modules/owner/presentation/widgets/invoice_payments_sheet.dart';
 import 'package:mall/modules/properties/application/property_controller.dart';
+import 'package:mall/modules/treasury/application/treasury_controller.dart';
 import 'package:mall/navigation/owner_shell.dart';
 import 'package:mall/navigation/routes.dart';
 import 'package:mall/services/providers.dart';
@@ -178,6 +180,98 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the revenue tiles count the ledger and open each list', (
+    tester,
+  ) async {
+    useViewport(tester, const Size(390, 844));
+
+    await tester.pumpWidget(await buildApp());
+    await tester.pumpAndSettle();
+    await signInAsOwner(tester);
+
+    await tester.tap(find.text('Revenue'));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(OwnerShell)),
+    );
+    final report = container.read(ownerReportProvider).requireValue;
+    final bank = container.read(bankPaymentsProvider).requireValue;
+
+    // The tiles sit under the collected card, past the fold on a phone.
+    await tester.scrollUntilVisible(
+      find.text('TRANSACTIONS'),
+      200,
+      scrollable: find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          )
+          .last,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    // Two groups, four doors, in this order: invoices then transactions.
+    expect(find.text('INVOICES'), findsOneWidget);
+    expect(find.text('TRANSACTIONS'), findsOneWidget);
+    Finder tile(String label) => find.ancestor(
+      of: find.text(label),
+      matching: find.byType(AppSurfaceCard),
+    );
+    Finder figure(String label, int count) =>
+        find.descendant(of: tile(label), matching: find.text('$count'));
+    expect(figure('Paid', report.paidInvoices.length), findsOneWidget);
+    expect(figure('Unpaid', report.outstandingInvoices.length), findsOneWidget);
+    expect(figure('Bank', bank.length), findsOneWidget);
+    expect(figure('M-Pesa', report.received.length), findsOneWidget);
+    final order = [
+      for (final label in ['Paid', 'Unpaid', 'Bank', 'M-Pesa'])
+        tester.getTopLeft(tile(label)),
+    ];
+    expect(order[0].dy, lessThan(order[2].dy));
+    expect(order[1].dy, lessThan(order[3].dy));
+    expect(order[0].dx, lessThan(order[1].dx));
+
+    // Unpaid opens the invoices still owed, the same rows the tile counted.
+    await tester.tap(tile('Unpaid'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unpaid invoices'), findsOneWidget);
+    final owed = report.outstandingInvoices;
+    expect(owed, isNotEmpty);
+    expect(
+      find.text(owed.first.tenantName ?? owed.first.invoiceNumber),
+      findsWidgets,
+    );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(tile('Paid'));
+    await tester.pumpAndSettle();
+    await tester.tap(tile('Paid'));
+    await tester.pumpAndSettle();
+    expect(find.text('Paid invoices'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // The transaction tiles open the till's own screens.
+    await tester.ensureVisible(tile('M-Pesa'));
+    await tester.pumpAndSettle();
+    await tester.tap(tile('M-Pesa'));
+    await tester.pumpAndSettle();
+    expect(find.text('M-Pesa payments'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(tile('Bank'));
+    await tester.pumpAndSettle();
+    await tester.tap(tile('Bank'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bank payments'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('revenue period controls fit a small phone with large text', (
     tester,
   ) async {
@@ -210,9 +304,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('tapping an outstanding invoice opens its payments', (
-    tester,
-  ) async {
+  testWidgets('tapping an unpaid invoice opens its payments', (tester) async {
     useViewport(tester, const Size(390, 844));
 
     await tester.pumpWidget(await buildApp());
@@ -229,10 +321,14 @@ void main() {
     final owed = report.outstandingInvoices;
     expect(owed, isNotEmpty);
 
-    // The list sits under the collected card and the ageing bands.
-    final row = find.text(owed.first.tenantName ?? owed.first.invoiceNumber);
+    // The rows live behind the Unpaid tile, which sits under the collected
+    // card, not on the Revenue page itself.
+    final unpaid = find.ancestor(
+      of: find.text('Unpaid'),
+      matching: find.byType(AppSurfaceCard),
+    );
     await tester.scrollUntilVisible(
-      row,
+      unpaid,
       200,
       scrollable: find
           .byWidgetPredicate(
@@ -242,9 +338,13 @@ void main() {
           )
           .last,
     );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(row.first);
     await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.tap(unpaid);
+    await tester.pumpAndSettle();
+    expect(find.text('Unpaid invoices'), findsOneWidget);
+    final row = find.text(owed.first.tenantName ?? owed.first.invoiceNumber);
+    await tester.ensureVisible(row.first);
     await tester.pumpAndSettle();
     await tester.tap(row.first);
     await tester.pumpAndSettle();

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_surface_card.dart';
-import '../../../components/page_header.dart';
 import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
 import '../../../components/surface_atoms.dart';
@@ -40,48 +39,71 @@ class OwnerAccountScreen extends ConsumerWidget {
 
     final sections = <Widget>[
       AppSurfaceCard(
-        padding: const EdgeInsets.all(Gap.xl),
+        padding: const EdgeInsets.all(Gap.lg),
         borderColor: scheme.primary.withValues(alpha: 0.25),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [scheme.surfaceContainerHigh, scheme.surfaceContainerLowest],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(Gap.lg),
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.12),
-                    borderRadius: AppRadius.large,
-                    border: Border.all(
-                      color: scheme.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    owner?.initials ?? user?.initials ?? '?',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: scheme.primary,
-                    ),
-                  ),
+            Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.12),
+                borderRadius: AppRadius.medium,
+                border: Border.all(
+                  color: scheme.primary.withValues(alpha: 0.3),
                 ),
-                const Spacer(),
-                Icon(
-                  Icons.manage_accounts_outlined,
+              ),
+              child: Text(
+                owner?.initials ?? user?.initials ?? '?',
+                style: theme.textTheme.titleMedium?.copyWith(
                   color: scheme.primary,
-                  size: 28,
+                  fontWeight: AppTypography.bold,
                 ),
-              ],
+              ),
             ),
-            Gap.h24,
-            PageHeader(
-              compact: true,
-              eyebrow: 'Manager account',
-              title: owner?.displayName ?? user?.fullName ?? 'Your account',
-              subtitle: owner?.legalName,
+            Gap.w12,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'MANAGER ACCOUNT',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.primary,
+                      fontWeight: AppTypography.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  Gap.h4,
+                  Text(
+                    owner?.displayName ?? user?.fullName ?? 'Your account',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: AppTypography.bold,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  if (owner?.legalName != null) ...[
+                    Gap.h4,
+                    Text(
+                      owner!.legalName!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),

@@ -213,11 +213,7 @@ void main() {
                 );
               } else if (status == 204) {
                 expect(
-                  find.text(
-                    manager
-                        ? 'No properties yet'
-                        : 'A fresh start. A clear view.',
-                  ),
+                  find.text(manager ? 'No properties yet' : 'No invoices yet'),
                   findsOneWidget,
                 );
               } else {

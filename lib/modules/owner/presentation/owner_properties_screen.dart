@@ -15,6 +15,10 @@ import 'widgets/owner_dashboard_widgets.dart';
 
 import '../../../components/page_empty_state.dart';
 
+/// The "Your portfolio" banner above the list is hidden for now. The card and
+/// its badges stay wired up so it can come back by flipping one line.
+const bool _showPortfolioHero = false;
+
 /// Section 88. The owner's buildings.
 class OwnerPropertiesScreen extends ConsumerWidget {
   const OwnerPropertiesScreen({super.key});
@@ -112,69 +116,75 @@ class _PropertiesState extends State<_Properties> {
           return CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                sliver: SliverToBoxAdapter(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1080),
-                      child: AppSurfaceCard(
-                        padding: const EdgeInsets.all(24),
-                        gradient: AppGradients.brandHero,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'YOUR PORTFOLIO',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppPalette.brass200,
-                                letterSpacing: 1.6,
-                              ),
-                            ),
-                            Gap.h12,
-                            Text(
-                              'Every property.\nA clearer picture.',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Gap.h8,
-                            Text(
-                              'Explore your buildings, find a space and manage the details.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: Colors.white70,
-                              ),
-                            ),
-                            Gap.h16,
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 8,
-                              children: [
-                                _PortfolioBadge(
-                                  icon: Icons.apartment_rounded,
-                                  label:
-                                      '${properties.length} ${properties.length == 1 ? 'property' : 'properties'}',
+              if (_showPortfolioHero)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1080),
+                        child: AppSurfaceCard(
+                          padding: const EdgeInsets.all(24),
+                          gradient: AppGradients.brandHero,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'YOUR PORTFOLIO',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: AppPalette.brass200,
+                                  letterSpacing: 1.6,
                                 ),
-                                _PortfolioBadge(
-                                  icon: Icons.category_outlined,
-                                  label:
-                                      '${types.length} ${types.length == 1 ? 'property type' : 'property types'}',
+                              ),
+                              Gap.h12,
+                              Text(
+                                'Every property.\nA clearer picture.',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              ],
-                            ),
-                          ],
+                              ),
+                              Gap.h8,
+                              Text(
+                                'Explore your buildings, find a space and manage the details.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              Gap.h16,
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 8,
+                                children: [
+                                  _PortfolioBadge(
+                                    icon: Icons.apartment_rounded,
+                                    label:
+                                        '${properties.length} ${properties.length == 1 ? 'property' : 'properties'}',
+                                  ),
+                                  _PortfolioBadge(
+                                    icon: Icons.category_outlined,
+                                    label:
+                                        '${types.length} ${types.length == 1 ? 'property type' : 'property types'}',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
               SliverPadding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: constraints.maxWidth > 1120
+                padding: EdgeInsets.fromLTRB(
+                  constraints.maxWidth > 1120
                       ? (constraints.maxWidth - 1080) / 2
                       : 20,
+                  _showPortfolioHero ? 0 : 8,
+                  constraints.maxWidth > 1120
+                      ? (constraints.maxWidth - 1080) / 2
+                      : 20,
+                  0,
                 ),
                 sliver: SliverToBoxAdapter(
                   child: Column(

@@ -235,6 +235,11 @@ void main() {
       ],
     );
 
+    test('paid and unpaid split the ledger by money owed', () {
+      expect(report.paidInvoices.map((i) => i.id), ['102']);
+      expect(report.outstandingInvoices.map((i) => i.id), ['100', '101']);
+    });
+
     test('outstanding is the balance still due, banded by age', () {
       expect(report.outstanding, Money.fromMajor(7000, 'KES'));
       expect(report.outstandingInvoices.map((i) => i.id), ['100', '101']);

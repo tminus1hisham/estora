@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_pressable.dart';
 import '../../../components/app_refresh_indicator.dart';
+import '../../../components/app_reveal.dart';
 import '../../../components/app_surface_card.dart';
-import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../navigation/routes.dart';
 import '../../auth/application/auth_controller.dart';
 
-/// Section 77's Profile screen, and the entry point for the account section of
-/// section 45's navigation — payments, documents and settings hang off here.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -23,264 +22,632 @@ class ProfileScreen extends ConsumerWidget {
     final tenant = auth.tenant;
     final profile = tenant?.profile;
     final scheme = Theme.of(context).colorScheme;
+    void edit() => context.pushNamed(Routes.editProfile);
+
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Panel(
+          title: 'Personal details',
+          subtitle: 'The essentials, all in one place.',
+          action: TextButton(onPressed: edit, child: const Text('Edit')),
+          children: [
+            _ContactField(
+              icon: Icons.person_outline_rounded,
+              label: 'Full name',
+              value: user?.fullName,
+            ),
+            _ContactField(
+              icon: Icons.phone_outlined,
+              label: 'Phone',
+              value: user?.phone,
+              verified: user?.phoneVerified ?? false,
+            ),
+            _ContactField(
+              icon: Icons.alternate_email_rounded,
+              label: 'Email',
+              value: user?.email,
+              verified: user?.emailVerified ?? false,
+            ),
+            if (profile?.address != null)
+              _ContactField(
+                icon: Icons.location_on_outlined,
+                label: 'Address',
+                value: profile!.address,
+              ),
+          ],
+        ),
+        if (profile != null &&
+            (tenant?.tenantType.isOrganisation ?? false)) ...[
+          Gap.h16,
+          _Panel(
+            title: 'Business details',
+            subtitle: 'Your organisation on record.',
+            children: [
+              if (profile.legalName != null)
+                DetailRow(label: 'Legal name', value: profile.legalName!),
+              if (profile.registrationNumber != null)
+                DetailRow(
+                  label: 'Registration number',
+                  value: profile.registrationNumber!,
+                ),
+              if (profile.maskedTaxNumber != null)
+                DetailRow(label: 'Tax number', value: profile.maskedTaxNumber!),
+              if (profile.contactPerson != null)
+                DetailRow(
+                  label: 'Contact person',
+                  value: profile.contactPerson!,
+                ),
+            ],
+          ),
+        ],
+        if (profile?.maskedNationalId != null ||
+            profile?.maskedPassportNumber != null) ...[
+          Gap.h16,
+          _Panel(
+            title: 'Identification',
+            subtitle: 'Private details. Carefully protected.',
+            children: [
+              if (profile?.maskedNationalId != null)
+                DetailRow(
+                  label: 'National ID',
+                  value: profile!.maskedNationalId!,
+                ),
+              if (profile?.maskedPassportNumber != null)
+                DetailRow(
+                  label: 'Passport',
+                  value: profile!.maskedPassportNumber!,
+                ),
+              Gap.h12,
+              Text(
+                'Partially hidden for your security. Your property manager holds the full details on file.',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+    final preferences = _Panel(
+      title: 'Make it yours',
+      subtitle: 'Your account, your preferences.',
+      children: [
+        _AccountLink(
+          icon: Icons.lock_outline_rounded,
+          title: 'Sign-in and security',
+          subtitle: 'Manage access to your account',
+          route: Routes.security,
+        ),
+        const Divider(height: 16),
+        _AccountLink(
+          icon: Icons.tune_rounded,
+          title: 'Settings',
+          subtitle: 'Personalise your experience',
+          route: Routes.settings,
+        ),
+      ],
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: AppRefreshIndicator(
-        onRefresh: () async {
-          await ref.read(authControllerProvider.notifier).refreshProfile();
-        },
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-          children: [
-            AppSurfaceCard(
-              color: scheme.secondary,
-              borderColor: Colors.transparent,
-              elevation: AppElevation.low,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 34,
-                    backgroundColor: scheme.primaryContainer,
-                    child: Text(
-                      user?.initials ?? '?',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: scheme.onPrimaryContainer,
+        onRefresh: () =>
+            ref.read(authControllerProvider.notifier).refreshProfile(),
+        child: SingleChildScrollView(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1120),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppReveal(
+                      child: _ProfileHero(
+                        name:
+                            tenant?.displayName ??
+                            user?.fullName ??
+                            'Your account',
+                        initials: user?.initials ?? '?',
+                        type: tenant?.tenantType.label ?? 'Tenant account',
+                        onEdit: edit,
                       ),
                     ),
-                  ),
-                  Gap.w16,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tenant?.displayName ??
-                              user?.fullName ??
-                              'Your account',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(color: scheme.onSecondary),
-                        ),
-                        if (tenant != null) ...[
-                          Gap.h4,
+                    Gap.h16,
+                    AppReveal(
+                      index: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            tenant.tenantType.label,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: scheme.onSecondary.withValues(
-                                    alpha: 0.68,
-                                  ),
-                                ),
+                            'Your tenancy, within reach',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
                           ),
+                          Gap.h12,
+                          const _QuickLinks(),
                         ],
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Edit profile',
-                    onPressed: () => context.pushNamed(Routes.editProfile),
-                    style: IconButton.styleFrom(
-                      foregroundColor: scheme.onSecondary,
-                      backgroundColor: scheme.onSecondary.withValues(
-                        alpha: 0.1,
                       ),
                     ),
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                ],
+                    Gap.h16,
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth >= 760) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: AppReveal(index: 2, child: details),
+                              ),
+                              Gap.w16,
+                              Expanded(
+                                flex: 2,
+                                child: AppReveal(index: 3, child: preferences),
+                              ),
+                            ],
+                          );
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            AppReveal(index: 2, child: details),
+                            Gap.h16,
+                            AppReveal(index: 3, child: preferences),
+                          ],
+                        );
+                      },
+                    ),
+                    Gap.h16,
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          ref.read(authControllerProvider.notifier).logout(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: scheme.error,
+                        minimumSize: const Size(0, 48),
+                      ),
+                      icon: const Icon(Icons.logout_rounded, size: 18),
+                      label: const Text('Sign out'),
+                    ),
+                    if (user?.lastLoginAt != null) ...[
+                      Gap.h16,
+                      Text(
+                        'Last signed in ${AppDate.dateTime(user!.lastLoginAt!)}',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-            Gap.h24,
-
-            SectionCard(
-              title: 'Contact',
-              trailing: TextButton(
-                onPressed: () => context.pushNamed(Routes.editProfile),
-                child: const Text('Edit'),
-              ),
-              children: [
-                DetailRow(label: 'Name', value: user?.fullName ?? '—'),
-                DetailRow(
-                  label: 'Phone',
-                  valueWidget: _VerifiedValue(
-                    value: user?.phone ?? '—',
-                    verified: user?.phoneVerified ?? false,
-                  ),
-                ),
-                DetailRow(
-                  label: 'Email',
-                  valueWidget: _VerifiedValue(
-                    value: user?.email ?? '—',
-                    verified: user?.emailVerified ?? false,
-                  ),
-                ),
-                if (profile?.address != null)
-                  DetailRow(label: 'Address', value: profile!.address!),
-              ],
-            ),
-
-            if (profile != null &&
-                (tenant?.tenantType.isOrganisation ?? false)) ...[
-              Gap.h12,
-              SectionCard(
-                title: 'Business details',
-                children: [
-                  if (profile.legalName != null)
-                    DetailRow(label: 'Legal name', value: profile.legalName!),
-                  if (profile.registrationNumber != null)
-                    DetailRow(
-                      label: 'Registration number',
-                      value: profile.registrationNumber!,
-                    ),
-                  if (profile.maskedTaxNumber != null)
-                    DetailRow(
-                      label: 'Tax number',
-                      value: profile.maskedTaxNumber!,
-                    ),
-                  if (profile.contactPerson != null)
-                    DetailRow(
-                      label: 'Contact person',
-                      value: profile.contactPerson!,
-                    ),
-                ],
-              ),
-            ],
-
-            if (profile?.maskedNationalId != null ||
-                profile?.maskedPassportNumber != null) ...[
-              Gap.h12,
-              SectionCard(
-                title: 'Identification',
-                children: [
-                  if (profile?.maskedNationalId != null)
-                    DetailRow(
-                      label: 'National ID',
-                      value: profile!.maskedNationalId!,
-                    ),
-                  if (profile?.maskedPassportNumber != null)
-                    DetailRow(
-                      label: 'Passport',
-                      value: profile!.maskedPassportNumber!,
-                    ),
-                  Gap.h8,
-                  Text(
-                    // Section 20 requires this data to be encrypted at rest;
-                    // masking it here is the display-side counterpart, so the
-                    // number is not left readable on a screen in a public place.
-                    'Partially hidden for your security. Your property manager '
-                    'holds the full details on file.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-
-            Gap.h24,
-            RecordGroup(
-              heading: 'Your account',
-              // A ListTile's own leading icon sits 56 in, not 68.
-              rowInset: 56,
-              children: [
-                _NavTile(
-                  icon: Icons.receipt_long_outlined,
-                  label: 'Payment history',
-                  onTap: () => context.pushNamed(Routes.paymentHistory),
-                ),
-                _NavTile(
-                  icon: Icons.folder_outlined,
-                  label: 'Documents',
-                  onTap: () => context.pushNamed(Routes.documents),
-                ),
-                _NavTile(
-                  icon: Icons.description_outlined,
-                  label: 'My lease',
-                  onTap: () => context.pushNamed(Routes.leases),
-                ),
-                _NavTile(
-                  icon: Icons.lock_outline_rounded,
-                  label: 'Sign-in and security',
-                  onTap: () => context.pushNamed(Routes.security),
-                ),
-                _NavTile(
-                  icon: Icons.settings_outlined,
-                  label: 'Settings',
-                  onTap: () => context.pushNamed(Routes.settings),
-                ),
-              ],
-            ),
-
-            if (user?.lastLoginAt != null) ...[
-              Gap.h16,
-              Center(
-                child: Text(
-                  'Last signed in ${AppDate.dateTime(user!.lastLoginAt!)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _VerifiedValue extends StatelessWidget {
-  const _VerifiedValue({required this.value, required this.verified});
-
-  final String value;
-  final bool verified;
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({
+    required this.name,
+    required this.initials,
+    required this.type,
+    required this.onEdit,
+  });
+  final String name;
+  final String initials;
+  final String type;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final avatar = Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.1),
+        border: Border.all(
+          color: AppPalette.brass200.withValues(alpha: 0.65),
+          width: 2,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: AppPalette.stone0,
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+    final identity = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: const TextStyle(fontWeight: AppTypography.semibold),
-            overflow: TextOverflow.ellipsis,
+        Text(
+          name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: AppPalette.stone0,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
           ),
         ),
-        if (verified) ...[
-          Gap.w4,
-          Icon(
-            Icons.verified_rounded,
-            size: 15,
-            color: Theme.of(context).colorScheme.primary,
+        Gap.h4,
+        Text(
+          type,
+          style: const TextStyle(color: AppPalette.azure200, fontSize: 12.5),
+        ),
+      ],
+    );
+    final edit = FilledButton.icon(
+      onPressed: onEdit,
+      style: FilledButton.styleFrom(
+        backgroundColor: AppPalette.stone0,
+        foregroundColor: AppPalette.navy900,
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        visualDensity: VisualDensity.compact,
+      ),
+      icon: const Icon(Icons.edit_outlined, size: 16),
+      label: const Text('Edit profile'),
+    );
+
+    return AppSurfaceCard(
+      padding: EdgeInsets.zero,
+      borderRadius: BorderRadius.circular(20),
+      borderColor: Colors.white.withValues(alpha: 0.12),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [AppPalette.navy900, AppPalette.navy800, AppPalette.azure800],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -60,
+            top: -110,
+            child: ExcludeSemantics(
+              child: IgnorePointer(
+                child: Container(
+                  width: 240,
+                  height: 240,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.07),
+                      width: 36,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 40,
+            bottom: -150,
+            child: ExcludeSemantics(
+              child: IgnorePointer(
+                child: Container(
+                  width: 220,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppPalette.azure300.withValues(alpha: 0.1),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked =
+                    constraints.maxWidth < 360 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 21;
+                if (stacked) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          avatar,
+                          Gap.w12,
+                          Expanded(child: identity),
+                        ],
+                      ),
+                      Gap.h12,
+                      edit,
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    avatar,
+                    Gap.w12,
+                    Expanded(child: identity),
+                    Gap.w12,
+                    edit,
+                  ],
+                );
+              },
+            ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
 
-class _NavTile extends StatelessWidget {
-  const _NavTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+class _QuickLinks extends StatelessWidget {
+  const _QuickLinks();
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
+    final scheme = Theme.of(context).colorScheme;
+    final links = [
+      (
+        Icons.receipt_long_outlined,
+        'Payment history',
+        'Every payment, in view',
+        Routes.paymentHistory,
+        scheme.primaryContainer,
+        scheme.onPrimaryContainer,
+      ),
+      (
+        Icons.folder_open_rounded,
+        'Documents',
+        'Your files, organised',
+        Routes.documents,
+        scheme.tertiaryContainer,
+        scheme.onTertiaryContainer,
+      ),
+      (
+        Icons.description_outlined,
+        'My lease',
+        'The details of your space',
+        Routes.leases,
+        scheme.secondaryContainer,
+        scheme.onSecondaryContainer,
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth < 360 ||
+            MediaQuery.textScalerOf(context).scale(14) > 20;
+        final width = stacked
+            ? constraints.maxWidth
+            : (constraints.maxWidth - 24) / 3;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final link in links)
+              SizedBox(
+                width: width,
+                child: AppPressable(
+                  child: AppSurfaceCard(
+                    padding: const EdgeInsets.all(12),
+                    onTap: () => context.pushNamed(link.$4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: link.$5,
+                                borderRadius: BorderRadius.circular(13),
+                              ),
+                              child: Icon(link.$1, color: link.$6, size: 20),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              Icons.arrow_outward_rounded,
+                              size: 16,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                        Gap.h16,
+                        Text(
+                          link.$2,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Gap.h4,
+                        Text(
+                          link.$3,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Panel extends StatelessWidget {
+  const _Panel({
+    required this.title,
+    required this.subtitle,
+    required this.children,
+    this.action,
+  });
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => AppSurfaceCard(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            ?action,
+          ],
+        ),
+        Gap.h4,
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...children,
+      ],
+    ),
+  );
+}
+
+class _ContactField extends StatelessWidget {
+  const _ContactField({
+    required this.icon,
+    required this.label,
+    this.value,
+    this.verified = false,
+  });
+  final IconData icon;
+  final String label;
+  final String? value;
+  final bool verified;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hasValue = value != null && value!.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 19, color: scheme.onSurfaceVariant),
+          ),
+          Gap.w12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (verified && hasValue)
+                      Semantics(
+                        label: '$label verified',
+                        child: Tooltip(
+                          message: 'Verified',
+                          child: Icon(
+                            Icons.verified_rounded,
+                            size: 15,
+                            color: scheme.brightness == Brightness.dark
+                                ? AppPalette.green300
+                                : AppPalette.green700,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                Gap.h4,
+                Text(
+                  hasValue ? value! : 'Not added yet',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: hasValue ? FontWeight.w600 : FontWeight.w400,
+                    color: hasValue
+                        ? scheme.onSurface
+                        : scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountLink extends StatelessWidget {
+  const _AccountLink({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.route,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String route;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AppPressable(
+      child: ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: Icon(icon, color: scheme.primary),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+        onTap: () => context.pushNamed(route),
+      ),
     );
   }
 }

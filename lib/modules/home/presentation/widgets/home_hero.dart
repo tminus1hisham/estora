@@ -76,7 +76,7 @@ class HomeHero extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 Gap.lg,
-                topInset + HomeTopBar.height + Gap.xl,
+                topInset + HomeTopBar.height + Gap.md,
                 Gap.lg,
                 // The balance card rides up onto this by 28. Enough room left
                 // under the tenancy strip that the card's shadow lands on the
@@ -93,7 +93,7 @@ class HomeHero extends StatelessWidget {
                       _greeting(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: kHomeOnDark.withValues(alpha: 0.76),
                         fontWeight: AppTypography.semibold,
                         letterSpacing: 0.2,
@@ -106,9 +106,9 @@ class HomeHero extends StatelessWidget {
                     offset: 18,
                     child: Text(
                       firstName ?? 'Welcome',
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.headlineMedium?.copyWith(
+                      style: theme.textTheme.headlineSmall?.copyWith(
                         color: kHomeOnDark,
                         fontWeight: AppTypography.extraBold,
                         shadows: const [
@@ -117,7 +117,17 @@ class HomeHero extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Gap.h24,
+                  Gap.h12,
+                  AppReveal(
+                    index: 2,
+                    child: Text(
+                      'Your space. Everything in its place.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kHomeOnDark.withValues(alpha: .8),
+                      ),
+                    ),
+                  ),
+                  Gap.h16,
                   AppReveal(
                     delay: const Duration(milliseconds: 230),
                     child: summary.hasTenancy

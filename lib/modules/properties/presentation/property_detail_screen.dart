@@ -15,8 +15,10 @@ import '../../../components/unit_status_strip.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/owner.dart';
+import '../../../domain/entities/unit.dart';
 import '../../../navigation/routes.dart';
 import '../../structure/application/structure_controller.dart';
+import '../../units/application/unit_controller.dart';
 import '../application/property_controller.dart';
 
 /// A photography-led overview of a property and its available inventory.
@@ -33,6 +35,12 @@ class PropertyDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(propertyDetailProvider(propertyId));
+    final availability = ref.watch(availabilityProvider);
+    // The engine's count is what can be booked today; the property payload's
+    // own figure stands in only until the engine has answered.
+    final available =
+        availability.value?.forProperty(propertyId).count ??
+        detail.value?.property.availableUnits;
 
     return Scaffold(
       appBar: AppBar(
@@ -54,9 +62,12 @@ class PropertyDetailScreen extends ConsumerWidget {
       body: AppRefreshIndicator(
         onRefresh: () async {
           if (manager) ref.invalidate(propertyOccupancyProvider(propertyId));
-          await ref
-              .refresh(propertyDetailProvider(propertyId).future)
-              .then<void>((_) {});
+          await Future.wait<void>([
+            ref
+                .refresh(propertyDetailProvider(propertyId).future)
+                .then<void>((_) {}),
+            ref.read(availabilityProvider.notifier).refresh(),
+          ]);
         },
         child: switch (detail) {
           AsyncLoading() when !detail.hasValue => const LoadingView(),
@@ -70,7 +81,11 @@ class PropertyDetailScreen extends ConsumerWidget {
                   .then<void>((_) {});
             },
           ),
-          _ => _Body(detail: detail.requireValue, manager: manager),
+          _ => _Body(
+            detail: detail.requireValue,
+            manager: manager,
+            available: available,
+          ),
         },
       ),
       bottomNavigationBar: detail.hasValue
@@ -84,9 +99,8 @@ class PropertyDetailScreen extends ConsumerWidget {
                 label: Text(
                   manager
                       ? 'View blocks and units'
-                      : detail.requireValue.property.hasAvailability
-                      ? 'View ${detail.requireValue.property.availableUnits} '
-                            'available units'
+                      : (available ?? 0) > 0
+                      ? 'View $available available units'
                       : 'View all units',
                 ),
               ),
@@ -97,10 +111,15 @@ class PropertyDetailScreen extends ConsumerWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.detail, required this.manager});
+  const _Body({
+    required this.detail,
+    required this.manager,
+    required this.available,
+  });
 
   final PropertyDetail detail;
   final bool manager;
+  final int? available;
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +189,7 @@ class _Body extends StatelessWidget {
             Expanded(
               child: _MetricTile(
                 icon: Icons.meeting_room_outlined,
-                value: property.availableUnits?.toString() ?? '—',
+                value: available?.toString() ?? '—',
                 label: 'Available',
                 highlighted: true,
               ),
@@ -200,73 +219,157 @@ class _Body extends StatelessWidget {
           _OccupancySection(propertyId: property.id, fallback: property.mix),
         ],
         Gap.h12,
-        SectionCard(
-          title: 'Property details',
-          children: [
-            DetailRow(label: 'Type', value: property.propertyType.label),
-            if (property.code.isNotEmpty)
-              DetailRow(label: 'Property code', value: property.code),
-            if (property.county != null)
-              DetailRow(label: 'County', value: property.county!),
-          ],
-        ),
-        if (detail.buildings.isNotEmpty) ...[
+        _AvailabilitySection(propertyId: property.id),
+      ],
+    );
+  }
+}
+
+/// What can be booked here today, block by block, straight from the
+/// availability engine — the same answer Browse gives, narrowed to this
+/// property.
+class _AvailabilitySection extends ConsumerWidget {
+  const _AvailabilitySection({required this.propertyId});
+
+  final String propertyId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final availability = ref.watch(availabilityProvider);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    if (availability.isLoading && !availability.hasValue) {
+      return const SectionCard(
+        title: 'Available',
+        children: [
+          AppSkeleton(height: 18),
           Gap.h12,
-          SectionCard(
-            title: 'Buildings and floors',
-            children: [
-              for (final building in detail.buildings)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: Gap.sm),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: scheme.secondaryContainer,
-                              borderRadius: AppRadius.small,
-                            ),
-                            child: Icon(
-                              Icons.apartment_rounded,
-                              size: 18,
-                              color: scheme.onSecondaryContainer,
-                            ),
-                          ),
-                          Gap.w12,
-                          Expanded(
-                            child: Text(
-                              building.name,
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 48, top: Gap.sm),
-                        child: Wrap(
-                          spacing: Gap.sm,
-                          runSpacing: Gap.sm,
-                          children: [
-                            for (final floor
-                                in detail.floorsByBuilding[building.id] ??
-                                    const [])
-                              Chip(label: Text(floor.name)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+          AppSkeleton(height: 18),
+          Gap.h12,
+          AppSkeleton(height: 18, width: 160),
+        ],
+      );
+    }
+
+    if (availability.hasError && !availability.hasValue) {
+      return SectionCard(
+        title: 'Available',
+        children: [
+          Text(
+            'Availability could not be checked just now.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
+          Gap.h8,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              onPressed: () =>
+                  ref.read(availabilityProvider.notifier).refresh(),
+              child: const Text('Try again'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final blocks = availability.requireValue.forProperty(propertyId);
+
+    if (blocks.isEmpty) {
+      return SectionCard(
+        title: 'Available',
+        children: [
+          Text(
+            'Nothing is open for booking here right now.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return SectionCard(
+      title: 'Available',
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Gap.md,
+          vertical: Gap.xs,
+        ),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text(
+          '${blocks.count} available',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: scheme.onPrimaryContainer,
+          ),
+        ),
+      ),
+      children: [
+        for (final block in blocks) ...[
+          _BlockRow(block: block),
+          if (block != blocks.last) Gap.h8,
         ],
       ],
     );
   }
+}
+
+/// A block and the sizes it has to let — "North Wing · 480 sq ft × 10".
+class _BlockRow extends StatelessWidget {
+  const _BlockRow({required this.block});
+
+  final UnitAvailability block;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.domain_outlined, size: 17, color: scheme.primary),
+        Gap.w8,
+        Expanded(
+          child: Text(
+            block.blockName.isEmpty ? 'Unnamed block' : block.blockName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: text.labelMedium,
+          ),
+        ),
+        Gap.w8,
+        Flexible(
+          child: Text(
+            block.bySize.map(_sizeLabel).join(', '),
+            textAlign: TextAlign.end,
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _sizeLabel(UnitAvailabilitySize size) {
+    if (size.size == 0) return '× ${size.count}';
+    final area = size.size == size.size.roundToDouble()
+        ? size.size.toInt().toString()
+        : size.size.toString();
+    return '$area sq ft × ${size.count}';
+  }
+}
+
+extension on List<UnitAvailability> {
+  /// The engine's rows for one property, in the server's order.
+  List<UnitAvailability> forProperty(String propertyId) =>
+      where((block) => block.propertyId == propertyId).toList(growable: false);
+
+  int get count => fold(0, (sum, block) => sum + block.count);
 }
 
 /// Section 88. How much of the property is let, for the owner.

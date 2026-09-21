@@ -7,6 +7,7 @@ import 'package:mall/app.dart';
 import 'package:mall/domain/entities/tenant.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/modules/auth/application/auth_controller.dart';
+import 'package:mall/modules/account/presentation/edit_contact_screen.dart';
 import 'package:mall/modules/account/presentation/security_screen.dart';
 import 'package:mall/modules/auth/presentation/login_screen.dart';
 import 'package:mall/modules/auth/presentation/splash_screen.dart';
@@ -58,6 +59,15 @@ void main() {
       router.pushNamed(Routes.security);
       await tester.pumpAndSettle();
       expect(find.byType(SecurityScreen), findsOneWidget);
+      expect(find.byType(HomeScreen), findsNothing);
+
+      // Editing contact details from here must stay on the root navigator.
+      // Pushing a tenant-shell route from a root route rebuilt the shell page
+      // under a duplicate key and asserted inside the Navigator.
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(EditContactScreen), findsOneWidget);
       expect(find.byType(HomeScreen), findsNothing);
     });
   }

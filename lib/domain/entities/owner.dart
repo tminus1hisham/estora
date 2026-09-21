@@ -959,6 +959,16 @@ class OwnerReport {
       invoices.where((invoice) => invoice.status.isOutstanding).toList()
         ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
+  /// The invoices the server marks settled in full, newest first.
+  ///
+  /// Only `PAID` counts. A cancelled or voided invoice was never paid, and a
+  /// draft was never owed, so neither belongs in this list nor in
+  /// [outstandingInvoices]: an owner asking "paid or unpaid?" is asking about
+  /// money, not about every row the ledger holds.
+  List<Invoice> get paidInvoices => invoices
+      .where((invoice) => invoice.status == InvoiceStatus.paid)
+      .toList(growable: false);
+
   /// What is still owed across [outstandingInvoices].
   Money get outstanding =>
       _sum(outstandingInvoices.map((invoice) => invoice.amountDue));
