@@ -285,13 +285,7 @@ void main() {
       final s = server(
         (path) => switch (path) {
           Endpoints.account => account,
-          Endpoints.allBookings => [
-            {
-              'id': 1,
-              'tenant': {'id': 7, 'userId': 'user-guid'},
-            },
-          ],
-          '/payments/get/invoices/7' => [
+          '/payments/get/invoices/42' => [
             invoice(
               100,
               propertyId: 1,
@@ -341,18 +335,16 @@ void main() {
       expect(payments.first.amount, Money.fromMajor(400, 'KES'));
       expect(payments.first.providerTransactionId, 'TX3');
       expect(payments.last.invoiceId, '100');
-      // Their statement, and nobody else's.
-      expect(s.paths, contains(Endpoints.tenantInvoices('7')));
-      expect(s.paths, isNot(contains(Endpoints.tenantInvoices('42'))));
+      // Their statement, keyed on their own account id.
+      expect(s.paths, contains(Endpoints.tenantInvoices('42')));
     });
 
     test(
-      'is empty, not an error, for an account with no tenant record',
+      'is empty, not an error, for an account the server has not named',
       () async {
         final s = server(
           (path) => switch (path) {
-            Endpoints.account => account,
-            Endpoints.allBookings => <Object>[],
+            Endpoints.account => {'userId': 'user-guid'},
             _ => null,
           },
         );

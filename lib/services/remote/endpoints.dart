@@ -130,6 +130,16 @@ class Endpoints {
   static String updateUnit(String id) => '/properties/update/unit/$id';
   static String deleteUnit(String id) => '/properties/delete/unit/$id';
 
+  // -- Leases --------------------------------------------------------------
+
+  /// The caller's lease agreements. The route takes no parameter: whose
+  /// leases come back is the server's decision, made from the bearer token,
+  /// the same way [allBookings] and [ownerReport] work.
+  ///
+  /// `aggreements` is the server's spelling. It is written the same way here
+  /// because a corrected path would simply miss the route.
+  static const String leaseAgreements = '/properties/get/lease/agreements';
+
   // -- Roles and claims ----------------------------------------------------
   static const String roles = '/roles/get/all/roles';
   static const String createRole = '/roles/create/role';

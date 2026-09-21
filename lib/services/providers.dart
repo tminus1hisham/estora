@@ -38,8 +38,29 @@ final idempotencyKeysProvider = Provider<IdempotencyKeys>(
   (ref) => IdempotencyKeys(ref.watch(sharedPreferencesProvider)),
 );
 
+/// Ticks each time [ApiClient] gives up on a session: the server refused to
+/// renew the token, and the tokens are already gone from the store.
+///
+/// The auth controller listens and moves the app to the sign-in screen. It
+/// lives here, below the modules, so that the transport can raise it without
+/// knowing who is listening. A count rather than a flag, so a second loss in
+/// the same process — sign in again, lose that session too — notifies too.
+final sessionLostProvider = NotifierProvider<SessionLostNotifier, int>(
+  SessionLostNotifier.new,
+);
+
+class SessionLostNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void notify() => state++;
+}
+
 final apiClientProvider = Provider<ApiClient>(
-  (ref) => ApiClient(tokenStore: ref.watch(tokenStoreProvider)),
+  (ref) => ApiClient(
+    tokenStore: ref.watch(tokenStoreProvider),
+    onAuthLost: () => ref.read(sessionLostProvider.notifier).notify(),
+  ),
 );
 
 /// One set of fixtures for the life of the app, so a deferral or a signature

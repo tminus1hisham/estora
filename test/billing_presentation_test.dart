@@ -12,6 +12,9 @@ import 'package:mall/modules/invoices/presentation/invoices_screen.dart';
 import 'package:mall/modules/leases/application/lease_controller.dart';
 import 'package:mall/modules/leases/presentation/lease_detail_screen.dart';
 import 'package:mall/modules/leases/presentation/leases_screen.dart';
+import 'package:mall/modules/payments/presentation/widgets/mpesa_payment_sheet.dart';
+import 'package:mall/services/providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Invoice _invoice({
   required String id,
@@ -308,6 +311,47 @@ void main() {
     // the paid one carries no action.
     expect(find.text('Pay now'), findsNWidgets(3));
     expect(find.text('AUGUST 2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('"Pay now" on the statement opens the M-Pesa sheet', (
+    tester,
+  ) async {
+    viewport(tester, const Size(390, 844));
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          invoiceListProvider.overrideWith(_Invoices.new),
+          // The sheet keys its prompt idempotently, which needs the store.
+          sharedPreferencesProvider.overrideWithValue(prefs),
+        ],
+        child: themed(const InvoicesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The row's own button, below the focus card's and under the fold.
+    final rowButton = find.text('Pay now').last;
+    await tester.scrollUntilVisible(
+      rowButton,
+      200,
+      // The statement's own scroll view, not the tab pager around it.
+      scrollable: find
+          .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(rowButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MpesaPaymentSheet), findsOneWidget);
+    expect(find.text('Pay with M-Pesa'), findsOneWidget);
+    expect(find.text('Send M-Pesa prompt'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

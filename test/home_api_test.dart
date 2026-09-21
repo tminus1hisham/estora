@@ -77,24 +77,13 @@ void main() {
                   onRequest: (request, handler) {
                     paths.add(request.path);
                     final account = request.path == Endpoints.account;
-                    // The invoice route is keyed on the tenant record, which the
-                    // app reads off the account's bookings.
-                    final bookings = request.path == Endpoints.allBookings;
+                    // The invoice route is keyed on the account's own id.
                     handler.resolve(
                       Response(
                         requestOptions: request,
-                        statusCode: account || bookings || status == 204
-                            ? 200
-                            : status,
+                        statusCode: account || status == 204 ? 200 : status,
                         data: account
-                            ? {'id': 1, 'userId': 'user-42'}
-                            : bookings
-                            ? [
-                                {
-                                  'id': 3,
-                                  'tenant': {'id': 42, 'userId': 'user-42'},
-                                },
-                              ]
+                            ? {'id': 42, 'userId': 'user-42'}
                             : status == 204
                             ? []
                             : status == 403
@@ -230,11 +219,7 @@ void main() {
                 paths,
                 manager
                     ? containsAll([Endpoints.properties])
-                    : [
-                        Endpoints.account,
-                        Endpoints.allBookings,
-                        Endpoints.tenantInvoices('42'),
-                      ],
+                    : [Endpoints.account, Endpoints.tenantInvoices('42')],
               );
               expect(tester.takeException(), isNull);
               if (desktop && scale == 1 && status == 200) {

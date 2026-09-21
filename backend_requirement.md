@@ -31,22 +31,30 @@ provide the complete booking and payment-tracking models used by the screens.
 A successful request must not be treated as proof of a confirmed booking or
 settled payment.
 
-## Invoices are keyed on a record the account cannot name
+## Invoices are keyed on the account's id
 
-`GET /payments/get/invoices/{tenantId}` takes the `Tenant` record's integer
-id. The sign-in response and `/auth/get/account` describe a `MallUsers` row —
-a different table — and neither carries a `tenantId`. `/properties/get/all/tenants`
-would name it but is not open to a tenant's token.
+`GET /payments/get/invoices/{tenantId}` is called with the signed-in account's
+own `id` — the one the sign-in response and `/auth/get/account` carry. The app
+reads it off the account and asks for nothing else; if the account payload ever
+names a `tenantId` outright, that is used instead. An account payload with
+neither shows an empty statement rather than an error.
 
-The app finds the id through the account's own bookings: `/payments/get/all/bookings`
-is scoped to the bearer and each booking embeds its `tenant`, which is matched to
-the account on `userId`, then on phone number. That works only for a tenant who
-has booked through the app. A tenant created by a manager and assigned a unit
-directly has invoices and no booking, and will see an empty statement until either
-the account payload names its `tenantId` or the invoice route gains a form that
-takes no parameter and scopes by bearer, as the bookings route does. The app does
-not fall back to the account's `id` — it is another table's row number, and would
-be a request for somebody else's invoices.
+## Token renewal happens before expiry
+
+`POST /auth/refresh/token` is behind `[Authorize]` on the live server: a call
+with no bearer answers a bodiless 401 (checked 2026-09-21). A token that has
+already expired is therefore turned away at the gate before the route reads
+the refresh token, and the session cannot be recovered.
+
+The app works around this by renewing early: it reads the JWT's `exp` claim
+(falling back to an assumed hour) and, when a request goes out within a
+minute of it, renews first — sending the expiring token as the bearer and in
+the body, as the contract's `TokenRequest` asks. A 401 on any other route
+still triggers a renewal and one retry, for a clock that ran ahead.
+
+The backend fix is to mark the refresh route `[AllowAnonymous]`, or to accept
+an expired bearer on it (`ValidateLifetime = false` for that route only). Until
+then, a handset that stays closed past the token's life signs in again.
 
 ## Validation
 

@@ -169,10 +169,40 @@ final authControllerProvider = NotifierProvider<AuthController, AuthState>(
 class AuthController extends Notifier<AuthState> {
   @override
   AuthState build() {
+    // The transport's word that the server would not renew the token. Reacted
+    // to here rather than in `ApiClient`, which knows nothing of screens.
+    ref.listen(sessionLostProvider, (_, _) => _sessionLost());
+
     // Kicked off rather than awaited: `build` is synchronous, and the router
     // handles the interim `unknown` stage by showing the splash screen.
     Future.microtask(restore);
     return const AuthState();
+  }
+
+  /// The server refused to renew the session, and `ApiClient` has already
+  /// cleared the tokens. What is left is to take the app back to sign-in,
+  /// with a word on why, and to drop the caches the way sign-out does.
+  ///
+  /// Nothing to do unless someone is signed in: a loss during `restore` is
+  /// already answered by `restore` itself, and one after sign-out is stale.
+  /// The idempotency keys are kept — they exist so a payment retried after
+  /// signing back in cannot charge twice, which is exactly when a session
+  /// tends to expire.
+  Future<void> _sessionLost() async {
+    if (!state.isAuthenticated) return;
+    DebugLog.write(
+      'auth',
+      'The server would not renew the session; signing out',
+    );
+    await ref.read(authRepositoryProvider).logout();
+    if (!ref.mounted) return;
+    state = const AuthState(
+      stage: AuthStage.unauthenticated,
+      failure: UnauthorizedFailure(
+        'Your session has expired. Please sign in again.',
+      ),
+    );
+    _invalidateTenantState();
   }
 
   /// Section 72. Restores a stored session on launch.

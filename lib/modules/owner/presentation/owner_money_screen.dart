@@ -584,7 +584,7 @@ class _OverviewCardState extends ConsumerState<_OverviewCard> {
             face: _face,
             onChanged: (next) => setState(() => _face = next),
           ),
-          Gap.h16,
+          Gap.h12,
           ConstrainedBox(
             constraints: BoxConstraints(minHeight: _collectedLeast * scale),
             child: Stack(
@@ -613,7 +613,7 @@ class _OverviewCardState extends ConsumerState<_OverviewCard> {
   /// chart's readout, plot and ticks, and the gaps and rule between them.
   /// Everything in it is text and pills that grow with the type, so it is
   /// scaled with the type.
-  static const double _collectedLeast = 348;
+  static const double _collectedLeast = 309;
 }
 
 /// [child] at its full size but, while [hidden], neither painted, touched
@@ -776,7 +776,7 @@ class _CollectedFace extends ConsumerWidget {
               ref.read(collectionWindowProvider.notifier).select(next),
           onCustom: () => _pickRange(context, ref, window),
         ),
-        Gap.h16,
+        Gap.h12,
         Text(
           figures.caption,
           style: theme.textTheme.labelSmall?.copyWith(
@@ -784,7 +784,7 @@ class _CollectedFace extends ConsumerWidget {
             letterSpacing: 1.6,
           ),
         ),
-        Gap.h12,
+        Gap.h8,
         MoneyCountUp(
           figures.collected,
           scale: AmountScale.hero,
@@ -796,9 +796,9 @@ class _CollectedFace extends ConsumerWidget {
           style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
         ),
         if (figures.points.isNotEmpty) ...[
-          Gap.h16,
-          Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
           Gap.h12,
+          Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
+          Gap.h8,
           // The columns carry their own readout, which is the caption the
           // chart needs; a second one above it was a line spent twice.
           Expanded(
@@ -1055,7 +1055,7 @@ class _OutstandingFace extends StatelessWidget {
             letterSpacing: 1.6,
           ),
         ),
-        Gap.h12,
+        Gap.h8,
         MoneyCountUp(
           report.outstanding,
           scale: AmountScale.hero,
@@ -1069,7 +1069,7 @@ class _OutstandingFace extends StatelessWidget {
           style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
         ),
         if (buckets.isNotEmpty) ...[
-          Gap.h16,
+          Gap.h12,
           ClipRRect(
             borderRadius: AppRadius.small,
             child: SizedBox(
@@ -1089,13 +1089,13 @@ class _OutstandingFace extends StatelessWidget {
               ),
             ),
           ),
-          Gap.h16,
+          Gap.h12,
           Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
           for (final (index, bucket) in buckets.indexed) ...[
             if (index > 0)
               Divider(color: Colors.white.withValues(alpha: 0.14), height: 1),
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: Gap.md),
+              padding: const EdgeInsets.symmetric(vertical: Gap.sm),
               child: Row(
                 children: [
                   Container(

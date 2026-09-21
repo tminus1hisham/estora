@@ -588,14 +588,30 @@ BookingQuote bookingQuoteFromJson(Json json) {
 
 // -- Lease -------------------------------------------------------------------
 
+/// Reads a lease as the contract's `Lease` carries it.
+///
+/// The contract states the agreement on the lease itself — the rent, the
+/// deposit, the service charge, the grace period and the wording — and
+/// nothing beside it: no lease number, no embedded property or unit, no
+/// signatures, no activation checklist. What it does not state is left
+/// empty, not invented; the one exception is the lease number, which is
+/// shown as `LSE-` plus the id for the same reason invoices are numbered
+/// `INV-` plus theirs.
+///
+/// Its fixed fields become section 27's term rows, which is what those rows
+/// are for: the detail screen reads terms as written and does not need to
+/// know which ones the contract happens to carry as columns.
 Lease leaseFromJson(Json json) {
   final currency = _str(json['currencyCode'], _defaultCurrency);
+  final id = _str(json['id']);
   final property = json['property'] is Json ? json['property'] as Json : null;
   final unit = json['unit'] is Json ? json['unit'] as Json : null;
+  final termsAndConditions = _strOrNull(json['termsAndConditions']);
+  final specialConditions = _strOrNull(json['specialConditions']);
 
   return Lease(
-    id: _str(json['id']),
-    leaseNumber: _str(json['leaseNumber']),
+    id: id,
+    leaseNumber: _str(json['leaseNumber'], 'LSE-$id'),
     propertyId: _str(json['propertyId']),
     unitId: _str(json['unitId']),
     tenantId: _str(json['tenantId']),
@@ -610,6 +626,8 @@ Lease leaseFromJson(Json json) {
     // is no field offering another frequency.
     billingFrequency: BillingFrequency.monthly,
     paymentDueDay: _int(json['paymentDueDay'], 1),
+    // Sent as a name — `"Active"` — where the contract's other enums are
+    // ordinals. `fromCode` accepts both.
     status: LeaseStatus.fromCode(json['status']),
     signedAt: _dateOrNull(json['tenantSignedAt'] ?? json['signedAt']),
     activatedAt: _dateOrNull(json['activatedAt']),
@@ -617,17 +635,48 @@ Lease leaseFromJson(Json json) {
     createdAt: _date(json['createdAt']),
     agreementDocumentId: _strOrNull(json['agreementDocumentId']),
     signedAgreementDocumentId: _strOrNull(json['signedAgreementDocumentId']),
-    terms: _list(json['terms'])
-        .map(
-          (t) => LeaseTerm(
-            id: _str(t['id']),
-            label: _str(t['label']),
-            value: _str(t['value']),
-            description: _strOrNull(t['description']),
-            group: _strOrNull(t['group']),
-          ),
-        )
-        .toList(growable: false),
+    terms: [
+      if (json.containsKey('serviceChargePerMonth'))
+        LeaseTerm(
+          id: '$id-service-charge',
+          label: 'Service charge',
+          value:
+              '${_money(json, 'serviceChargePerMonth', currency).format()} '
+              'per month',
+          group: 'Financial',
+        ),
+      if (json.containsKey('gracePeriodDays'))
+        LeaseTerm(
+          id: '$id-grace-period',
+          label: 'Grace period',
+          value: _days(_int(json['gracePeriodDays'])),
+          description: 'After the due date, before rent counts as late.',
+          group: 'Financial',
+        ),
+      if (termsAndConditions != null)
+        LeaseTerm(
+          id: '$id-terms',
+          label: 'Terms and conditions',
+          value: termsAndConditions,
+          group: 'Conditions',
+        ),
+      if (specialConditions != null)
+        LeaseTerm(
+          id: '$id-special-conditions',
+          label: 'Special conditions',
+          value: specialConditions,
+          group: 'Conditions',
+        ),
+      ..._list(json['terms']).map(
+        (t) => LeaseTerm(
+          id: _str(t['id']),
+          label: _str(t['label']),
+          value: _str(t['value']),
+          description: _strOrNull(t['description']),
+          group: _strOrNull(t['group']),
+        ),
+      ),
+    ],
     activationConditions: _list(json['activationConditions'])
         .map(
           (c) => LeaseActivationCondition(
@@ -644,6 +693,12 @@ Lease leaseFromJson(Json json) {
     ).map(leaseSignatureFromJson).toList(growable: false),
   );
 }
+
+String _days(int days) => switch (days) {
+  0 => 'None',
+  1 => '1 day',
+  _ => '$days days',
+};
 
 LeaseSignature leaseSignatureFromJson(Json json) => LeaseSignature(
   id: _str(json['id']),
@@ -699,7 +754,7 @@ Invoice invoiceFromJson(Json json) {
     discount: _money(json, 'discountAmount', currency),
     total: _money(json, 'totalAmount', currency),
     amountPaid: _money(json, 'paidAmount', currency),
-    amountDue: _money(json, 'balanceDue', currency),
+    amountDue: _balanceDue(json, currency),
     currency: currency,
     status: _invoiceStatusFromContract(json),
     // The contract carries a single typed invoice rather than a line
@@ -730,6 +785,11 @@ Invoice invoiceFromJson(Json json) {
 /// tenant would recognise, and never contradicts an explicit one the server
 /// sent.
 InvoiceStatus _invoiceStatusFromContract(Json json) {
+  // `isPaid` is the one flag the payment routes flip, and it outranks a
+  // label that lags behind it: offering "Pay now" on a settled invoice is
+  // the worse mistake.
+  if (_bool(json['isPaid'])) return InvoiceStatus.paid;
+
   final stated = InvoiceStatus.fromApi(
     _wireName(_strOrNull(json['invoiceStatus'])),
   );
@@ -738,7 +798,6 @@ InvoiceStatus _invoiceStatusFromContract(Json json) {
   if (_dateOrNull(json['cancelledDate']) != null) {
     return InvoiceStatus.cancelled;
   }
-  if (_bool(json['isPaid'])) return InvoiceStatus.paid;
 
   final paid = _doubleOrNull(json['paidAmount']) ?? 0;
   final due = _dateOrNull(json['dueDate']);
@@ -746,6 +805,28 @@ InvoiceStatus _invoiceStatusFromContract(Json json) {
     return InvoiceStatus.overdue;
   }
   return paid > 0 ? InvoiceStatus.partiallyPaid : InvoiceStatus.issued;
+}
+
+/// What is still owed on an invoice: the server's `balanceDue`, as section
+/// 65 wants it.
+///
+/// The live records do not always carry it — an invoice raised by a manager
+/// has arrived with `balanceDue` absent, or `0`, while `totalAmount` stood
+/// and `isPaid` was false. Treating that as "nothing owed" hides "Pay now"
+/// on the one invoice the tenant opened the screen to pay. So when the
+/// server's balance says nothing is owed but its own `totalAmount` and
+/// `paidAmount` say otherwise, the difference between those two server
+/// figures stands in. A paid invoice never gets here: [_invoiceStatusFromContract]
+/// reads `isPaid` first, and a balance the server does state is never
+/// overridden.
+Money _balanceDue(Json json, String currency) {
+  final stated = _money(json, 'balanceDue', currency);
+  if (stated.isPositive || _bool(json['isPaid'])) return stated;
+
+  final owed =
+      _money(json, 'totalAmount', currency) -
+      _money(json, 'paidAmount', currency);
+  return owed.isPositive ? owed : stated;
 }
 
 /// A status the server spelled its own way, in the app's wire spelling.

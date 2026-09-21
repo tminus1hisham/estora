@@ -6,6 +6,8 @@
 /// where the tokens live.
 library;
 
+import 'dart:convert';
+
 class AuthTokens {
   const AuthTokens({
     required this.accessToken,
@@ -16,6 +18,52 @@ class AuthTokens {
   final String accessToken;
   final String refreshToken;
   final DateTime expiresAt;
+
+  /// How long a token is assumed good for when nothing says otherwise.
+  ///
+  /// The contract returns a token and a refresh token but no expiry. Rather
+  /// than treat the session as eternal, it is treated as short: the client
+  /// renews on the hour, and a 401 renews immediately regardless. An
+  /// assumption that expires too early costs one extra round trip; one that
+  /// expires too late costs a failed request in front of the tenant.
+  static const Duration assumedLife = Duration(hours: 1);
+
+  /// When [accessToken] stops being accepted, from the best source to hand.
+  ///
+  /// An `expiresAt` the response [stated] wins. Failing that, the token's own
+  /// `exp` claim — the API issues JWTs, and the claim is the server's word on
+  /// the matter, which is what a renewal has to beat: the refresh route is
+  /// behind the same bearer gate as everything else, so a token must be
+  /// renewed *before* it dies, not after. Failing both, [assumedLife] from now.
+  static DateTime expiryOf(String accessToken, {String? stated}) =>
+      DateTime.tryParse(stated ?? '') ??
+      jwtExpiry(accessToken) ??
+      DateTime.now().add(assumedLife);
+
+  /// The `exp` claim of a JWT, or null when [token] is not one.
+  ///
+  /// Reads the claim without verifying the signature: the client is not the
+  /// party the signature is for, and a forged expiry only ever costs the
+  /// forger a rejected request.
+  static DateTime? jwtExpiry(String token) {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    try {
+      final payload = json.decode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      final exp = payload is Map ? payload['exp'] : null;
+      final seconds = switch (exp) {
+        num value => value.toInt(),
+        String value => int.tryParse(value),
+        _ => null,
+      };
+      if (seconds == null) return null;
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+    } on FormatException {
+      return null;
+    }
+  }
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
 

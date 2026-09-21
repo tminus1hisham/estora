@@ -16,7 +16,7 @@ import 'logging_interceptor.dart';
 /// Responsibilities kept here rather than in each repository:
 ///
 /// * attaching the bearer token,
-/// * refreshing it with rotation on a 401 (section 74),
+/// * renewing it with rotation before it expires, and on a 401 (section 74),
 /// * attaching `Idempotency-Key` on financial writes (section 66),
 /// * unwrapping the `data` envelope,
 /// * mapping transport and HTTP errors onto [Failure].
@@ -41,7 +41,41 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final tokens = await _tokenStore.read();
+          // The renewal itself: it carries the bearer it was given, and it
+          // must not wait on a refresh — that refresh would be its own.
+          if (options.path == Endpoints.refresh) {
+            handler.next(options);
+            return;
+          }
+
+          var tokens = await _tokenStore.read();
+
+          // Renew *before* the token dies, not after. The live server keeps
+          // the refresh route behind the same bearer gate as everything else,
+          // so a token that has already expired is turned away there too; the
+          // 401 path below is the fallback for a clock that ran ahead, not the
+          // plan. A refusal here is left for that path to act on, so a lost
+          // session is handled in one place.
+          if (tokens != null &&
+              tokens.isNearlyExpired &&
+              tokens.refreshToken.isNotEmpty &&
+              !Endpoints.preSession.contains(options.path)) {
+            DebugLog.write(
+              'auth',
+              'Token expires ${tokens.expiresAt.toIso8601String()}; renewing '
+                  'before ${options.method} ${options.path}',
+            );
+            if (await _refresh() case _Refreshed(tokens: final renewed)) {
+              options.headers['Authorization'] =
+                  'Bearer ${renewed.accessToken}';
+              handler.next(options);
+              return;
+            }
+            // Refused, and the store is cleared; or unreachable, and it is
+            // not. Either way the request goes out with what is left.
+            tokens = await _tokenStore.read();
+          }
+
           if (tokens != null) {
             options.headers['Authorization'] = 'Bearer ${tokens.accessToken}';
           }
@@ -64,12 +98,16 @@ class ApiClient {
   final Dio _dio;
   final TokenStore _tokenStore;
 
-  /// Called when the refresh token is rejected and the session cannot be
-  /// recovered. The app listens for this to route back to login.
+  /// Called when the server refuses to renew the session and the tokens have
+  /// been cleared. The app listens for this to route back to sign-in.
+  ///
+  /// Not called when the renewal merely could not reach the server: the
+  /// stored session is still good, and the request fails as a network error.
   final void Function()? onAuthLost;
 
-  /// Guards against a burst of concurrent 401s each firing its own refresh.
-  Future<AuthTokens?>? _inFlightRefresh;
+  /// Guards against a burst of concurrent expiries each firing its own
+  /// refresh — the pre-flight check and the 401 path share it.
+  Future<_RefreshOutcome>? _inFlightRefresh;
 
   Dio get raw => _dio;
 
@@ -172,26 +210,31 @@ class ApiClient {
       // already here over a mistyped password.
       if (status == 401 && !isRetry && !Endpoints.preSession.contains(path)) {
         DebugLog.write('auth', '401 on $method $path — refreshing the session');
-        final refreshed = await _refresh();
-        if (refreshed == null) {
-          DebugLog.write(
-            'auth',
-            'Refresh did not recover the session; signing out',
-          );
-          onAuthLost?.call();
-          return const Err(UnauthorizedFailure());
+        switch (await _refresh()) {
+          case _Refreshed():
+            DebugLog.write('auth', 'Refreshed — retrying $method $path once');
+            return _send(
+              path,
+              method: method,
+              parse: parse,
+              body: body,
+              query: query,
+              formData: formData,
+              idempotencyKey: idempotencyKey,
+              isRetry: true,
+            );
+          case _RefreshRefused():
+            DebugLog.write(
+              'auth',
+              'Refresh did not recover the session; signing out',
+            );
+            onAuthLost?.call();
+            return const Err(UnauthorizedFailure());
+          case _RefreshUnreachable(:final failure):
+            // The session may well be fine; the network is not. Reported as
+            // such, so the screen offers a retry rather than a sign-in.
+            return Err(failure);
         }
-        DebugLog.write('auth', 'Refreshed — retrying $method $path once');
-        return _send(
-          path,
-          method: method,
-          parse: parse,
-          body: body,
-          query: query,
-          formData: formData,
-          idempotencyKey: idempotencyKey,
-          isRetry: true,
-        );
       }
 
       if (status >= 400) {
@@ -266,32 +309,38 @@ class ApiClient {
   /// The server is expected to return a *new* refresh token, invalidating the
   /// old one, so a stolen token has a short useful life. Concurrent callers
   /// share one in-flight refresh rather than racing.
-  Future<AuthTokens?> _refresh() {
+  Future<_RefreshOutcome> _refresh() {
     return _inFlightRefresh ??= _performRefresh().whenComplete(() {
       _inFlightRefresh = null;
     });
   }
 
-  Future<AuthTokens?> _performRefresh() async {
+  Future<_RefreshOutcome> _performRefresh() async {
     final tokens = await _tokenStore.read();
     if (tokens == null) {
       DebugLog.write(
         'auth',
         'Nothing stored to refresh; no session to recover',
       );
-      return null;
+      return const _RefreshRefused();
     }
 
     try {
       final response = await _dio.post<dynamic>(
         Endpoints.refresh,
-        // The contract's refresh takes *both* tokens: the expired one names
+        // The contract's refresh takes *both* tokens: the expiring one names
         // the session, the refresh token authorises renewing it.
         data: {
           'token': tokens.accessToken,
           'refreshToken': tokens.refreshToken,
         },
-        options: Options(headers: {'Authorization': null}),
+        // The route is behind the bearer gate on the live server (a call with
+        // no bearer answers a bodiless 401), so the expiring token goes in the
+        // header as well as the body. Set here rather than by the interceptor,
+        // which steps aside for this path.
+        options: Options(
+          headers: {'Authorization': 'Bearer ${tokens.accessToken}'},
+        ),
       );
 
       if ((response.statusCode ?? 0) >= 400) {
@@ -301,7 +350,7 @@ class ApiClient {
           detail: response.data,
         );
         await _tokenStore.clear();
-        return null;
+        return const _RefreshRefused();
       }
 
       final data = response.data;
@@ -318,7 +367,7 @@ class ApiClient {
           detail: payload,
         );
         await _tokenStore.clear();
-        return null;
+        return const _RefreshRefused();
       }
 
       final updated = AuthTokens(
@@ -328,12 +377,10 @@ class ApiClient {
         refreshToken: (refresh == null || refresh.isEmpty)
             ? tokens.refreshToken
             : refresh,
-        // No expiry on the wire. Assumed short, and re-checked on the next
-        // 401 regardless — the same assumption `RemoteAuthRepository` makes
-        // when it first stores a token.
-        expiresAt:
-            DateTime.tryParse(payload['expiresAt']?.toString() ?? '') ??
-            DateTime.now().add(const Duration(hours: 1)),
+        expiresAt: AuthTokens.expiryOf(
+          access,
+          stated: payload['expiresAt']?.toString(),
+        ),
       );
       await _tokenStore.write(updated);
       DebugLog.write(
@@ -342,7 +389,7 @@ class ApiClient {
             '${refresh == null || refresh.isEmpty ? 'was not rotated' : 'rotated'}'
             ', access expires ${updated.expiresAt.toIso8601String()}',
       );
-      return updated;
+      return _Refreshed(updated);
     } on DioException catch (e) {
       // A network blip is not a reason to destroy the session; only an explicit
       // rejection above clears the tokens.
@@ -351,7 +398,7 @@ class ApiClient {
         'Refresh could not reach the server (${e.type.name}); leaving the '
             'stored session alone',
       );
-      return null;
+      return _RefreshUnreachable(_failureFromDio(e));
     }
   }
 
@@ -478,4 +525,31 @@ class ApiClient {
     ),
     _ => const UnknownFailure(),
   };
+}
+
+/// What came of asking the server to renew the session.
+///
+/// Three answers, because two of the ways a renewal can fail call for
+/// opposite responses: a refusal ends the session, while an unreachable
+/// server has said nothing about it at all.
+sealed class _RefreshOutcome {
+  const _RefreshOutcome();
+}
+
+/// Renewed, and the new tokens are already stored.
+class _Refreshed extends _RefreshOutcome {
+  const _Refreshed(this.tokens);
+  final AuthTokens tokens;
+}
+
+/// The server would not renew it — or there was nothing to renew — and the
+/// stored session has been cleared.
+class _RefreshRefused extends _RefreshOutcome {
+  const _RefreshRefused();
+}
+
+/// The server could not be reached. The stored session is untouched.
+class _RefreshUnreachable extends _RefreshOutcome {
+  const _RefreshUnreachable(this.failure);
+  final Failure failure;
 }

@@ -29,10 +29,10 @@ import 'endpoints.dart';
 ///
 /// Three things are worth knowing before reading further.
 ///
-/// **The contract does not cover everything the app shows.** Leases,
-/// documents, notifications, receipts and the two report dashboards have no
-/// published route. Unsupported operations return a local unavailable result
-/// without sending a request.
+/// **The contract does not cover everything the app shows.** Lease
+/// agreements to review and sign, documents, notifications, receipts and the
+/// two report dashboards have no published route. Unsupported operations
+/// return a local unavailable result without sending a request.
 ///
 /// **The contract does not paginate.** List routes return a whole array. The
 /// [Page] wrapper is kept because the presentation layer is built on it, and
@@ -76,21 +76,14 @@ class AccountIdentity {
     return result;
   }
 
-  /// The tenant record's id, which is what the invoice route is keyed on.
+  /// The id the invoice route is keyed on: the signed-in account's own `id`.
   ///
-  /// The account is a `MallUsers` row and the tenant is a `Tenant` row. They
-  /// are different tables, joined by the account's `userId`, and the invoice
-  /// route takes the tenant's own integer id — which nothing on the account
-  /// names. The account's `id` is *not* it: that is the row number of a
-  /// different table, and reading it as a tenant id would ask the server for
-  /// somebody else's invoices.
-  ///
-  /// The one record a tenant's token can reach that does carry it is a
-  /// booking: the bookings route is scoped to the bearer and each booking
-  /// embeds its `tenant`. So the account's bookings are read, the tenant that
-  /// belongs to this account is picked out, and its id is kept for the
-  /// session. A [NotFoundFailure] means no such record — an account that has
-  /// never booked, or is not a tenant at all — and not a route that failed.
+  /// `api.md` names the path parameter `tenantId`, and the id the server
+  /// resolves it against is the account's — the `id` the sign-in response
+  /// and `/auth/get/account` both carry. So it is read straight off the
+  /// account and kept for the session. An account payload without an `id`
+  /// is a [NotFoundFailure]: there is nothing to ask for, not a route that
+  /// failed.
   Future<Result<String>> tenantId() async {
     final cached = _tenantId;
     if (cached != null) return Ok(cached);
@@ -98,23 +91,8 @@ class AccountIdentity {
     final account = await load();
     return switch (account) {
       Err<Json>(:final failure) => Err(failure),
-      Ok<Json>(:final value) => await _resolveTenantId(value),
-    };
-  }
-
-  Future<Result<String>> _resolveTenantId(Json account) async {
-    // Honoured first, should the account route ever start naming it.
-    final stated = account['tenantId']?.toString();
-    if (stated != null && stated.isNotEmpty) return Ok(_tenantId = stated);
-
-    final bookings = await _api.get<List<Json>>(
-      Endpoints.allBookings,
-      parse: rawListFromJson,
-    );
-    return switch (bookings) {
-      Err<List<Json>>(:final failure) => Err(failure),
-      Ok<List<Json>>(:final value) => () {
-        final id = _tenantIdAmong(value, account);
+      Ok<Json>(:final value) => () {
+        final id = _accountId(value);
         return id == null
             ? const Err<String>(
                 NotFoundFailure('This account has no tenant record yet.'),
@@ -124,36 +102,12 @@ class AccountIdentity {
     };
   }
 
-  /// The tenant embedded in one of [bookings] that is this account.
-  ///
-  /// Matched on the account link first, then on the phone number the account
-  /// signs in with. The booking's own contact number is deliberately not
-  /// consulted — it is whatever the applicant typed, not the tenant record —
-  /// and neither is "the only tenant in the list": a manager's token sees
-  /// every booking on the platform, and a platform with one tenant would
-  /// resolve the manager to them.
-  static String? _tenantIdAmong(List<Json> bookings, Json account) {
-    final userId = (account['userId'] ?? account['id'])?.toString();
-    final phone = PhoneNumber.normalizeOrNull(
-      (account['phoneNumber'] ?? account['phone'])?.toString(),
-    );
-
-    final tenants = bookings
-        .map((booking) => booking['tenant'])
-        .whereType<Json>()
-        .where((tenant) => tenant['id'] != null);
-
-    for (final tenant in tenants) {
-      if (userId != null && tenant['userId']?.toString() == userId) {
-        return tenant['id'].toString();
-      }
-    }
-    if (phone == null || phone.isEmpty) return null;
-    for (final tenant in tenants) {
-      final tenantPhone = PhoneNumber.normalizeOrNull(
-        tenant['phoneNumber']?.toString(),
-      );
-      if (tenantPhone == phone) return tenant['id'].toString();
+  /// The account's `id`. Honours an explicit `tenantId` first, should the
+  /// account route ever start naming one.
+  static String? _accountId(Json account) {
+    for (final key in const ['tenantId', 'id']) {
+      final value = account[key]?.toString();
+      if (value != null && value.isNotEmpty) return value;
     }
     return null;
   }
@@ -214,15 +168,6 @@ class RemoteAuthRepository implements AuthRepository {
   final TokenStore _tokenStore;
   final AccountIdentity _identity;
 
-  /// How long a token is assumed good for when the server does not say.
-  ///
-  /// The contract returns a token and a refresh token but no expiry. Rather
-  /// than treat the session as eternal, it is treated as short: the client
-  /// refreshes on the hour, and a 401 refreshes immediately regardless. An
-  /// assumption that expires too early costs one extra round trip; one that
-  /// expires too late costs a failed request in front of the user.
-  static const Duration _assumedTokenLife = Duration(hours: 1);
-
   Future<Result<AuthSession>> _storeAndBuild(Json payload) async {
     final access = payload['token']?.toString();
     final refresh = payload['refreshToken']?.toString();
@@ -239,9 +184,12 @@ class RemoteAuthRepository implements AuthRepository {
       AuthTokens(
         accessToken: access,
         refreshToken: refresh ?? '',
-        expiresAt:
-            DateTime.tryParse(payload['expiresAt']?.toString() ?? '') ??
-            DateTime.now().add(_assumedTokenLife),
+        // The JWT's own `exp` where the response states no expiry; see
+        // [AuthTokens.expiryOf]. `ApiClient` renews shortly before it.
+        expiresAt: AuthTokens.expiryOf(
+          access,
+          stated: payload['expiresAt']?.toString(),
+        ),
       ),
     );
 
@@ -459,8 +407,9 @@ class RemoteAccountRepository implements AccountRepository {
   @override
   Future<Result<PlatformUser>> getAccount() async {
     final result = await _identity.load(refresh: true);
-    if (result case Err(:final failure)
-        when failure is UnauthorizedFailure || failure is ForbiddenFailure) {
+    if (result case Err(
+      :final failure,
+    ) when failure is UnauthorizedFailure || failure is ForbiddenFailure) {
       final saved = _identity.saved;
       if (saved != null) {
         DebugLog.write(
@@ -1081,19 +1030,71 @@ class RemoteBookingRepository implements BookingRepository {
 }
 
 // ---------------------------------------------------------------------------
-// Leases — not published; see the note at the top of this file.
+// Leases
 // ---------------------------------------------------------------------------
 
 class RemoteLeaseRepository implements LeaseRepository {
-  RemoteLeaseRepository(ApiClient api);
+  RemoteLeaseRepository(this._api);
 
+  final ApiClient _api;
+
+  /// The lease route takes no parameter: whose leases come back is the
+  /// server's decision, made from the bearer token, and the app shows what
+  /// it is given — the same footing as the bookings route, and for the same
+  /// reason. Narrowing them here to the account's tenant record was
+  /// considered and rejected: that record is only reachable through a
+  /// booking, and a lease a manager wrote without one would have vanished
+  /// from the list of the tenant it belongs to.
+  ///
+  /// Narrowed by [status] here because the route offers no parameter. The
+  /// whole set is in hand, so this filters all of it.
   @override
-  Future<Result<Page<Lease>>> listLeases({LeaseStatus? status, int page = 1}) =>
-      _unavailable();
+  Future<Result<Page<Lease>>> listLeases({
+    LeaseStatus? status,
+    int page = 1,
+  }) => _api
+      .get<List<Lease>>(
+        Endpoints.leaseAgreements,
+        parse: (json) => rawListFromJson(json)
+            // The route is typed as a bare acknowledgement. Should it answer
+            // with one, the acknowledgement is not a lease.
+            .where((item) => item['id'] != null)
+            .map(leaseFromJson)
+            .toList(growable: false),
+      )
+      .then(
+        (result) => result.map(
+          (leases) => Page.single(
+            leases
+                .where((lease) => status == null || lease.status == status)
+                .toList(growable: false),
+          ),
+        ),
+      );
 
+  /// The contract lists the caller's leases and does not serve them one by
+  /// one, so the list is read and the one asked for is picked out of it. A
+  /// miss is a genuine not-found rather than an empty screen.
   @override
-  Future<Result<Lease>> getLease(String leaseId) => _unavailable();
+  Future<Result<Lease>> getLease(String leaseId) async {
+    final leases = await listLeases();
 
+    return switch (leases) {
+      Err<Page<Lease>>(:final failure) => Err(failure),
+      Ok<Page<Lease>>(:final value) => () {
+        for (final lease in value.items) {
+          if (lease.id == leaseId) return Ok<Lease>(lease);
+        }
+        return const Err<Lease>(
+          NotFoundFailure('We could not find that lease.'),
+        );
+      }(),
+    };
+  }
+
+  /// The contract carries the agreement's wording on the lease itself and
+  /// publishes no versioned, hashed document to review or sign against —
+  /// see the note at the top of this file.
   @override
   Future<Result<LeaseAgreement>> getAgreement(String leaseId) => _unavailable();
 
@@ -1117,13 +1118,13 @@ class RemoteInvoiceRepository implements InvoiceRepository {
   final ApiClient _api;
   final AccountIdentity _identity;
 
-  /// The route is keyed on the tenant record, so the statement is only as
-  /// reachable as that record is — see [AccountIdentity.tenantId].
+  /// `Payments_getInvoices`: the statement keyed on the signed-in account's
+  /// id — see [AccountIdentity.tenantId].
   ///
-  /// An account with no tenant record has nothing invoiced to it: the answer
-  /// is an empty statement, not an error. The screen's own empty state says
-  /// invoices appear once there is a booking or a lease, which is exactly
-  /// the situation. Every other failure — the bookings route refusing, the
+  /// An account the server has not named has nothing invoiced to it: the
+  /// answer is an empty statement, not an error. The screen's own empty state
+  /// says invoices appear once there is a booking or a lease, which is exactly
+  /// the situation. Every other failure — the account route refusing, the
   /// network gone — is still reported as one.
   @override
   Future<Result<Page<Invoice>>> listInvoices({

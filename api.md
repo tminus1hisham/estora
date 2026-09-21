@@ -2390,6 +2390,30 @@
         }
       }
     },
+    "/v1/api/properties/get/lease/aggreements": {
+      "get": {
+        "tags": [
+          "Properties"
+        ],
+        "operationId": "Properties_GetLeaseAgreements",
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "/v1/api/roles/get/all/roles": {
       "get": {
         "tags": [

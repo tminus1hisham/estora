@@ -124,30 +124,6 @@ class TenantWelcome extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      AppReveal(
-                        index: 3,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: .22),
-                            ),
-                            borderRadius: BorderRadius.circular(30),
-                            color: Colors.white.withValues(alpha: .08),
-                          ),
-                          child: Text(
-                            'YOUR TENANT PORTAL',
-                            style: text.labelSmall?.copyWith(
-                              color: Colors.white,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
