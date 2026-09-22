@@ -1,17 +1,29 @@
+import '../../../../components/glass_well.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../components/even_grid.dart';
+import '../../../../components/glass_material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/dashboard_summary.dart';
 import '../../../../navigation/routes.dart';
 
-/// Responsive shortcuts with staggered entrances and generous touch targets.
+/// The home shortcuts, as one frosted platter of four.
+///
+/// Four separate cards read as four more things to look at; one pane holding
+/// four glyphs reads as a single control, which is what iOS does with the same
+/// problem in Control Center. Each glyph sits in its own squircle well, washed
+/// in a quiet hue of its own so the row can be read by colour before it is
+/// read by label — muted on purpose, so the balance card above stays the only
+/// loud thing on the screen.
 class QuickActions extends StatelessWidget {
   const QuickActions({required this.summary, super.key});
 
   final DashboardSummary summary;
+
+  /// The narrowest a shortcut can be at the platform's default text size
+  /// before its label starts to crowd its neighbours.
+  static const double _minTileWidth = 74;
 
   @override
   Widget build(BuildContext context) {
@@ -20,12 +32,14 @@ class QuickActions extends StatelessWidget {
             _Action(
               icon: Icons.receipt_long_rounded,
               label: 'Invoices',
+              hue: _Hue.azure,
               route: Routes.invoices,
               tab: true,
             ),
             _Action(
               icon: Icons.account_balance_wallet_rounded,
               label: 'Transactions',
+              hue: _Hue.green,
               route: Routes.invoices,
               query: {Routes.invoicesTabQuery: Routes.invoicesTransactionsTab},
               tab: true,
@@ -33,6 +47,7 @@ class QuickActions extends StatelessWidget {
             _Action(
               icon: Icons.folder_copy_rounded,
               label: 'Documents',
+              hue: _Hue.brass,
               route: Routes.documents,
             ),
             // Support rather than the lease: the lease already has a tab a
@@ -41,6 +56,7 @@ class QuickActions extends StatelessWidget {
             _Action(
               icon: Icons.support_agent_rounded,
               label: 'Support',
+              hue: _Hue.violet,
               route: Routes.support,
             ),
           ]
@@ -48,53 +64,106 @@ class QuickActions extends StatelessWidget {
             _Action(
               icon: Icons.support_agent_rounded,
               label: 'Support',
+              hue: _Hue.violet,
               route: Routes.support,
             ),
             _Action(
               icon: Icons.event_available_rounded,
               label: 'Bookings',
+              hue: _Hue.azure,
               route: Routes.bookings,
             ),
             _Action(
               icon: Icons.folder_copy_rounded,
               label: 'Documents',
+              hue: _Hue.brass,
               route: Routes.documents,
             ),
             _Action(
               icon: Icons.person_rounded,
               label: 'Profile',
+              hue: _Hue.green,
               route: Routes.profile,
               tab: true,
             ),
           ];
 
+    final theme = Theme.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'A few useful shortcuts',
-          style: Theme.of(context).textTheme.titleMedium,
+        Padding(
+          padding: const EdgeInsets.only(left: Gap.xs, bottom: Gap.sm),
+          child: Text(
+            'SHORTCUTS',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 1.2,
+            ),
+          ),
         ),
-        Gap.h12,
-        // Two up on a phone, four on anything wider, and two again once the
-        // platform's text has grown enough that four would start clipping the
-        // labels. Every tile in a row is the same size either way.
-        EvenGrid(
-          minTileWidth: 148,
-          children: [
-            for (final (index, action) in actions.indexed)
-              _ActionTile(
-                action: action,
-                index: index,
-                reduceMotion: reduceMotion,
-              ),
-          ],
+        FrostedPane(
+          radius: GlassRadius.platter,
+          padding: const EdgeInsets.symmetric(
+            horizontal: Gap.sm,
+            vertical: Gap.md,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Four across while four fit; two by two once the text has grown
+              // enough that four would clip their labels. Never three — a row
+              // of three and an orphan reads as a mistake.
+              final perRow =
+                  constraints.maxWidth / 4 >=
+                      _minTileWidth * textScale.clamp(1.0, 2.0)
+                  ? 4
+                  : 2;
+              final tiles = [
+                for (final (index, action) in actions.indexed)
+                  _ActionTile(
+                    action: action,
+                    index: index,
+                    reduceMotion: reduceMotion,
+                  ),
+              ];
+
+              return Column(
+                children: [
+                  for (var start = 0; start < tiles.length; start += perRow)
+                    Padding(
+                      padding: EdgeInsets.only(top: start == 0 ? 0 : Gap.lg),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final tile in tiles.skip(start).take(perRow))
+                            Expanded(child: tile),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
   }
+}
+
+/// The hue a shortcut's well is washed in: the glyph colour in each theme.
+enum _Hue {
+  azure(AppPalette.azure600, AppPalette.azure300),
+  green(AppPalette.green700, AppPalette.green300),
+  brass(AppPalette.brass700, AppPalette.brass200),
+  violet(AppPalette.violet700, AppPalette.violet300);
+
+  const _Hue(this.light, this.dark);
+
+  final Color light;
+  final Color dark;
 }
 
 @immutable
@@ -102,6 +171,7 @@ class _Action {
   const _Action({
     required this.icon,
     required this.label,
+    required this.hue,
     required this.route,
     this.query = const {},
     this.tab = false,
@@ -109,6 +179,7 @@ class _Action {
 
   final IconData icon;
   final String label;
+  final _Hue hue;
   final String route;
 
   /// Query parameters the route takes, such as the pane a tab opens on.
@@ -134,66 +205,43 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
 
-    final Widget tile = Material(
-      color: scheme.surfaceContainerLowest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .5)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => action.tab
-            ? context.goNamed(action.route, queryParameters: action.query)
-            : context.pushNamed(action.route, queryParameters: action.query),
-        borderRadius: AppRadius.medium,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: Gap.md,
-            horizontal: Gap.sm,
+    final Widget tile = GlassTap(
+      semanticLabel: action.label,
+      onTap: () => action.tab
+          ? context.goNamed(action.route, queryParameters: action.query)
+          : context.pushNamed(action.route, queryParameters: action.query),
+      child: ExcludeSemantics(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: AppLayout.minTouchTarget,
           ),
-          child: Column(
-            // The grid gives every tile in a row the height of the tallest, so
-            // a one-line label centres against a neighbour that wrapped.
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      scheme.surfaceContainerLowest,
-                      scheme.primaryContainer.withValues(alpha: 0.45),
-                    ],
-                  ),
-                  borderRadius: AppRadius.medium,
-                  border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                  boxShadow: AppElevation.lifted(
-                    scheme.shadow,
-                    brightness: theme.brightness,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Gap.xs),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GlassWell(
+                  icon: action.icon,
+                  color: theme.brightness == Brightness.dark
+                      ? action.hue.dark
+                      : action.hue.light,
+                  size: 52,
+                ),
+                Gap.h8,
+                Text(
+                  action.label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: AppTypography.semibold,
+                    letterSpacing: -0.1,
                   ),
                 ),
-                child: Icon(action.icon, size: 20, color: scheme.primary),
-              ),
-              Gap.h8,
-              Text(
-                action.label,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: AppTypography.bold,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -201,16 +249,16 @@ class _ActionTile extends StatelessWidget {
 
     if (reduceMotion) return tile;
 
-    // These arrive after the balance card, one behind the other, with a touch
-    // of overshoot so the row lands rather than fades.
+    // One behind the other after the balance card lands. A short rise rather
+    // than a pop: the platter is already there, only its contents arrive.
     return tile
-        .animate(delay: Duration(milliseconds: 380 + 55 * index))
+        .animate(delay: Duration(milliseconds: 380 + 60 * index))
         .fadeIn(duration: AppMotion.standard, curve: AppMotion.enter)
-        .scaleXY(
-          begin: 0.82,
-          end: 1,
+        .moveY(
+          begin: 8,
+          end: 0,
           duration: AppMotion.slow,
-          curve: Curves.easeOutBack,
+          curve: AppMotion.enter,
         );
   }
 }

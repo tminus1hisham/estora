@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../../../../components/amount_text.dart';
 import '../../../../components/app_glass.dart';
 import '../../../../components/app_surface_card.dart';
+import '../../../../components/glass_material.dart';
+import '../../../../components/glass_well.dart';
 import '../../../../components/surface_atoms.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
 import '../../../../core/utils/date_format.dart';
 import '../../../../core/utils/money.dart';
 import '../../../../domain/entities/billing.dart';
+import 'invoice_list.dart';
 
 /// The head of an invoice, as the document itself.
 ///
@@ -33,7 +36,11 @@ class InvoiceDocumentHero extends StatelessWidget {
 
     return AppSurfaceCard(
       gradient: AppGradients.brandHero,
-      borderColor: Colors.transparent,
+      // On the navy ground of the dark theme the navy card has no edge of its
+      // own; a hairline of light gives it one. On cream it needs none.
+      borderColor: theme.brightness == Brightness.dark
+          ? Colors.white.withValues(alpha: 0.09)
+          : Colors.transparent,
       padding: EdgeInsets.zero,
       shadows: AppElevation.lifted(
         AppPalette.navy950,
@@ -201,75 +208,61 @@ class InvoiceLedger extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
-    return AppSurfaceCard(
-      padding: const EdgeInsets.all(Gap.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Breakdown',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: AppTypography.semibold,
-                  ),
-                ),
-              ),
-              Gap.w12,
-              // Stated once, so no line has to repeat it.
-              Text(
-                'IN ${invoice.currency}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ],
+    // Headed the way the statement heads a month, so the two screens read as
+    // one document at two distances; the currency is stated once there, so
+    // no line has to repeat it.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Gap.xs, Gap.sm, Gap.xs, Gap.md),
+          child: InvoiceSectionHeader(
+            title: 'BREAKDOWN',
+            trailing: 'IN ${invoice.currency}',
           ),
-          Gap.h16,
-          for (final (index, line) in invoice.lines.indexed) ...[
-            if (index > 0) ...[Gap.h12, const Hairline(alpha: 0.5), Gap.h12],
-            _LedgerLine(line: line),
-          ],
-          if (invoice.lines.isNotEmpty) ...[Gap.h16, const Hairline()],
-          Gap.h16,
+        ),
+        FrostedPane(
+          padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.lg, Gap.xl, Gap.lg),
+          child: _ledger(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _ledger(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (index, line) in invoice.lines.indexed) ...[
+          if (index > 0) ...[Gap.h12, const Hairline(alpha: 0.5), Gap.h12],
+          _LedgerLine(line: line),
+        ],
+        if (invoice.lines.isNotEmpty) ...[Gap.h16, const Hairline()],
+        Gap.h16,
+        _LedgerTotal(label: 'Subtotal', amount: invoice.subtotal, muted: true),
+        if (invoice.tax.isPositive)
+          _LedgerTotal(label: 'Tax', amount: invoice.tax, muted: true),
+        if (invoice.discount.isPositive)
           _LedgerTotal(
-            label: 'Subtotal',
-            amount: invoice.subtotal,
+            label: 'Discount',
+            amount: -invoice.discount,
             muted: true,
           ),
-          if (invoice.tax.isPositive)
-            _LedgerTotal(label: 'Tax', amount: invoice.tax, muted: true),
-          if (invoice.discount.isPositive)
-            _LedgerTotal(
-              label: 'Discount',
-              amount: -invoice.discount,
-              muted: true,
-            ),
-          Gap.h12,
-          const Hairline(),
-          Gap.h12,
-          _LedgerTotal(label: 'Total', amount: invoice.total, strong: true),
-          if (invoice.amountPaid.isPositive) ...[
-            _LedgerTotal(
-              label: 'Paid',
-              amount: invoice.amountPaid,
-              muted: true,
-            ),
-            Gap.h4,
-            _LedgerTotal(
-              label: 'Amount due',
-              amount: invoice.amountDue,
-              strong: true,
-              color: invoice.isOverdue ? scheme.error : null,
-            ),
-          ],
+        Gap.h12,
+        const Hairline(),
+        Gap.h12,
+        _LedgerTotal(label: 'Total', amount: invoice.total, strong: true),
+        if (invoice.amountPaid.isPositive) ...[
+          _LedgerTotal(label: 'Paid', amount: invoice.amountPaid, muted: true),
+          Gap.h4,
+          _LedgerTotal(
+            label: 'Amount due',
+            amount: invoice.amountDue,
+            strong: true,
+            color: invoice.isOverdue ? context.statusColors.danger : null,
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -401,7 +394,9 @@ class _LedgerTotal extends StatelessWidget {
   }
 }
 
-/// The one thing on this screen that is allowed to be a warning.
+/// The one thing on this screen that is allowed to be a warning — and even
+/// it is a pane lit red from its corner with a red glyph, not a red box. The
+/// figure above is already red; this only has to say what that means.
 class InvoiceOverdueNotice extends StatelessWidget {
   const InvoiceOverdueNotice({super.key});
 
@@ -410,14 +405,18 @@ class InvoiceOverdueNotice extends StatelessWidget {
     final theme = Theme.of(context);
     final danger = context.statusColors.danger;
 
-    return AppSurfaceCard(
-      color: danger.withValues(alpha: 0.06),
-      borderColor: danger.withValues(alpha: 0.28),
+    return FrostedPane(
+      tone: danger,
       padding: const EdgeInsets.all(Gap.lg),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ToneIconTile(icon: Icons.schedule_rounded, color: danger, size: 36),
+          GlassWell(
+            icon: Icons.schedule_rounded,
+            color: danger,
+            size: 40,
+            iconSize: 20,
+          ),
           Gap.w12,
           Expanded(
             child: Column(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
+import '../../../components/glass_material.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
@@ -130,17 +131,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          AppRefreshIndicator(
-            onRefresh: _refresh,
-            // Drops the spinner clear of the floating bar.
-            edgeOffset: topInset + HomeTopBar.height,
-            child: CustomScrollView(
-              controller: _scrollController,
-              // The summary is short enough on a tablet to leave the page
-              // unscrollable, and an unscrollable page cannot be pulled to
-              // refresh.
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: slivers,
+          // The lit ground the body's glass sits on. It stays put while the
+          // page scrolls, so the cards shift colour as they pass over the
+          // lights — the header photograph covers the top of it, which is why
+          // the lights start below where the header ends.
+          GlassScene(
+            lights: GlassLights.belowHeader,
+            child: AppRefreshIndicator(
+              onRefresh: _refresh,
+              // Drops the spinner clear of the floating bar.
+              edgeOffset: topInset + HomeTopBar.height,
+              child: CustomScrollView(
+                controller: _scrollController,
+                // The summary is short enough on a tablet to leave the page
+                // unscrollable, and an unscrollable page cannot be pulled to
+                // refresh.
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: slivers,
+              ),
             ),
           ),
           Positioned(

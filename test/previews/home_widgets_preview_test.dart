@@ -1,0 +1,253 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mall/core/theme/app_theme.dart';
+import 'package:mall/core/utils/money.dart';
+import 'package:mall/domain/entities/billing.dart';
+import 'package:mall/domain/entities/dashboard_summary.dart';
+import 'package:mall/domain/entities/tenant.dart';
+import 'package:mall/domain/enums/domain_enums.dart';
+import 'package:mall/modules/auth/application/auth_controller.dart';
+import 'package:mall/modules/home/application/dashboard_controller.dart';
+import 'package:mall/modules/home/presentation/home_screen.dart';
+import 'package:mall/modules/notifications/application/notification_controller.dart';
+import 'package:mall/navigation/adaptive_app_frame.dart';
+
+import '../support/preview_capture.dart';
+
+/// The home widgets the summary only shows in some states — the attention
+/// banners, the booking countdown, recent payments, the no-tenancy card —
+/// inside the real tab bar, plus the owner stage's tab bar.
+
+const _user = AppUser(
+  id: 'usr_preview',
+  firstName: 'Amina',
+  lastName: 'Wanjiru',
+  email: 'amina@example.co.ke',
+  phone: '+254712345678',
+  status: 'ACTIVE',
+  emailVerified: true,
+  phoneVerified: true,
+);
+
+const _tenant = Tenant(
+  id: 'tnt_preview',
+  userId: 'usr_preview',
+  tenantType: TenantType.business,
+  displayName: 'Wanjiru Retail Ltd',
+  status: 'ACTIVE',
+);
+
+Payment _payment(
+  String invoice,
+  int major,
+  PaymentStatus status,
+  int daysAgo,
+) => Payment(
+  id: 'pay_$invoice',
+  paymentReference: 'REF-$invoice',
+  tenantId: 'tnt_preview',
+  amount: Money.fromMajor(major, 'KES'),
+  currency: 'KES',
+  paymentMethod: PaymentMethod.mpesa,
+  status: status,
+  createdAt: DateTime.now().subtract(Duration(days: daysAgo)),
+  paidAt: status == PaymentStatus.success
+      ? DateTime.now().subtract(Duration(days: daysAgo))
+      : null,
+  invoiceNumber: invoice,
+  receiptId: status == PaymentStatus.success ? 'rct_$invoice' : null,
+);
+
+DashboardSummary _tenancy() => DashboardSummary(
+  currency: 'KES',
+  outstandingBalance: const Money(15000000, 'KES'),
+  recentPayments: [
+    _payment('INV-2026-0042', 150000, PaymentStatus.processing, 0),
+    _payment('INV-2026-0031', 150000, PaymentStatus.success, 31),
+    _payment('INV-2026-0020', 12500, PaymentStatus.failed, 45),
+  ],
+  unreadNotifications: 3,
+  propertyId: 'prp_sarit',
+  propertyName: 'Sarit Mall',
+  propertyImageUrl: 'assets/images/property_sarit_mall.jpg',
+  unitId: 'unt_shop_101',
+  unitNumber: 'SHOP-101',
+  leaseId: 'lse_active',
+  leaseStatus: LeaseStatus.active,
+  leaseEndDate: DateTime.now().add(const Duration(days: 18)),
+  nextInvoiceAmount: const Money(15000000, 'KES'),
+  nextPaymentDueDate: DateTime.now().add(const Duration(days: 12)),
+  pendingSignatureLeaseId: 'lse_renewal',
+  activeBookingId: 'bkg_1',
+  activeBookingReference: 'BKG-2026-0107',
+  activeBookingExpiresAt: DateTime.now().add(
+    const Duration(hours: 1, minutes: 24),
+  ),
+);
+
+DashboardSummary _newTenant() => const DashboardSummary(
+  currency: 'KES',
+  outstandingBalance: Money(0, 'KES'),
+  recentPayments: [],
+  unreadNotifications: 0,
+);
+
+class _Auth extends AuthController {
+  @override
+  AuthState build() => const AuthState(
+    stage: AuthStage.authenticated,
+    session: AuthSession(user: _user, tenant: _tenant),
+  );
+}
+
+const _destinations = [
+  NavigationDestination(
+    icon: Icon(Icons.home_outlined),
+    selectedIcon: Icon(Icons.home_rounded),
+    label: 'Home',
+  ),
+  NavigationDestination(
+    icon: Icon(Icons.bolt_outlined),
+    selectedIcon: Icon(Icons.bolt_rounded),
+    label: 'Utilities',
+  ),
+  NavigationDestination(
+    icon: Icon(Icons.description_outlined),
+    selectedIcon: Icon(Icons.description_rounded),
+    label: 'Lease',
+  ),
+  NavigationDestination(
+    icon: Icon(Icons.receipt_long_outlined),
+    selectedIcon: Icon(Icons.receipt_long_rounded),
+    label: 'Billing',
+  ),
+  NavigationDestination(
+    icon: Icon(Icons.person_outline_rounded),
+    selectedIcon: Icon(Icons.person_rounded),
+    label: 'Profile',
+  ),
+];
+
+void main() {
+  setUpAll(loadPreviewFonts);
+
+  for (final (name, dark, scale, scroll, tenancy) in [
+    ('banners-light', false, 1.0, 470.0, true),
+    ('banners-dark', true, 1.0, 470.0, true),
+    ('payments-light', false, 1.0, 2000.0, true),
+    ('payments-dark', true, 1.0, 2000.0, true),
+    ('collapsing-light', false, 1.0, 70.0, true),
+    ('collapsing-late-light', false, 1.0, 100.0, true),
+    ('collapsing-dark', true, 1.0, 70.0, true),
+    ('text1.6-light', false, 1.6, 700.0, true),
+    ('text1.6-payments-dark', true, 1.6, 4000.0, true),
+    ('new-tenant-light', false, 1.0, 380.0, false),
+    ('new-tenant-dark', true, 1.0, 380.0, false),
+  ]) {
+    testWidgets('home widgets preview ($name)', (tester) async {
+      usePhoneViewport(tester);
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      const key = ValueKey('home-widgets-preview');
+      final summary = tenancy ? _tenancy() : _newTenant();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith(_Auth.new),
+            dashboardControllerProvider.overrideWith(() => _Dashboard(summary)),
+            unreadNotificationCountProvider.overrideWith((ref) async => 3),
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: dark ? AppTheme.dark : AppTheme.light,
+            home: RepaintBoundary(
+              key: key,
+              child: AdaptiveAppFrame(
+                body: const HomeScreen(),
+                destinations: _destinations,
+                selectedIndex: 0,
+                onDestinationSelected: (_) {},
+                workspaceLabel: 'Your space',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(
+        () => precacheImage(
+          const AssetImage('assets/images/property_sarit_mall.jpg'),
+          tester.element(find.byType(HomeScreen)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (scroll > 0) {
+        await tester.drag(find.byType(Scrollable).first, Offset(0, -scroll));
+        await tester.pumpAndSettle();
+      }
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await capturePreview(tester, key, 'home-widgets-$name');
+    });
+  }
+
+  for (final (name, theme) in [
+    ('owner-stage', AppTheme.ownerStage),
+    ('owner-light', AppTheme.light),
+  ]) {
+    testWidgets('tab bar preview ($name)', (tester) async {
+      usePhoneViewport(tester);
+      const key = ValueKey('tab-bar-preview');
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: theme,
+          home: RepaintBoundary(
+            key: key,
+            child: AdaptiveAppFrame(
+              body: const Center(child: Text('Portfolio')),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.donut_small_outlined),
+                  selectedIcon: Icon(Icons.donut_small_rounded),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.apartment_outlined),
+                  selectedIcon: Icon(Icons.apartment_rounded),
+                  label: 'Properties',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.account_balance_outlined),
+                  selectedIcon: Icon(Icons.account_balance_rounded),
+                  label: 'Revenue',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: 'Account',
+                ),
+              ],
+              selectedIndex: 1,
+              onDestinationSelected: (_) {},
+              workspaceLabel: 'Property management',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await capturePreview(tester, key, 'tab-bar-$name');
+    });
+  }
+}
+
+class _Dashboard extends DashboardController {
+  _Dashboard(this.summary);
+
+  final DashboardSummary summary;
+
+  @override
+  Future<DashboardSummary> build() async => summary;
+}

@@ -67,6 +67,47 @@ class HomeGlassChip extends StatelessWidget {
   }
 }
 
+/// A small-caps section label, set the way iOS heads a grouped list.
+///
+/// Matches the home shortcuts' own label, so every group on the screen is
+/// introduced in one voice. [trailing] takes a quiet link such as "See all".
+class HomeSectionLabel extends StatelessWidget {
+  const HomeSectionLabel(this.text, {this.trailing, super.key});
+
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Bottom-aligned, with both halves sitting the same gap above the pane:
+    // a taller trailing link grows the header upwards, into the space between
+    // groups, rather than pushing its own group away from its label.
+    return Padding(
+      padding: const EdgeInsets.only(left: Gap.xs, bottom: Gap.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                text.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+}
+
 /// True when the platform's text size has grown past the point where a row of
 /// side-by-side content still fits on a phone.
 bool homePrefersStacked(BuildContext context) => prefersStacked(context);

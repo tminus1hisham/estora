@@ -16,6 +16,7 @@ import '../../account/application/account_controller.dart';
 import '../../bookings/application/booking_controller.dart';
 import '../../documents/application/document_controller.dart';
 import '../../home/application/dashboard_controller.dart';
+import '../../invoices/application/billing_property_filter.dart';
 import '../../invoices/application/invoice_controller.dart';
 import '../../leases/application/lease_controller.dart';
 import '../../notifications/application/notification_controller.dart';
@@ -503,6 +504,9 @@ class AuthController extends Notifier<AuthState> {
     ref.invalidate(leaseAgreementProvider);
 
     ref.invalidate(invoiceTabProvider);
+    // The chosen property is an id, and the next account may lease at the
+    // same one; a stale choice would open their statement already narrowed.
+    ref.invalidate(billingPropertyFilterProvider);
     ref.invalidate(invoiceListProvider);
     ref.invalidate(filteredInvoicesProvider);
     ref.invalidate(invoiceDetailProvider);

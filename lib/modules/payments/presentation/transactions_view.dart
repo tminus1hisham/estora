@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../components/app_refresh_indicator.dart';
 import '../../../components/amount_text.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/property_tag.dart';
 import '../../../components/record_group.dart';
 import '../../../components/state_views.dart';
 import '../../../components/summary_banner.dart';
@@ -15,6 +16,7 @@ import '../../../core/utils/date_format.dart';
 import '../../../domain/entities/billing.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../navigation/routes.dart';
+import '../../invoices/application/billing_property_filter.dart';
 import '../application/payment_controller.dart';
 
 /// Section 77's Payment History, as the Transactions pane of the invoices
@@ -31,7 +33,10 @@ class TransactionsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final payments = ref.watch(paymentHistoryProvider);
+    // Narrowed to the property picked above the tabs, if one is; the list,
+    // the overview's counts and the empty state all answer for it.
+    final payments = ref.watch(scopedPaymentsProvider);
+    final property = ref.watch(selectedBillingPropertyProvider);
 
     return switch (payments) {
       AsyncLoading() when !payments.hasValue => const AppSkeletonList(
@@ -41,15 +46,21 @@ class TransactionsView extends ConsumerWidget {
         failure: error is Failure ? error : UnknownFailure(error.toString()),
         onRetry: () => ref.read(paymentHistoryProvider.notifier).refresh(),
       ),
-      _ => _PaymentList(payments: payments.requireValue),
+      _ => _PaymentList(
+        payments: payments.requireValue,
+        propertyName: property?.name,
+      ),
     };
   }
 }
 
 class _PaymentList extends ConsumerWidget {
-  const _PaymentList({required this.payments});
+  const _PaymentList({required this.payments, this.propertyName});
 
   final List<Payment> payments;
+
+  /// The property the history is narrowed to; null for all of them.
+  final String? propertyName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -60,11 +71,20 @@ class _PaymentList extends ConsumerWidget {
         },
         icon: Icons.payments_outlined,
         title: 'No transactions yet',
-        message: 'Payments you make will be listed here with their receipts.',
+        message: propertyName == null
+            ? 'Payments you make will be listed here with their receipts.'
+            : 'Payments against your $propertyName invoices will be listed '
+                  'here with their receipts.',
       );
     }
 
     final months = _groupByMonth(payments);
+    // A tenant paying at more than one mall, reading them all together, needs
+    // each row to say which one it paid. Narrowed to one, it would only
+    // repeat the pill above.
+    final tagged =
+        propertyName == null && ref.watch(billingPropertiesProvider).length > 1;
+    final placeOf = ref.watch(paymentPropertyProvider);
 
     return AppRefreshIndicator(
       onRefresh: () => ref.read(paymentHistoryProvider.notifier).refresh(),
@@ -84,7 +104,10 @@ class _PaymentList extends ConsumerWidget {
                 heading: AppDate.monthYear(month.month),
                 children: [
                   for (final payment in month.payments)
-                    _PaymentRow(payment: payment),
+                    _PaymentRow(
+                      payment: payment,
+                      propertyName: tagged ? placeOf(payment)?.name : null,
+                    ),
                 ],
               );
             },
@@ -156,9 +179,13 @@ class _PaymentOverview extends StatelessWidget {
 /// divider and a wallet glyph beside the method. In a list where every entry is
 /// a payment, all four of those are restating the column they are in.
 class _PaymentRow extends StatelessWidget {
-  const _PaymentRow({required this.payment});
+  const _PaymentRow({required this.payment, this.propertyName});
 
   final Payment payment;
+
+  /// The mall the payment was for, shown as a tag under the title when the
+  /// history spans more than one.
+  final String? propertyName;
 
   @override
   Widget build(BuildContext context) {
@@ -179,17 +206,39 @@ class _PaymentRow extends StatelessWidget {
           : payment.status == PaymentStatus.success
           ? scheme.onSurfaceVariant
           : tone,
-      // A failed payment is the one entry that has to explain itself, and the
-      // reason is why a tenant opened the list at all.
-      footnote: payment.failureReason == null
-          ? null
-          : Text(
-              payment.failureReason!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.error),
-            ),
+      footnote: _footnote(context),
       onTap: _destination(context),
+    );
+  }
+
+  Widget? _footnote(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tag = PropertyTag.canShow(name: propertyName)
+        ? Padding(
+            // Under the title, not under the glyph: the tag belongs to the
+            // words, as it does on an invoice card.
+            padding: const EdgeInsetsDirectional.only(start: 40 + Gap.md),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: PropertyTag(name: propertyName),
+            ),
+          )
+        : null;
+    // A failed payment is the one entry that has to explain itself, and the
+    // reason is why a tenant opened the list at all.
+    final reason = payment.failureReason == null
+        ? null
+        : Text(
+            payment.failureReason!,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.error),
+          );
+    if (tag == null) return reason;
+    if (reason == null) return tag;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [tag, Gap.h8, reason],
     );
   }
 

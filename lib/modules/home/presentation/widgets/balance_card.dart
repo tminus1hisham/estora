@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../components/amount_text.dart';
 import '../../../../components/app_surface_card.dart';
+import '../../../../components/glass_material.dart';
 import '../../../../components/money_count_up.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
@@ -121,11 +122,21 @@ class BalanceCard extends StatelessWidget {
                     ),
                   ),
                 ],
+                // An inset pane of the card's own glass rather than a rule
+                // across it: the glows underneath blur into it, so the pair of
+                // figures reads as a separate layer of the same material.
                 if (summary.nextInvoiceAmount != null) ...[
                   Gap.h16,
-                  const Hairline(onDark: true),
-                  Gap.h16,
-                  _NextInvoice(summary: summary, stacked: stacked),
+                  FrostedPane(
+                    onDark: true,
+                    depth: GlassDepth.inset,
+                    radius: 18,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Gap.md,
+                      vertical: Gap.md,
+                    ),
+                    child: _NextInvoice(summary: summary, stacked: stacked),
+                  ),
                 ],
                 Gap.h16,
                 _Actions(summary: summary, stacked: stacked),
@@ -265,6 +276,8 @@ class _Actions extends ConsumerWidget {
         foregroundColor: AppPalette.azure950,
         minimumSize: const Size.fromHeight(AppLayout.controlHeight),
         padding: const EdgeInsets.symmetric(horizontal: Gap.lg),
+        // Capsules, like every other action on the tenant's glass.
+        shape: const StadiumBorder(),
       ),
       icon: const Icon(Icons.payments_rounded, size: 20),
       label: const Text('Pay now'),
@@ -310,8 +323,7 @@ class _Secondary extends StatelessWidget {
         backgroundColor: kHomeOnDark.withValues(alpha: filled ? 0.12 : 0.08),
         minimumSize: const Size.fromHeight(AppLayout.controlHeight),
         padding: const EdgeInsets.symmetric(horizontal: Gap.md),
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.small,
+        shape: StadiumBorder(
           side: BorderSide(color: kHomeOnDark.withValues(alpha: 0.2)),
         ),
       ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../components/app_surface_card.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../components/glass_empty_pane.dart';
 import '../../../../domain/entities/billing.dart';
 import '../../../invoices/presentation/widgets/invoice_card.dart';
 
@@ -18,27 +17,14 @@ class RecentInvoices extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     if (invoices.isEmpty) {
-      return AppSurfaceCard(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 28,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 8),
-            Text('No invoices yet', style: theme.textTheme.titleSmall),
-            const SizedBox(height: 4),
-            Text(
-              'Your latest invoices will appear here when they are issued.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
+      // The same glass the cards would be, so the space they will fill is
+      // already there rather than a grey icon floating on the ground.
+      return const GlassEmptyPane(
+        compact: true,
+        icon: Icons.receipt_long_rounded,
+        title: 'No invoices yet',
+        message: 'Your latest invoices will appear here when they are issued.',
       );
     }
 
@@ -49,7 +35,8 @@ class RecentInvoices extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (index, invoice) in recent.take(5).indexed) ...[
-          if (index > 0) Gap.h12,
+          // The statement's spacing, so the two lists read as one.
+          if (index > 0) const SizedBox(height: 10),
           InvoiceCard(invoice: invoice),
         ],
       ],

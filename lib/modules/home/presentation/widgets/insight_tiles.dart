@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../components/app_pressable.dart';
-import '../../../../components/app_surface_card.dart';
 import '../../../../components/even_grid.dart';
+import '../../../../components/glass_material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
 import '../../../../core/utils/date_format.dart';
@@ -145,48 +144,65 @@ class _InsightTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final color = context.statusColors.resolve(tone);
 
-    return AppPressable(
-      child: AppSurfaceCard(
-        onTap: onTap,
-        padding: const EdgeInsets.all(Gap.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ToneIconTile(icon: icon, color: color, size: 28),
-            Gap.h12,
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                letterSpacing: 1.1,
+    // A small widget of glass, the way iOS sets a single figure on its home
+    // screen: the kind of thing it is in small caps beside its glyph, the
+    // figure under it, and the tile faintly lit by what it means — warm as
+    // a date comes close, green while a lease is in good standing.
+    return GlassTap(
+      onTap: onTap,
+      scale: 0.97,
+      semanticLabel: '${label.toLowerCase()}, $value, $caption',
+      child: ExcludeSemantics(
+        child: FrostedPane(
+          tone: color,
+          radius: GlassRadius.card,
+          padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.md, Gap.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  Gap.w8,
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Gap.h4,
-            Text(
-              value,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: AppTypography.bold,
-              ),
-            ),
-            Gap.h4,
-            Text(
-              caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            if (meter != null) ...[
               Gap.h12,
-              LinearMeter(value: meter!, color: color),
+              Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: AppTypography.semibold,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              Gap.h4,
+              Text(
+                caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              if (meter != null) ...[
+                Gap.h12,
+                LinearMeter(value: meter!, color: color),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

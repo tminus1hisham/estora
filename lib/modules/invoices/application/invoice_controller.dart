@@ -4,6 +4,7 @@ import '../../../core/error/result.dart';
 import '../../../domain/entities/billing.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
+import 'billing_property_filter.dart';
 
 /// Which invoices the list is showing.
 enum InvoiceTab { all, outstanding, paid }
@@ -47,10 +48,13 @@ class InvoiceListController extends AsyncNotifier<List<Invoice>> {
   }
 }
 
-/// The visible list, after the tab filter.
+/// The visible list, after the property filter and then the tab filter.
+///
+/// Narrowed to the chosen property first (see [scopeInvoices]), so
+/// "Outstanding" means outstanding at the mall the tenant is looking at.
 final filteredInvoicesProvider = Provider<AsyncValue<List<Invoice>>>((ref) {
   final tab = ref.watch(invoiceTabProvider);
-  return ref.watch(invoiceListProvider).whenData((invoices) {
+  return scopeInvoices(ref).whenData((invoices) {
     return switch (tab) {
       InvoiceTab.all => invoices,
       InvoiceTab.outstanding =>
