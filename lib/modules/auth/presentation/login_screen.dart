@@ -114,7 +114,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
       ],
       console: _console(auth),
-      footer: _footer(auth),
+      // footer: _footer(auth),
     );
   }
 

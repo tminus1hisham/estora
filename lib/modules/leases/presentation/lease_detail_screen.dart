@@ -33,7 +33,7 @@ class LeaseDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(lease.value?.leaseNumber ?? 'Lease')),
       body: switch (lease) {
         AsyncLoading() when !lease.hasValue => const AppSkeletonDetail(
-          heroHeight: 300,
+          heroHeight: 250,
         ),
         AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),

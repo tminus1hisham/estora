@@ -136,7 +136,7 @@ class Endpoints {
   /// leases come back is the server's decision, made from the bearer token,
   /// the same way [allBookings] and [ownerReport] work.
   ///
-  /// `aggreements` is the server's spelling. It is written the same way here
+
   /// because a corrected path would simply miss the route.
   static const String leaseAgreements = '/properties/get/lease/agreements';
 

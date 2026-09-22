@@ -17,18 +17,33 @@ import 'lease_facts.dart';
 /// filling as the year runs down — and the rent is set at reading size, so the
 /// two questions a tenant actually has ("how long have I got", "what am I
 /// paying") are answered before anything is tapped.
+///
+/// The card is drawn to a tight rhythm on purpose. A tenant can hold more than
+/// one lease — section 54 makes a renewal a new record rather than an edit of
+/// the old one — so this surface has to state the tenancy without taking the
+/// whole viewport and pushing the rest of the record below the fold.
 class LeaseHeroCard extends StatelessWidget {
   const LeaseHeroCard({
     required this.lease,
     this.actions = const <Widget>[],
+    this.actionMinWidth = 140,
     this.showLeaseNumber = false,
     super.key,
   });
 
   final Lease lease;
 
-  /// Laid out side by side, or stacked once the text is large.
+  /// Side by side under the facts they act on, while each still has room to
+  /// say what it is.
   final List<Widget> actions;
+
+  /// The narrowest an action may get before the pair stacks instead.
+  ///
+  /// The default lets two short labels sit across a phone, which is what keeps
+  /// the card short. Raise it for a longer label — a glyph and "Review and
+  /// sign" need more than half a phone, and half a sentence on a button the
+  /// tenant is being asked to press is worse than two rows.
+  final double actionMinWidth;
 
   /// Set on the detail screen, where the lease number is the record's name and
   /// not just a reference.
@@ -52,23 +67,23 @@ class LeaseHeroCard extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            top: -80,
-            right: -70,
+            top: -70,
+            right: -60,
             child: SoftGlow(
               color: toneColor.withValues(alpha: 0.26),
-              size: 220,
+              size: 190,
             ),
           ),
           Positioned(
-            bottom: -120,
-            left: -90,
+            bottom: -100,
+            left: -80,
             child: SoftGlow(
               color: AppPalette.brass500.withValues(alpha: 0.12),
-              size: 250,
+              size: 215,
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(Gap.xl),
+            padding: const EdgeInsets.all(Gap.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -92,7 +107,7 @@ class LeaseHeroCard extends StatelessWidget {
                       ],
                       Text(
                         'Unit ${lease.unitNumber ?? '—'}',
-                        style: theme.textTheme.titleLarge?.copyWith(
+                        style: theme.textTheme.titleMedium?.copyWith(
                           color: kOnDark,
                           fontWeight: AppTypography.semibold,
                         ),
@@ -101,7 +116,7 @@ class LeaseHeroCard extends StatelessWidget {
                         Gap.h4,
                         Text(
                           lease.propertyName!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
+                          style: theme.textTheme.bodySmall?.copyWith(
                             color: kOnDark.withValues(alpha: 0.66),
                           ),
                         ),
@@ -109,10 +124,10 @@ class LeaseHeroCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Gap.h24,
+                Gap.h16,
                 GlassSurface(
                   onDark: true,
-                  padding: const EdgeInsets.all(Gap.lg),
+                  padding: const EdgeInsets.all(Gap.md),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -133,19 +148,20 @@ class LeaseHeroCard extends StatelessWidget {
                               '${ordinalDay(lease.paymentDueDay)} of the month',
                         ),
                       ),
-                      Gap.h16,
+                      Gap.h12,
                       const Hairline(onDark: true, alpha: 0.12),
-                      Gap.h16,
+                      Gap.h12,
                       _Term(lease: lease, color: toneColor),
                     ],
                   ),
                 ),
                 if (actions.isNotEmpty) ...[
-                  Gap.h24,
-                  // "Review and sign" with its glyph needs more room than a
-                  // phone leaves for half a row, so this pair stacks earlier
-                  // than the default.
-                  ActionRow(actions: actions, minWidth: 172),
+                  Gap.h16,
+                  // One row. Two short labels fit across a phone, and a row
+                  // costs the card one control height where a stack costs it
+                  // two — which is the difference between a tenant seeing the
+                  // rest of their record and scrolling for it.
+                  ActionRow(actions: actions, minWidth: actionMinWidth),
                 ],
               ],
             ),
@@ -180,12 +196,12 @@ class _Term extends StatelessWidget {
       leaseTermCaption(lease),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
+      textAlign: stacked ? TextAlign.start : TextAlign.end,
       style: theme.textTheme.labelMedium?.copyWith(
         color: color,
         fontWeight: AppTypography.semibold,
       ),
     );
-    final dateStyle = theme.textTheme.bodySmall?.copyWith(color: muted);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -202,44 +218,23 @@ class _Term extends StatelessWidget {
               Flexible(child: remaining),
             ],
           ),
-        Gap.h12,
+        Gap.h8,
         LinearMeter(
           value: leaseTermProgress(lease),
           color: color,
           trackColor: kOnDark.withValues(alpha: 0.16),
         ),
-        Gap.h12,
-        // Side by side the two dates label the ends of the bar above them.
-        // Once the text is large enough that they no longer fit, they read
-        // better as the term written out in one line.
-        if (stacked)
-          Text(
-            '${AppDate.short(lease.startDate)} – '
-            '${AppDate.short(lease.endDate)}',
-            style: dateStyle,
-          )
-        else
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  AppDate.short(lease.startDate),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: dateStyle,
-                ),
-              ),
-              Gap.w12,
-              Flexible(
-                child: Text(
-                  AppDate.short(lease.endDate),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: dateStyle,
-                ),
-              ),
-            ],
-          ),
+        Gap.h8,
+        // The two dates used to label the ends of the bar from opposite sides
+        // of the card. On a card this tight that row was mostly gap, so the
+        // term is written out once instead — one line, at any text size.
+        Text(
+          '${AppDate.short(lease.startDate)} – '
+          '${AppDate.short(lease.endDate)}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(color: muted),
+        ),
       ],
     );
   }

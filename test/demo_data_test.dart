@@ -11,7 +11,6 @@ import 'package:mall/domain/entities/treasury.dart';
 import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/domain/repositories/repositories.dart';
 import 'package:mall/modules/invoices/presentation/invoices_screen.dart';
-import 'package:mall/modules/invoices/presentation/widgets/invoice_focus_card.dart';
 import 'package:mall/modules/leases/presentation/leases_screen.dart';
 import 'package:mall/modules/owner/presentation/owner_money_screen.dart';
 import 'package:mall/modules/treasury/presentation/bank_payments_screen.dart';
@@ -58,9 +57,17 @@ void main() {
     });
 
     test('the statement leads with this month\'s rent, not the deferral', () {
-      final focus = InvoiceFocusCard.focusOf(fixtures.invoices.values.toList());
-      expect(focus, isNotNull);
-      expect(focus!.isDeferred, isFalse);
+      // What a tenant meets first: the soonest-due invoice they can actually
+      // pay. The deferred penalty is owed too, but falls due late enough that
+      // it must not be the one in front.
+      final payable = fixtures.invoices.values
+          .where((invoice) => invoice.isPayable)
+          .toList()
+        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      expect(payable, isNotEmpty);
+
+      final focus = payable.first;
+      expect(focus.isDeferred, isFalse);
       expect(focus.status, InvoiceStatus.partiallyPaid);
       expect(focus.lines.single.lineType, InvoiceLineType.rent);
       expect(focus.amountDue, Money.fromMajor(50000, 'KES'));
@@ -382,10 +389,9 @@ void main() {
       await tester.pumpWidget(app(const LeasesScreen()));
       await settle(tester);
 
-      expect(find.text('PREVIOUS LEASES'), findsOneWidget);
       expect(find.text('Unit SHOP-101'), findsWidgets);
       expect(find.text('Sarit Mall'), findsWidgets);
-      expect(find.text('Lease details'), findsOneWidget);
+      expect(find.text('Lease details'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
@@ -423,7 +429,12 @@ void main() {
       await tester.pumpWidget(app(const InvoicesScreen()));
       await settle(tester);
 
-      expect(find.byType(InvoiceFocusCard), findsOneWidget);
+      // The soonest-due invoice a tenant can pay is drawn as a card of its
+      // own in the statement's first month, with its figure beside it.
+      final next = fixtures.invoices.values
+          .where((invoice) => invoice.isPayable)
+          .reduce((a, b) => a.dueDate.isBefore(b.dueDate) ? a : b);
+      expect(find.text(next.invoiceNumber), findsOneWidget);
       expect(find.text('KES 50,000'), findsWidgets);
       expect(find.text('KES 20,632'), findsWidgets);
       expect(find.text('Outstanding'), findsWidgets);

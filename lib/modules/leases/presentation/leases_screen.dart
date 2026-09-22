@@ -14,15 +14,16 @@ import '../../../domain/entities/lease.dart';
 import '../../../navigation/routes.dart';
 import '../application/lease_controller.dart';
 import 'widgets/lease_hero_card.dart';
-import 'widgets/lease_list.dart';
 
 /// Section 45's "My Lease" screen: the Lease tab.
 ///
 /// A tenant usually has one live lease, but section 54 requires a renewal to
-/// create a new lease rather than overwrite the old one, so the history has to
-/// remain reachable. That shape — one agreement that matters and a record
-/// behind it — is now what the screen looks like: the live lease as a single
-/// tall surface, and everything else as a quiet list under it.
+/// create a new lease rather than overwrite the old one, so a tenant of any
+/// standing accumulates them. Every lease is drawn the same way here — one
+/// card each, the live or unsigned one leading — rather than one tall hero
+/// with the rest demoted to list rows. A lease from two years ago is still an
+/// agreement the tenant signed, and it states its own rent and term instead of
+/// making them tap to find out.
 class LeasesScreen extends ConsumerWidget {
   const LeasesScreen({super.key});
 
@@ -34,7 +35,7 @@ class LeasesScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('My lease')),
       body: switch (leases) {
         AsyncLoading() when !leases.hasValue => const AppSkeletonDetail(
-          heroHeight: 300,
+          heroHeight: 250,
         ),
         AsyncError(error: UnsupportedFeatureFailure()) => PageEmptyState(
           onRefresh: () async {
@@ -81,23 +82,7 @@ class _LeaseBody extends ConsumerWidget {
       );
     }
 
-    final primary = _primaryOf(leases);
-    final rest = leases.where((lease) => lease.id != primary.id).toList();
-
-    final sections = <Widget>[
-      LeaseHeroCard(lease: primary, actions: _actionsFor(context, primary)),
-      if (rest.isNotEmpty)
-        LeaseHistorySection(
-          title:
-              rest.any(
-                (lease) =>
-                    lease.status.isCurrent || lease.status.needsTenantSignature,
-              )
-              ? 'Other leases'
-              : 'Previous leases',
-          leases: rest,
-        ),
-    ];
+    final ordered = _ordered(leases);
 
     return AppRefreshIndicator(
       onRefresh: refresh,
@@ -108,30 +93,49 @@ class _LeaseBody extends ConsumerWidget {
           ),
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.xs, Gap.lg, Gap.xxl),
-            itemCount: sections.length,
-            separatorBuilder: (_, _) => Gap.h32,
-            itemBuilder: (context, index) =>
-                AppReveal(index: index, child: sections[index]),
+            itemCount: ordered.length,
+            separatorBuilder: (_, _) => Gap.h16,
+            itemBuilder: (context, index) {
+              final lease = ordered[index];
+              return AppReveal(
+                index: index,
+                child: LeaseHeroCard(
+                  lease: lease,
+                  // Renewals of the same unit are otherwise identical down to
+                  // the unit number, so each card is headed by its own
+                  // reference once there is a column of them.
+                  showLeaseNumber: true,
+                  actions: _actionsFor(context, lease),
+                  // "Review and sign" carries a glyph and three words, so that
+                  // pair needs more than half a phone and stacks; "Lease
+                  // details" and "Agreement" fit across one and stay a row.
+                  actionMinWidth: lease.status.needsTenantSignature ? 172 : 140,
+                ),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  /// The lease the screen is about.
+  /// The leases, in the order a tenant reads them.
   ///
-  /// A signature that is being waited on outranks a live tenancy: it is the one
-  /// thing on this screen the tenant can actually do something about.
-  static Lease _primaryOf(List<Lease> leases) {
-    final ordered = [...leases]
-      ..sort((a, b) => b.startDate.compareTo(a.startDate));
-    return ordered.firstWhere(
-      (lease) => lease.status.needsTenantSignature,
-      orElse: () => ordered.firstWhere(
-        (lease) => lease.status.isCurrent,
-        orElse: () => ordered.first,
-      ),
-    );
+  /// A signature that is being waited on outranks a live tenancy — it is the
+  /// one thing on this screen the tenant can actually do something about — and
+  /// a live tenancy outranks the record of one that has ended. Within a rank
+  /// the most recent term leads.
+  static List<Lease> _ordered(List<Lease> leases) {
+    int rank(Lease lease) {
+      if (lease.status.needsTenantSignature) return 0;
+      if (lease.status.isCurrent) return 1;
+      return 2;
+    }
+
+    return [...leases]..sort((a, b) {
+      final byRank = rank(a).compareTo(rank(b));
+      return byRank != 0 ? byRank : b.startDate.compareTo(a.startDate);
+    });
   }
 
   static List<Widget> _actionsFor(BuildContext context, Lease lease) {

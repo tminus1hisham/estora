@@ -14,7 +14,6 @@ import '../../../navigation/routes.dart';
 import '../../payments/presentation/transactions_view.dart';
 import '../application/invoice_controller.dart';
 import 'widgets/invoice_filter_bar.dart';
-import 'widgets/invoice_focus_card.dart';
 import 'widgets/invoice_list.dart';
 
 /// The two panes of the invoices tab: what was billed, and what was paid.
@@ -70,7 +69,10 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // title: const Text('Invoices'),
+        // No title, so no toolbar: the theme's 64-unit bar was left standing
+        // empty above the tabs. The tab strip is the screen's header.
+        toolbarHeight: 5,
+        automaticallyImplyLeading: false,
         bottom: TabBar(
           controller: _panes,
           tabs: const [
@@ -93,12 +95,13 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen>
   }
 }
 
-/// The statement: the invoice that falls due next is lifted out of the list
-/// and given the figure at reading size, because that is the one a tenant
-/// opens this screen to find. A frosted filter strip pins under it.
-/// Everything below is the record — grouped by month, one surface per month,
-/// hairlines between the lines — which is how a statement is read and not how
-/// the old stack of shadowed cards read.
+/// The statement: a frosted filter strip pinned at the top, and under it the
+/// record grouped by month, which is how a statement is read.
+///
+/// There is no hero above the strip any more. It restated the invoice that
+/// falls due next — figure, due date, "Pay now" — and that invoice is already
+/// the first card in the list carrying the same figure and the same button, so
+/// the hero cost a screenful to say a thing the list was saying anyway.
 class _InvoicesPane extends ConsumerWidget {
   const _InvoicesPane({required this.onSeeTransactions});
 
@@ -174,17 +177,6 @@ class _Statement extends StatelessWidget {
         // down to refresh it.
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          SliverToBoxAdapter(
-            child: _Constrained(
-              padding: const EdgeInsets.fromLTRB(
-                Gap.lg,
-                Gap.xs,
-                Gap.lg,
-                Gap.lg,
-              ),
-              child: AppReveal(child: InvoiceFocusCard(invoices: all)),
-            ),
-          ),
           SliverPersistentHeader(
             pinned: true,
             delegate: InvoiceFilterHeader(
@@ -234,17 +226,16 @@ class _Statement extends StatelessWidget {
 
 /// Holds the statement to a reading width on a tablet.
 class _Constrained extends StatelessWidget {
-  const _Constrained({required this.child, this.padding = EdgeInsets.zero});
+  const _Constrained({required this.child});
 
   final Widget child;
-  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AppLayout.maxReadingWidth),
-        child: Padding(padding: padding, child: child),
+        child: child,
       ),
     );
   }

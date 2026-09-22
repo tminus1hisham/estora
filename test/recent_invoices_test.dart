@@ -112,7 +112,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Amount due'), findsOneWidget);
+    // The label and the due date share one rich-text line above the figure.
+    expect(
+      find.textContaining('Amount due', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('Partially paid'), findsOneWidget);
     expect(find.text('Pay now'), findsOneWidget);
     expect(

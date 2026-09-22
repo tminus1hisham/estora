@@ -292,7 +292,7 @@ void main() {
     }
   }
 
-  testWidgets('the statement opens on the invoice that falls due next', (
+  testWidgets('the statement lists every invoice under its month', (
     tester,
   ) async {
     viewport(tester, const Size(390, 844));
@@ -304,13 +304,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The overdue one, not the newest.
-    expect(find.text('PAST DUE'), findsOneWidget);
-    expect(find.text('INV-2026-0031'), findsWidgets);
-    // One on the focus card, and one under each of the two rows still owed;
-    // the paid one carries no action.
-    expect(find.text('Pay now'), findsNWidgets(3));
+    // Each invoice is drawn once, in the month it was issued in — the newest
+    // month first, so August heads the statement and the overdue July one
+    // follows it.
     expect(find.text('AUGUST 2026'), findsOneWidget);
+    expect(find.text('INV-2026-0042'), findsOneWidget);
+    expect(find.text('INV-2026-0031'), findsOneWidget);
+    // One under each of the two invoices still owed; the paid one carries no
+    // action.
+    expect(find.text('Pay now'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 
@@ -332,7 +334,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The row's own button, below the focus card's and under the fold.
+    // The second of the two buttons, on the overdue invoice further down.
     final rowButton = find.text('Pay now').last;
     await tester.scrollUntilVisible(
       rowButton,
@@ -355,7 +357,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('invoices with nothing outstanding show the settled card', (
+  testWidgets('a statement with nothing outstanding offers nothing to pay', (
     tester,
   ) async {
     viewport(tester, const Size(390, 844));
@@ -367,7 +369,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Nothing outstanding'), findsOneWidget);
+    // The settled invoice is still kept as a record, under its month, but a
+    // tenant who owes nothing is offered no way to pay.
+    expect(find.text('JUNE 2026'), findsOneWidget);
+    expect(find.text('INV-2026-0020'), findsOneWidget);
+    expect(find.text('Pay now'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -415,11 +421,15 @@ void main() {
 
     expect(find.text('Review and sign'), findsOneWidget);
     expect(find.text('Awaiting signature'), findsOneWidget);
-    expect(find.text('OTHER LEASES'), findsOneWidget);
+    // Every lease is drawn the same way, so the one that has ended states its
+    // own rent and term on a card of its own rather than as a list row.
+    expect(find.text('LSE-2027-0002'), findsOneWidget);
+    expect(find.text('LSE-2026-0007'), findsOneWidget);
+    expect(find.text('TERM'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a single lease shows no history section', (tester) async {
+  testWidgets('a single lease is the whole screen', (tester) async {
     viewport(tester, const Size(390, 844));
     await tester.pumpWidget(
       ProviderScope(
@@ -429,7 +439,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('PREVIOUS LEASES'), findsNothing);
     expect(find.text('Unit SHOP-101'), findsOneWidget);
     expect(find.text('TERM'), findsOneWidget);
     expect(tester.takeException(), isNull);
