@@ -9,6 +9,7 @@ import 'package:mall/domain/enums/domain_enums.dart';
 import 'package:mall/modules/bookings/presentation/booking_screen.dart';
 import 'package:mall/modules/bookings/presentation/bookings_screen.dart';
 import 'package:mall/modules/home/presentation/home_screen.dart';
+import 'package:mall/modules/profile/presentation/profile_screen.dart';
 import 'package:mall/modules/properties/presentation/properties_screen.dart';
 import 'package:mall/navigation/routes.dart';
 import 'package:mall/modules/units/presentation/property_spaces_screen.dart';
@@ -91,6 +92,29 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Opens Browse the way a tenant now has to.
+  ///
+  /// It is no longer a tab: the fifth slot went to Utilities, and browsing is
+  /// reached from the Profile section that replaced it. Going through that
+  /// section rather than pushing the route keeps this test honest about the
+  /// journey actually being reachable.
+  Future<void> openBrowse(WidgetTester tester) async {
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Available spaces'),
+      240,
+      scrollable: find
+          .descendant(
+            of: find.byType(ProfileScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(find.text('Available spaces'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('a tenant can sign in and see their tenancy', (tester) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(await buildApp());
@@ -112,9 +136,12 @@ void main() {
     await tester.pumpWidget(await buildApp());
     await signIn(tester);
 
-    await tester.tap(find.text('Browse'));
-    await tester.pumpAndSettle();
+    await openBrowse(tester);
     expect(find.byType(PropertiesScreen), findsOneWidget);
+
+    // Pushed over the shell rather than replacing a tab, so the bar the
+    // tenant left is still underneath and the back arrow is the way out.
+    expect(find.byType(NavigationBar), findsNothing);
 
     // Browse lists what the availability engine says can be booked, by
     // property; a card opens that property's spaces, read off the same
@@ -169,8 +196,7 @@ void main() {
       await tester.pumpWidget(await buildApp());
       await signIn(tester);
 
-      await tester.tap(find.text('Browse'));
-      await tester.pumpAndSettle();
+      await openBrowse(tester);
       await tester.tap(find.text('Sarit Mall').first);
       await tester.pumpAndSettle();
 

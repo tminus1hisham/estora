@@ -96,16 +96,12 @@ void main() {
   testWidgets('profile actions keep their destinations and animations settle', (
     tester,
   ) async {
-    // Transactions is a pane of the invoices tab, so the profile switches to
-    // it with the pane in the query rather than pushing a page.
+    // Everything the profile links to is pushed over the shell, so the tab
+    // the tenant came from is still underneath. Browse is here because it is
+    // no longer a tab; support is the row beneath it.
     final destinations = {
-      'My bookings': (route: Routes.bookings, query: '', pushed: true),
-      'Documents': (route: Routes.documents, query: '', pushed: true),
-      'Transactions': (
-        route: Routes.invoices,
-        query: '?${Routes.invoicesTabQuery}=${Routes.invoicesTransactionsTab}',
-        pushed: false,
-      ),
+      'Available spaces': (route: Routes.browse, query: '', pushed: true),
+      'Support tickets': (route: Routes.support, query: '', pushed: true),
       'Sign-in and security': (route: Routes.security, query: '', pushed: true),
       'Settings': (route: Routes.settings, query: '', pushed: true),
     };

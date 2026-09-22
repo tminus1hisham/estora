@@ -25,11 +25,16 @@ class PageEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final content = CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverFillRemaining(
-          hasScrollBody: false,
+    // Centred when the panel fits, scrolled when it does not. `SliverFillRemaining`
+    // did the centring but gave its child the viewport's height as a maximum,
+    // so at an accessibility text size the column ran past the bottom and
+    // overflowed rather than scrolling — on a screen whose whole job is to
+    // explain something calmly.
+    final content = LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 460),
@@ -90,7 +95,7 @@ class PageEmptyState extends StatelessWidget {
             ),
           ),
         ),
-      ],
+      ),
     );
     return onRefresh == null
         ? content

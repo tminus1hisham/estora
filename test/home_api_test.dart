@@ -77,13 +77,21 @@ void main() {
                   onRequest: (request, handler) {
                     paths.add(request.path);
                     final account = request.path == Endpoints.account;
-                    // The invoice route is keyed on the account's own id.
+                    // The statement is keyed on the tenant record, which the
+                    // directory joins to the account on `userId`.
+                    final tenants = request.path == Endpoints.tenants;
                     handler.resolve(
                       Response(
                         requestOptions: request,
-                        statusCode: account || status == 204 ? 200 : status,
+                        statusCode: account || tenants || status == 204
+                            ? 200
+                            : status,
                         data: account
                             ? {'id': 42, 'userId': 'user-42'}
+                            : tenants
+                            ? [
+                                {'id': 13, 'userId': 'user-42'},
+                              ]
                             : status == 204
                             ? []
                             : status == 403
@@ -219,7 +227,11 @@ void main() {
                 paths,
                 manager
                     ? containsAll([Endpoints.properties])
-                    : [Endpoints.account, Endpoints.tenantInvoices('42')],
+                    : [
+                        Endpoints.account,
+                        Endpoints.tenants,
+                        Endpoints.tenantInvoices('13'),
+                      ],
               );
               expect(tester.takeException(), isNull);
               if (desktop && scale == 1 && status == 200) {

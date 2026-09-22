@@ -285,7 +285,12 @@ void main() {
       final s = server(
         (path) => switch (path) {
           Endpoints.account => account,
-          '/payments/get/invoices/42' => [
+          // Account 42 signs in as tenant record 7; the statement is keyed
+          // on the record, not on the account.
+          Endpoints.tenants => [
+            {'id': 7, 'userId': 'user-guid', 'phoneNumber': '254718024761'},
+          ],
+          '/payments/get/invoices/7' => [
             invoice(
               100,
               propertyId: 1,
@@ -335,8 +340,9 @@ void main() {
       expect(payments.first.amount, Money.fromMajor(400, 'KES'));
       expect(payments.first.providerTransactionId, 'TX3');
       expect(payments.last.invoiceId, '100');
-      // Their statement, keyed on their own account id.
-      expect(s.paths, contains(Endpoints.tenantInvoices('42')));
+      // Their statement, keyed on their own tenant record.
+      expect(s.paths, contains(Endpoints.tenantInvoices('7')));
+      expect(s.paths, isNot(contains(Endpoints.tenantInvoices('42'))));
     });
 
     test(

@@ -112,7 +112,10 @@ final bookingRepositoryProvider = Provider<BookingRepository>(
 final leaseRepositoryProvider = Provider<LeaseRepository>(
   (ref) => AppConfig.demoData
       ? DemoLeaseRepository(ref.watch(demoFixturesProvider))
-      : RemoteLeaseRepository(ref.watch(apiClientProvider)),
+      : RemoteLeaseRepository(
+          ref.watch(apiClientProvider),
+          ref.watch(accountIdentityProvider),
+        ),
 );
 
 final invoiceRepositoryProvider = Provider<InvoiceRepository>(

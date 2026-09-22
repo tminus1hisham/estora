@@ -211,7 +211,10 @@ void main() {
         isFalse,
       );
       final unsupported = [
-        await RemoteLeaseRepository(api).getAgreement('lease-id'),
+        await RemoteLeaseRepository(
+          api,
+          AccountIdentity(api),
+        ).getAgreement('lease-id'),
         await RemoteBookingRepository(api).cancelBooking('booking-id'),
         await RemotePaymentRepository(
           api,

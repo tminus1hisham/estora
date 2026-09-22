@@ -14,13 +14,31 @@ import 'package:mall/storage/token_store.dart';
 /// The lease screen against the live contract.
 ///
 /// `Properties_GetLeaseAgreements` takes nothing and answers with the
-/// caller's leases. These pin down that the route is asked once and shown as
-/// given, that a lease is read as the contract carries it, and that the
-/// bare acknowledgement the route is typed as is not mistaken for a lease.
+/// caller's leases. These pin down that the route is asked once, that what
+/// comes back is narrowed to the account's *tenant record* rather than to
+/// the account's own id, that a lease is read as the contract carries it,
+/// and that the bare acknowledgement the route is typed as is not mistaken
+/// for a lease.
 void main() {
+  // The account signs in as user 42; the tenancy billed and leased is tenant
+  // record 7. The two numbers are deliberately different — a lease narrowed
+  // by the first would be the wrong tenant's.
+  const account = {
+    'id': 42,
+    'userId': 'user-guid',
+    'phoneNumber': '254710560190',
+    'userRole': 'Tenant',
+  };
+
+  const directory = [
+    {'id': 7, 'userId': 'user-guid', 'phoneNumber': '254710560190'},
+    {'id': 9, 'userId': 'other-guid', 'phoneNumber': '254700000000'},
+  ];
+
   Map<String, Object?> lease(
     int id, {
     Object status = 'Active',
+    int tenantId = 7,
     String start = '2026-03-01T00:00:00Z',
     String end = '2028-02-29T00:00:00Z',
   }) => {
@@ -28,7 +46,7 @@ void main() {
     'propertyId': 3,
     'blockId': 5,
     'unitId': 11,
-    'tenantId': 7,
+    'tenantId': tenantId,
     'leaseAgreementUrls': 'https://files.invalid/lease-$id.pdf',
     'status': status,
     'startDate': start,
@@ -47,9 +65,13 @@ void main() {
     'updatedAt': '2026-02-20T09:00:00Z',
   };
 
+  /// A server that answers the lease route with [answer], and the two routes
+  /// the tenancy is resolved through on the way to it.
   ({RemoteLeaseRepository leases, List<String> paths, Dio dio}) server(
-    Object answer,
-  ) {
+    Object answer, {
+    Map<String, Object?> account = account,
+    List<Map<String, Object?>> tenants = directory,
+  }) {
     final dio = Dio(
       BaseOptions(baseUrl: 'https://test.invalid', validateStatus: (_) => true),
     );
@@ -58,29 +80,40 @@ void main() {
       InterceptorsWrapper(
         onRequest: (request, handler) {
           paths.add(request.path);
+          final data = switch (request.path) {
+            Endpoints.account => account,
+            Endpoints.tenants => tenants,
+            Endpoints.allBookings => const <Object>[],
+            _ => answer,
+          };
           handler.resolve(
-            Response(requestOptions: request, statusCode: 200, data: answer),
+            Response(requestOptions: request, statusCode: 200, data: data),
           );
         },
       ),
     );
     final api = ApiClient(tokenStore: _Tokens(), dio: dio);
-    return (leases: RemoteLeaseRepository(api), paths: paths, dio: dio);
+    return (
+      leases: RemoteLeaseRepository(api, AccountIdentity(api)),
+      paths: paths,
+      dio: dio,
+    );
   }
 
-  test(
-    'the list is the lease agreements route, asked once and as is',
-    () async {
-      final s = server([lease(1), lease(2, status: 'Terminated')]);
-      addTearDown(s.dio.close);
+  test('the list is the lease agreements route, asked once', () async {
+    final s = server([lease(1), lease(2, status: 'Terminated')]);
+    addTearDown(s.dio.close);
 
-      final result = await s.leases.listLeases();
+    final result = await s.leases.listLeases();
 
-      expect(result, isA<Ok<Page<Lease>>>());
-      expect(result.valueOrNull!.items.map((l) => l.id), ['1', '2']);
-      expect(s.paths, [Endpoints.leaseAgreements]);
-    },
-  );
+    expect(result, isA<Ok<Page<Lease>>>());
+    expect(result.valueOrNull!.items.map((l) => l.id), ['1', '2']);
+    expect(s.paths, [
+      Endpoints.account,
+      Endpoints.tenants,
+      Endpoints.leaseAgreements,
+    ]);
+  });
 
   test('a status filter narrows the whole set client-side', () async {
     final s = server([lease(1), lease(2, status: 'Terminated')]);
@@ -89,7 +122,48 @@ void main() {
     final result = await s.leases.listLeases(status: LeaseStatus.terminated);
 
     expect(result.valueOrNull!.items.single.id, '2');
-    expect(s.paths, [Endpoints.leaseAgreements]);
+    expect(s.paths, contains(Endpoints.leaseAgreements));
+  });
+
+  group('whose leases they are', () {
+    test("is the account's tenant record, not the account's id", () async {
+      final s = server([
+        lease(1),
+        lease(2, tenantId: 9),
+        lease(3, tenantId: 42),
+      ]);
+      addTearDown(s.dio.close);
+
+      final result = await s.leases.listLeases();
+
+      // Tenant record 7 is this account's; 9 is somebody else's, and 42 is
+      // the account's own id wearing a tenant's number.
+      expect(result.valueOrNull!.items.map((l) => l.id), ['1']);
+    });
+
+    test("one lease of another tenant's is not found", () async {
+      final s = server([lease(1), lease(2, tenantId: 9)]);
+      addTearDown(s.dio.close);
+
+      expect(
+        (await s.leases.getLease('2')).failureOrNull,
+        isA<NotFoundFailure>(),
+      );
+    });
+
+    test('is left to the server when the account has no tenancy', () async {
+      // A manager reads the same route on another footing: the directory
+      // names no record of theirs, so the list stands as the server sent it.
+      final s = server(
+        [lease(1), lease(2, tenantId: 9)],
+        account: {'id': 42, 'userId': 'manager-guid'},
+      );
+      addTearDown(s.dio.close);
+
+      final result = await s.leases.listLeases();
+
+      expect(result.valueOrNull!.items.map((l) => l.id), ['1', '2']);
+    });
   });
 
   test('one lease is picked out of the list; a miss is not-found', () async {

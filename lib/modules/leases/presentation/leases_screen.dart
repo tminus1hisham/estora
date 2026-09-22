@@ -75,7 +75,7 @@ class _LeaseBody extends ConsumerWidget {
             'Find a space for your business. Once your booking is ready, your lease will appear here to review and sign.',
         onRefresh: refresh,
         action: FilledButton.icon(
-          onPressed: () => context.goNamed(Routes.browse),
+          onPressed: () => context.pushNamed(Routes.browse),
           icon: const Icon(Icons.search_rounded),
           label: const Text('Browse available units'),
         ),
@@ -146,26 +146,22 @@ class _LeaseBody extends ConsumerWidget {
 
     if (lease.status.needsTenantSignature) {
       return [
-        OnDarkAction(
+        SurfaceAction(
           label: 'Review and sign',
           icon: Icons.draw_outlined,
-          style: OnDarkActionStyle.primary,
+          primary: true,
           onPressed: () => context.pushNamed(
             Routes.signAgreement,
             pathParameters: {'leaseId': lease.id},
           ),
         ),
-        OnDarkAction(label: 'Lease details', onPressed: openDetail),
+        SurfaceAction(label: 'Lease details', onPressed: openDetail),
       ];
     }
 
     return [
-      OnDarkAction(
-        label: 'Lease details',
-        style: OnDarkActionStyle.tonal,
-        onPressed: openDetail,
-      ),
-      OnDarkAction(
+      SurfaceAction(label: 'Lease details', onPressed: openDetail),
+      SurfaceAction(
         label: 'Agreement',
         onPressed: () => context.pushNamed(
           Routes.leaseAgreement,

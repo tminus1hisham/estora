@@ -474,6 +474,72 @@ class OnDarkAction extends StatelessWidget {
   }
 }
 
+/// An action on a themed surface — the light sibling of [OnDarkAction].
+///
+/// On glass a secondary action is a pane of the same material rather than an
+/// outlined control: a hairline box over a whisper of fill, so the actions read
+/// as part of the card instead of as buttons dropped onto it.
+class SurfaceAction extends StatelessWidget {
+  const SurfaceAction({
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.primary = false,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final IconData? icon;
+
+  /// The one action the card was built to offer. Everything else is a pane.
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // A label that has been ellipsised still says which button it is; one that
+    // has overflowed says nothing and paints a stripe over the card.
+    final text = Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
+
+    if (primary) {
+      final buttonStyle = FilledButton.styleFrom(
+        minimumSize: const Size.fromHeight(AppLayout.controlHeight),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg),
+      );
+
+      return icon == null
+          ? FilledButton(onPressed: onPressed, style: buttonStyle, child: text)
+          : FilledButton.icon(
+              onPressed: onPressed,
+              style: buttonStyle,
+              icon: Icon(icon, size: 20),
+              label: text,
+            );
+    }
+
+    final buttonStyle = TextButton.styleFrom(
+      foregroundColor: scheme.onSurface,
+      backgroundColor: scheme.onSurface.withValues(alpha: 0.04),
+      minimumSize: const Size.fromHeight(AppLayout.controlHeight),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.small,
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+    );
+
+    return icon == null
+        ? TextButton(onPressed: onPressed, style: buttonStyle, child: text)
+        : TextButton.icon(
+            onPressed: onPressed,
+            style: buttonStyle,
+            icon: Icon(icon, size: 20),
+            label: text,
+          );
+  }
+}
+
 /// A card's actions, side by side while each still has room to say what it is.
 ///
 /// The alternative — splitting the width evenly and letting the labels fall

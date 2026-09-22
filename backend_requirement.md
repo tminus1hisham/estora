@@ -31,13 +31,27 @@ provide the complete booking and payment-tracking models used by the screens.
 A successful request must not be treated as proof of a confirmed booking or
 settled payment.
 
-## Invoices are keyed on the account's id
+## Invoices and leases are keyed on the tenant record, not the account
 
-`GET /payments/get/invoices/{tenantId}` is called with the signed-in account's
-own `id` — the one the sign-in response and `/auth/get/account` carry. The app
-reads it off the account and asks for nothing else; if the account payload ever
-names a `tenantId` outright, that is used instead. An account payload with
-neither shows an empty statement rather than an error.
+`GET /payments/get/invoices/{tenantId}` means `Tenant.id`, not `MallUsers.id`.
+The two records are separate and joined on `userId`, so the account's own `id`
+reads whichever tenancy happens to wear that number, or none.
+
+The app resolves the tenant record once per session and caches it:
+
+1. a `tenantId` the account payload names outright;
+2. the record in `GET /properties/get/all/tenants` whose `userId` matches the
+   account's — failing that, whose phone number does;
+3. the `tenantId` on a booking from `GET /payments/get/all/bookings` made with
+   the account's own number, for a token the directory is closed to.
+
+Steps 2 and 3 are probes: a route that refuses hands the question to the next
+one rather than failing the statement. An account none of them names has no
+tenancy, and shows an empty statement rather than an error.
+
+`GET /properties/get/lease/agreements` takes no parameter, so the same
+resolved id narrows the leases it answers with. An account with no tenant
+record — a manager, an owner — is shown the list as the server sent it.
 
 ## Token renewal happens before expiry
 

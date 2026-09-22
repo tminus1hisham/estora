@@ -132,7 +132,7 @@ class RecentPaymentsCard extends StatelessWidget {
   };
 }
 
-/// Shown to a tenant with no lease yet, pointing them at the browse tab.
+/// Shown to a tenant with no lease yet, pointing them at Browse.
 class NoTenancyCard extends StatelessWidget {
   const NoTenancyCard({super.key});
 
@@ -170,7 +170,7 @@ class NoTenancyCard extends StatelessWidget {
           // only thing on the screen worth doing, and the stone tonal fill
           // reads as a secondary action beside the balance card above it.
           FilledButton.icon(
-            onPressed: () => context.goNamed(Routes.browse),
+            onPressed: () => context.pushNamed(Routes.browse),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(AppLayout.controlHeight),
             ),

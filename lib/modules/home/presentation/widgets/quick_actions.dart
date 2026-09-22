@@ -35,19 +35,20 @@ class QuickActions extends StatelessWidget {
               label: 'Documents',
               route: Routes.documents,
             ),
+            // Support rather than the lease: the lease already has a tab a
+            // tap away, and a tenant on the home screen looking for a
+            // shortcut is usually looking for something that has gone wrong.
             _Action(
-              icon: Icons.description_rounded,
-              label: 'My lease',
-              route: Routes.lease,
-              tab: true,
+              icon: Icons.support_agent_rounded,
+              label: 'Support',
+              route: Routes.support,
             ),
           ]
         : const [
             _Action(
-              icon: Icons.search_rounded,
-              label: 'Browse',
-              route: Routes.browse,
-              tab: true,
+              icon: Icons.support_agent_rounded,
+              label: 'Support',
+              route: Routes.support,
             ),
             _Action(
               icon: Icons.event_available_rounded,
@@ -114,6 +115,8 @@ class _Action {
   final Map<String, String> query;
 
   /// Set for the shell's own tabs, which are switched to rather than pushed.
+  /// Everything else — Support, Documents, Bookings — is pushed over the
+  /// shell, so the tab the tenant was on is still there behind it.
   final bool tab;
 }
 

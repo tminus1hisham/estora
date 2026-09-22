@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../components/amount_text.dart';
 import '../../../../components/app_glass.dart';
-import '../../../../components/app_surface_card.dart';
+import '../../../../components/status_chip.dart';
 import '../../../../components/surface_atoms.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/status_palette.dart';
@@ -10,7 +10,7 @@ import '../../../../core/utils/date_format.dart';
 import '../../../../domain/entities/lease.dart';
 import 'lease_facts.dart';
 
-/// The tenancy itself, on the brand surface.
+/// The tenancy itself, on glass.
 ///
 /// A lease is a period of time and a monthly figure, and the old card said both
 /// in small print at the bottom of a list item. Here the term is drawn — a bar
@@ -18,10 +18,17 @@ import 'lease_facts.dart';
 /// two questions a tenant actually has ("how long have I got", "what am I
 /// paying") are answered before anything is tapped.
 ///
-/// The card is drawn to a tight rhythm on purpose. A tenant can hold more than
-/// one lease — section 54 makes a renewal a new record rather than an edit of
-/// the old one — so this surface has to state the tenancy without taking the
-/// whole viewport and pushing the rest of the record below the fold.
+/// The card used to be a slab of navy. One of those is a statement; a column of
+/// them is a wall, and a tenant of any standing has a column, because section
+/// 54 makes every renewal a new record rather than an edit of the old one. So
+/// the surface is now a pane of glass over its own light, and it is the light
+/// that changes from card to card: the term's tone under the top corner, warm
+/// under the bottom. The text comes from the colour scheme like everything
+/// else on the screen, which is what lets the same card work in both themes.
+///
+/// The card is also drawn to a tight rhythm on purpose — it has to state the
+/// tenancy without taking the whole viewport and pushing the next lease out of
+/// sight.
 class LeaseHeroCard extends StatelessWidget {
   const LeaseHeroCard({
     required this.lease,
@@ -52,120 +59,78 @@ class LeaseHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tone = leaseTermTone(lease);
-    final toneColor = StatusColors.dark.resolve(tone);
+    final scheme = theme.colorScheme;
+    final toneColor = context.statusColors.resolve(leaseTermTone(lease));
 
-    return AppSurfaceCard(
-      gradient: AppGradients.brandHero,
-      borderColor: Colors.transparent,
-      padding: EdgeInsets.zero,
-      shadows: AppElevation.lifted(
-        AppPalette.navy950,
-        level: 3,
-        brightness: theme.brightness,
-      ),
-      child: Stack(
+    return GlassCard(
+      tone: toneColor,
+      padding: const EdgeInsets.all(Gap.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            top: -70,
-            right: -60,
-            child: SoftGlow(
-              color: toneColor.withValues(alpha: 0.26),
-              size: 190,
-            ),
-          ),
-          Positioned(
-            bottom: -100,
-            left: -80,
-            child: SoftGlow(
-              color: AppPalette.brass500.withValues(alpha: 0.12),
-              size: 215,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(Gap.lg),
+          BadgedHeader(
+            badge: StatusChip(label: lease.status.label, tone: lease.status.tone),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                BadgedHeader(
-                  badge: TonePill(
-                    label: lease.status.label,
-                    tone: lease.status.tone,
+                if (showLeaseNumber) ...[
+                  Text(
+                    lease.leaseNumber.toUpperCase(),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (showLeaseNumber) ...[
-                        Text(
-                          lease.leaseNumber.toUpperCase(),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: kOnDark.withValues(alpha: 0.62),
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        Gap.h4,
-                      ],
-                      Text(
-                        'Unit ${lease.unitNumber ?? '—'}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: kOnDark,
-                          fontWeight: AppTypography.semibold,
-                        ),
-                      ),
-                      if ((lease.propertyName ?? '').isNotEmpty) ...[
-                        Gap.h4,
-                        Text(
-                          lease.propertyName!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: kOnDark.withValues(alpha: 0.66),
-                          ),
-                        ),
-                      ],
-                    ],
+                  Gap.h4,
+                ],
+                Text(
+                  'Unit ${lease.unitNumber ?? '—'}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: AppTypography.semibold,
                   ),
                 ),
-                Gap.h16,
-                GlassSurface(
-                  onDark: true,
-                  padding: const EdgeInsets.all(Gap.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      StatRow(
-                        onDark: true,
-                        left: Stat(
-                          'Monthly rent',
-                          builder: (context, align) => AmountText(
-                            lease.monthlyRent,
-                            scale: AmountScale.title,
-                            color: kOnDark,
-                            align: align,
-                          ),
-                        ),
-                        right: Stat(
-                          'Rent due',
-                          value:
-                              '${ordinalDay(lease.paymentDueDay)} of the month',
-                        ),
-                      ),
-                      Gap.h12,
-                      const Hairline(onDark: true, alpha: 0.12),
-                      Gap.h12,
-                      _Term(lease: lease, color: toneColor),
-                    ],
+                if ((lease.propertyName ?? '').isNotEmpty) ...[
+                  Gap.h4,
+                  Text(
+                    lease.propertyName!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                if (actions.isNotEmpty) ...[
-                  Gap.h16,
-                  // One row. Two short labels fit across a phone, and a row
-                  // costs the card one control height where a stack costs it
-                  // two — which is the difference between a tenant seeing the
-                  // rest of their record and scrolling for it.
-                  ActionRow(actions: actions, minWidth: actionMinWidth),
                 ],
               ],
             ),
           ),
+          Gap.h16,
+          // No inset panel. The pane is already a separate material from the
+          // page, and a second one inside it is a second blurred layer to
+          // composite for a border the hairline below draws for free.
+          StatRow(
+            left: Stat(
+              'Monthly rent',
+              builder: (context, align) => AmountText(
+                lease.monthlyRent,
+                scale: AmountScale.title,
+                align: align,
+              ),
+            ),
+            right: Stat(
+              'Rent due',
+              value: '${ordinalDay(lease.paymentDueDay)} of the month',
+            ),
+          ),
+          Gap.h12,
+          const Hairline(alpha: 0.5),
+          Gap.h12,
+          _Term(lease: lease, color: toneColor),
+          if (actions.isNotEmpty) ...[
+            Gap.h16,
+            // One row. Two short labels fit across a phone, and a row costs the
+            // card one control height where a stack costs it two — which is
+            // the difference between a tenant seeing the next lease and
+            // scrolling for it.
+            ActionRow(actions: actions, minWidth: actionMinWidth),
+          ],
         ],
       ),
     );
@@ -182,7 +147,7 @@ class _Term extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final muted = kOnDark.withValues(alpha: 0.62);
+    final muted = theme.colorScheme.onSurfaceVariant;
     final stacked = prefersStacked(context);
 
     final label = Text(
@@ -219,11 +184,7 @@ class _Term extends StatelessWidget {
             ],
           ),
         Gap.h8,
-        LinearMeter(
-          value: leaseTermProgress(lease),
-          color: color,
-          trackColor: kOnDark.withValues(alpha: 0.16),
-        ),
+        LinearMeter(value: leaseTermProgress(lease), color: color),
         Gap.h8,
         // The two dates used to label the ends of the bar from opposite sides
         // of the card. On a card this tight that row was mostly gap, so the

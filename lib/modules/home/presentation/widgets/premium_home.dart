@@ -186,7 +186,7 @@ class HomeActionPanel extends StatelessWidget {
               ),
               if (!manager)
                 OutlinedButton.icon(
-                  onPressed: () => context.goNamed(Routes.browse),
+                  onPressed: () => context.pushNamed(Routes.browse),
                   icon: const Icon(Icons.explore_outlined),
                   label: const Text('Browse properties'),
                 ),
@@ -250,7 +250,7 @@ class HomeWelcomeCard extends StatelessWidget {
           TextButton.icon(
             onPressed: () => manager
                 ? context.goNamed(Routes.ownerProperties)
-                : context.goNamed(Routes.browse),
+                : context.pushNamed(Routes.browse),
             icon: const Icon(Icons.arrow_forward_rounded),
             label: Text(manager ? 'Open your portfolio' : 'Explore spaces'),
           ),

@@ -14,7 +14,11 @@ import '../../../domain/entities/unit.dart';
 import '../../../navigation/routes.dart';
 import '../../units/application/unit_controller.dart';
 
-/// Section 77's Browse screen — the root of the Browse tab.
+/// Section 77's Browse screen — the root of the browsing journey.
+///
+/// Reached from Profile's 'Browse more properties' and from the home screen,
+/// pushed over the tab bar rather than replacing it. A link that lands here
+/// directly has nothing to go back to, so the app bar offers home instead.
 ///
 /// Lists what the availability engine says can be booked right now
 /// (`GET /properties/available/units/to/book`): every block with stock and
@@ -54,7 +58,18 @@ class _PropertiesScreenState extends ConsumerState<PropertiesScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Browse spaces')),
+      appBar: AppBar(
+        title: const Text('Browse spaces'),
+        // Navigator's own answer rather than go_router's: this screen is also
+        // built directly in widget tests, where there is no router to ask.
+        leading: Navigator.of(context).canPop()
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.home_outlined),
+                tooltip: 'Home',
+                onPressed: () => context.goNamed(Routes.home),
+              ),
+      ),
       body: Column(
         children: [
           const Padding(

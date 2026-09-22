@@ -126,8 +126,6 @@ void main() {
         .firstWhere((route) => _hasRouteNamed(route.routes, Routes.home));
 
     for (final name in const [
-      Routes.booking,
-      Routes.bookingStatus,
       Routes.payment,
       Routes.paymentStatus,
       Routes.receipt,
@@ -141,9 +139,40 @@ void main() {
       );
     }
 
-    // Detail and browsing pages remain in their branch so tab state survives.
+    // Browse and support are not in the shell at all — they are declared
+    // beside it, on the root navigator, and pushed over it. Booking came with
+    // Browse when it left, and never needed a key of its own again.
+    for (final name in const [
+      Routes.browse,
+      Routes.booking,
+      Routes.bookingStatus,
+      Routes.enquiry,
+      Routes.support,
+      Routes.newTicket,
+      Routes.ticketDetail,
+    ]) {
+      expect(
+        _hasRouteNamed(shell.routes, name),
+        isFalse,
+        reason: '$name must be declared outside the tab shell',
+      );
+      expect(
+        _hasRouteNamed(router.configuration.routes, name),
+        isTrue,
+        reason: '$name must still be reachable from the root',
+      );
+    }
+
+    // Detail pages remain in their branch so tab state survives.
     expect(
       _routeNamed(shell.routes, Routes.invoiceDetail).parentNavigatorKey,
+      isNull,
+    );
+
+    // Utilities took the tab Browse gave up, so its own pages stay in-branch.
+    expect(_hasRouteNamed(shell.routes, Routes.utilities), isTrue);
+    expect(
+      _routeNamed(shell.routes, Routes.utilityDetail).parentNavigatorKey,
       isNull,
     );
   });

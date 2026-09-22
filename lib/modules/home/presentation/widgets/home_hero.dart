@@ -319,7 +319,7 @@ class _BrowseStrip extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return _GlassPanel(
-      onTap: () => context.goNamed(Routes.browse),
+      onTap: () => context.pushNamed(Routes.browse),
       child: Row(
         children: [
           const ToneIconTile(

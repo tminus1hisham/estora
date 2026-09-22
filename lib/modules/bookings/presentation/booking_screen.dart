@@ -203,7 +203,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                 'Nothing is left to book in this block. Pull down to check '
                 'again, or choose another space.',
             action: FilledButton.tonal(
-              onPressed: () => context.goNamed(Routes.browse),
+              onPressed: () => context.pushNamed(Routes.browse),
               child: const Text('Back to browse'),
             ),
           ),

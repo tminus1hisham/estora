@@ -108,6 +108,30 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ],
     );
+    // Browse lost its tab to Utilities, so this is the way back to it for a
+    // tenant who is already settled — and the place a tenant who is not yet
+    // settled looks first. Support sits directly beneath it: both are things
+    // the tenant reaches outside their own tenancy.
+    final beyond = _Panel(
+      title: 'Browse more properties',
+      subtitle: 'Room to grow, and a hand when you need one.',
+      children: [
+        _AccountLink(
+          icon: Icons.storefront_outlined,
+          title: 'Available spaces',
+          subtitle: 'Every space you can book today',
+          route: Routes.browse,
+        ),
+        const Divider(height: 16),
+        _AccountLink(
+          icon: Icons.support_agent_rounded,
+          title: 'Support tickets',
+          subtitle: 'Raise an issue and follow it through',
+          route: Routes.support,
+        ),
+      ],
+    );
+
     final preferences = _Panel(
       title: 'Make it yours',
       subtitle: 'Your account, your preferences.',
@@ -182,7 +206,15 @@ class ProfileScreen extends ConsumerWidget {
                               Gap.w16,
                               Expanded(
                                 flex: 2,
-                                child: AppReveal(index: 3, child: preferences),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    AppReveal(index: 3, child: beyond),
+                                    Gap.h16,
+                                    AppReveal(index: 4, child: preferences),
+                                  ],
+                                ),
                               ),
                             ],
                           );
@@ -192,7 +224,9 @@ class ProfileScreen extends ConsumerWidget {
                           children: [
                             AppReveal(index: 2, child: details),
                             Gap.h16,
-                            AppReveal(index: 3, child: preferences),
+                            AppReveal(index: 3, child: beyond),
+                            Gap.h16,
+                            AppReveal(index: 4, child: preferences),
                           ],
                         );
                       },

@@ -7,18 +7,21 @@ import 'adaptive_app_frame.dart';
 ///
 /// Section 45 lists eight destinations — Home, My Lease, Invoices, Payments,
 /// Documents, Property, Notifications, Profile — which is more than a bottom
-/// bar can carry legibly. All eight are still reachable; the four that are not
+/// bar can carry legibly. All eight are still reachable; the ones that are not
 /// tabs live elsewhere:
 ///
 /// * Notifications — the bell in the home app bar
-/// * Property — from the home tenancy card, and the Browse tab
+/// * Property — from the home tenancy card
 /// * Payments — the Transactions pane of the Invoices tab
 /// * Documents — from Profile, and the home quick actions
+/// * Browse — 'Browse more properties' in Profile, and the home hero
+/// * Support — a home quick action, and a Profile row
 ///
-/// Browse is a tab because section 77's Main group (Properties, Available
-/// Units, Unit Details, Booking) is the whole pre-tenancy journey and needs a
-/// top-level way in. Bookings are a profile row: a booking is a hold that
-/// becomes the lease, and the lease is what the tenant lives with.
+/// The fifth slot holds Utilities rather than Browse. Browsing is a journey a
+/// tenant makes once, before there is a tenancy; water and electricity are
+/// read every month for as long as the tenancy lasts, which is what a tab is
+/// for. Bookings are a profile row for the same reason: a booking is a hold
+/// that becomes the lease, and the lease is what the tenant lives with.
 class AppShell extends StatelessWidget {
   const AppShell({required this.navigationShell, super.key});
 
@@ -31,9 +34,9 @@ class AppShell extends StatelessWidget {
       label: 'Home',
     ),
     NavigationDestination(
-      icon: Icon(Icons.search_outlined),
-      selectedIcon: Icon(Icons.search_rounded),
-      label: 'Browse',
+      icon: Icon(Icons.bolt_outlined),
+      selectedIcon: Icon(Icons.bolt_rounded),
+      label: 'Utilities',
     ),
     NavigationDestination(
       icon: Icon(Icons.description_outlined),

@@ -31,8 +31,18 @@ class Routes {
   static const home = 'home';
   static const homePath = '/home';
 
-  static const browse = 'browse';
-  static const browsePath = '/browse';
+  /// Utilities: water and electricity for the space the tenant occupies.
+  ///
+  /// A tab rather than a profile row because it is read monthly, like the
+  /// bills it sits beside, and because the meter readings on it are the one
+  /// number a tenant is asked to supply rather than only read.
+  static const utilities = 'utilities';
+  static const utilitiesPath = '/utilities';
+
+  /// One utility's own page. The segment is a [UtilityKind] slug — `water` or
+  /// `electricity` — so a link says which meter it opens.
+  static const utilityDetail = 'utility-detail';
+  static const utilityDetailPath = ':kind';
 
   static const lease = 'lease';
   static const leasePath = '/lease';
@@ -159,7 +169,16 @@ class Routes {
   static const accessRole = 'access-role';
   static const accessRolePath = 'roles/:roleName';
 
-  // -- Browse sub-routes ----------------------------------------------------
+  // -- Browse (section 77's Main group) --------------------------------------
+  //
+  // No longer a tab. The pre-tenancy journey is something a tenant goes on
+  // occasionally and comes back from, not somewhere they live, so it is
+  // pushed over the shell from Profile and from Home — like booking and the
+  // enquiry already were — and arrives with a back arrow rather than a tab
+  // bar competing with it. The tab slot it held went to [utilities].
+  static const browse = 'browse';
+  static const browsePath = '/browse';
+
   static const propertyDetail = 'property-detail';
   static const propertyDetailPath = 'property/:propertyId';
 
@@ -245,6 +264,24 @@ class Routes {
 
   static const deferInvoice = 'defer-invoice';
   static const deferInvoicePath = ':invoiceId/defer';
+
+  // -- Support ---------------------------------------------------------------
+  //
+  // Raising and following up an issue. Reached from the home quick actions
+  // and from Profile, so it is pushed over the shell rather than owned by
+  // either tab: both ways in leave the tenant where they were.
+  //
+  // `/support/new` is declared before `/support/:reference` in the router for
+  // the usual reason — the shorter pattern would otherwise read `new` as a
+  // ticket reference.
+  static const support = 'support';
+  static const supportPath = '/support';
+
+  static const newTicket = 'new-ticket';
+  static const newTicketPath = 'new';
+
+  static const ticketDetail = 'ticket-detail';
+  static const ticketDetailPath = ':reference';
 
   // -- Reachable from the home tab ------------------------------------------
   static const notifications = 'notifications';

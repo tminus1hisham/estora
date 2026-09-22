@@ -57,11 +57,16 @@ import '../modules/structure/presentation/block_form_screen.dart';
 import '../modules/structure/presentation/block_screen.dart';
 import '../modules/structure/presentation/blocks_screen.dart';
 import '../modules/structure/presentation/unit_form_screen.dart';
+import '../modules/support/presentation/new_ticket_screen.dart';
+import '../modules/support/presentation/support_tickets_screen.dart';
+import '../modules/support/presentation/ticket_detail_screen.dart';
 import '../modules/treasury/presentation/bank_payment_edit_screen.dart';
 import '../modules/treasury/presentation/bank_payments_screen.dart';
 import '../modules/treasury/presentation/mpesa_transactions_screen.dart';
 import '../modules/units/presentation/property_spaces_screen.dart';
 import '../modules/units/presentation/unit_detail_screen.dart';
+import '../modules/utilities/presentation/utilities_screen.dart';
+import '../modules/utilities/presentation/utility_detail_screen.dart';
 import 'app_shell.dart';
 import 'owner_shell.dart';
 import 'page_transitions.dart';
@@ -221,6 +226,121 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) =>
             lateralPage(state: state, child: const SecurityScreen()),
       ),
+      // -- Browse ------------------------------------------------------------
+      //
+      // The pre-tenancy journey from section 77's Main group, on the root
+      // navigator rather than in a tab. Browsing is an errand a tenant goes
+      // on and comes back from, so it is pushed over the shell from Profile
+      // and Home and dismissed with a back arrow; the booking and enquiry
+      // screens below were already presented this way for the same reason,
+      // and no longer need to say so themselves.
+      //
+      // Reach it with `pushNamed`. Going to it would replace the shell
+      // instead of covering it, and leave nothing to come back to.
+      GoRoute(
+        path: Routes.browsePath,
+        name: Routes.browse,
+        pageBuilder: (_, state) =>
+            lateralPage(state: state, child: const PropertiesScreen()),
+        routes: [
+          GoRoute(
+            path: Routes.propertyDetailPath,
+            name: Routes.propertyDetail,
+            pageBuilder: (_, state) => lateralPage(
+              state: state,
+              child: PropertyDetailScreen(
+                propertyId: state.pathParameters['propertyId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: Routes.enquiryPath,
+            name: Routes.enquiry,
+            pageBuilder: (_, state) => lateralPage(
+              state: state,
+              child: EnquiryScreen(
+                propertyId: state.pathParameters['propertyId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: Routes.availableUnitsPath,
+            name: Routes.availableUnits,
+            pageBuilder: (_, state) => lateralPage(
+              state: state,
+              child: PropertySpacesScreen(
+                propertyId: state.pathParameters['propertyId']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: Routes.unitDetailPath,
+            name: Routes.unitDetail,
+            pageBuilder: (_, state) => lateralPage(
+              state: state,
+              child: UnitDetailScreen(unitId: state.pathParameters['unitId']!),
+            ),
+          ),
+          GoRoute(
+            path: Routes.bookingPath,
+            name: Routes.booking,
+            pageBuilder: (_, state) => lateralPage(
+              state: state,
+              child: BookingScreen(
+                target: SpaceTarget(
+                  propertyId: state.pathParameters['propertyId']!,
+                  blockId: state.pathParameters['blockId']!,
+                  size: double.tryParse(
+                    state.uri.queryParameters[Routes.bookingSizeQuery] ?? '',
+                  ),
+                ),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: Routes.bookingStatusPath,
+            name: Routes.bookingStatus,
+            pageBuilder: (_, state) => lateralPage(
+              state: state,
+              child: BookingStatusScreen(
+                bookingId: state.pathParameters['bookingId']!,
+              ),
+            ),
+          ),
+        ],
+      ),
+
+      // -- Support -----------------------------------------------------------
+      //
+      // Raising a ticket and following it. Pushed over the shell for the same
+      // reason as Browse: Home and Profile both link here, and neither should
+      // lose its place. `new` is declared before `:reference` so the ticket
+      // pattern does not swallow it.
+      GoRoute(
+        path: Routes.supportPath,
+        name: Routes.support,
+        pageBuilder: (_, state) =>
+            lateralPage(state: state, child: const SupportTicketsScreen()),
+        routes: [
+          GoRoute(
+            path: Routes.newTicketPath,
+            name: Routes.newTicket,
+            pageBuilder: (_, state) =>
+                lateralPage(state: state, child: const NewTicketScreen()),
+          ),
+          GoRoute(
+            path: Routes.ticketDetailPath,
+            name: Routes.ticketDetail,
+            pageBuilder: (_, state) => lateralPage(
+              state: state,
+              child: TicketDetailScreen(
+                reference: state.pathParameters['reference']!,
+              ),
+            ),
+          ),
+        ],
+      ),
+
       // -- Main shell (section 45) ------------------------------------------
       StatefulShellRoute.indexedStack(
         builder: (_, _, navigationShell) =>
@@ -257,88 +377,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Browse: the pre-tenancy journey from section 77's Main group.
+          // Utilities
+          //
+          // Water and electricity for the space the tenant holds. It took the
+          // tab Browse used to have: a tenant with a lease reads this every
+          // month, where browsing is something they did once.
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: Routes.browsePath,
-                name: Routes.browse,
-                builder: (_, _) => const PropertiesScreen(),
+                path: Routes.utilitiesPath,
+                name: Routes.utilities,
+                builder: (_, _) => const UtilitiesScreen(),
                 routes: [
                   GoRoute(
-                    path: Routes.propertyDetailPath,
-                    name: Routes.propertyDetail,
+                    path: Routes.utilityDetailPath,
+                    name: Routes.utilityDetail,
                     pageBuilder: (_, state) => lateralPage(
                       state: state,
-                      child: PropertyDetailScreen(
-                        propertyId: state.pathParameters['propertyId']!,
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.enquiryPath,
-                    name: Routes.enquiry,
-                    // A focused form with its own persistent action bar, like
-                    // booking: presented above the shell so the tab bar
-                    // cannot compete with that action.
-                    parentNavigatorKey: _rootNavigatorKey,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: EnquiryScreen(
-                        propertyId: state.pathParameters['propertyId']!,
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.availableUnitsPath,
-                    name: Routes.availableUnits,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: PropertySpacesScreen(
-                        propertyId: state.pathParameters['propertyId']!,
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.unitDetailPath,
-                    name: Routes.unitDetail,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: UnitDetailScreen(
-                        unitId: state.pathParameters['unitId']!,
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.bookingPath,
-                    name: Routes.booking,
-                    // Booking is a focused transaction with its own persistent
-                    // action bar. Present it above the shell so the tab bar
-                    // cannot compete with that action.
-                    parentNavigatorKey: _rootNavigatorKey,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: BookingScreen(
-                        target: SpaceTarget(
-                          propertyId: state.pathParameters['propertyId']!,
-                          blockId: state.pathParameters['blockId']!,
-                          size: double.tryParse(
-                            state.uri.queryParameters[Routes
-                                    .bookingSizeQuery] ??
-                                '',
-                          ),
+                      child: UtilityDetailScreen(
+                        kind: UtilityKind.fromSlug(
+                          state.pathParameters['kind'],
                         ),
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.bookingStatusPath,
-                    name: Routes.bookingStatus,
-                    parentNavigatorKey: _rootNavigatorKey,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: BookingStatusScreen(
-                        bookingId: state.pathParameters['bookingId']!,
                       ),
                     ),
                   ),

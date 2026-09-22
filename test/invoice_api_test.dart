@@ -14,11 +14,13 @@ import 'package:mall/storage/token_store.dart';
 
 /// The invoices screen against the published contract.
 ///
-/// The invoice route (`Payments_getInvoices`) is keyed on the signed-in
-/// account's own id. These pin down that the id is read off the account and
-/// nothing else, what the app does when the account carries none, and that
-/// the server's own spelling of a status is understood.
+/// The invoice route (`Payments_getInvoices`) is keyed on the tenant
+/// record's id — `Tenant.id`, joined to the account on `userId` — and not on
+/// the account's own. These pin down which id is sent, where it is looked
+/// up, what the app does for an account with no tenancy, and that the
+/// server's own spelling of a status is understood.
 void main() {
+  // Account 42 signs in; the tenancy it is billed as is tenant record 13.
   const account = {
     'id': 42,
     'userId': 'user-guid',
@@ -26,6 +28,23 @@ void main() {
     'phoneNumber': '254718024761',
     'userRole': 'Tenant',
   };
+
+  /// The tenant directory, as the live server serves it.
+  const directory = [
+    {
+      'id': 9,
+      'userId': 'another-guid',
+      'fullName': 'Peter Kimani',
+      'phoneNumber': '254700000000',
+    },
+    {
+      'id': 13,
+      'userId': 'user-guid',
+      'fullName': 'Wanjiru Njeri',
+      'phoneNumber': '254718024761',
+      'isDeleted': false,
+    },
+  ];
 
   Map<String, Object?> invoice(int id, {String? status, bool paid = false}) => {
     'id': id,
@@ -44,11 +63,14 @@ void main() {
     'currencyCode': 'KES',
   };
 
-  /// A server that answers the two routes the screen touches and records
-  /// which invoice route, if any, was asked for.
+  /// A server that answers the routes the screen touches and records which
+  /// invoice route, if any, was asked for.
   ({RemoteInvoiceRepository invoices, List<String> paths, Dio dio}) server({
     Map<String, Object?> account = account,
     List<Map<String, Object?>> invoicesFor = const [],
+    List<Map<String, Object?>> tenants = directory,
+    List<Map<String, Object?>> bookings = const [],
+    int tenantsStatus = 200,
   }) {
     final dio = Dio(
       BaseOptions(baseUrl: 'https://test.invalid', validateStatus: (_) => true),
@@ -61,6 +83,20 @@ void main() {
           final Object data;
           if (request.path == Endpoints.account) {
             data = account;
+          } else if (request.path == Endpoints.tenants) {
+            if (tenantsStatus != 200) {
+              handler.resolve(
+                Response(
+                  requestOptions: request,
+                  statusCode: tenantsStatus,
+                  data: {'message': 'Not yours to read'},
+                ),
+              );
+              return;
+            }
+            data = tenants;
+          } else if (request.path == Endpoints.allBookings) {
+            data = bookings;
           } else if (request.path.startsWith('/payments/get/invoices/')) {
             data = invoicesFor;
           } else {
@@ -88,8 +124,8 @@ void main() {
     );
   }
 
-  group('the account id', () {
-    test('is what the invoice route is asked for', () async {
+  group('the tenant record id', () {
+    test('is asked for, and not the account id', () async {
       final s = server(invoicesFor: [invoice(100)]);
       addTearDown(s.dio.close);
 
@@ -97,7 +133,12 @@ void main() {
 
       expect(result, isA<Ok<Page<Invoice>>>());
       expect(result.valueOrNull!.items.single.id, '100');
-      expect(s.paths, [Endpoints.account, Endpoints.tenantInvoices('42')]);
+      expect(s.paths, [
+        Endpoints.account,
+        Endpoints.tenants,
+        Endpoints.tenantInvoices('13'),
+      ]);
+      expect(s.paths, isNot(contains(Endpoints.tenantInvoices('42'))));
     });
 
     test('is resolved once and kept for the session', () async {
@@ -108,8 +149,9 @@ void main() {
       await s.invoices.listInvoices();
 
       expect(s.paths.where((p) => p == Endpoints.account), hasLength(1));
+      expect(s.paths.where((p) => p == Endpoints.tenants), hasLength(1));
       expect(
-        s.paths.where((p) => p == Endpoints.tenantInvoices('42')),
+        s.paths.where((p) => p == Endpoints.tenantInvoices('13')),
         hasLength(2),
       );
     });
@@ -121,12 +163,61 @@ void main() {
       await s.invoices.listInvoices();
 
       expect(s.paths, contains(Endpoints.tenantInvoices('7')));
-      expect(s.paths, isNot(contains(Endpoints.tenantInvoices('42'))));
+      expect(s.paths, isNot(contains(Endpoints.tenants)));
+    });
+
+    test('is matched on the number where the userId is blank', () async {
+      final s = server(
+        tenants: const [
+          {'id': 13, 'userId': '', 'phoneNumber': '0718024761'},
+        ],
+      );
+      addTearDown(s.dio.close);
+
+      await s.invoices.listInvoices();
+
+      expect(s.paths, contains(Endpoints.tenantInvoices('13')));
     });
   });
 
-  group('an account the server has not named', () {
-    const unnamed = {'userId': 'user-guid', 'fullName': 'Wanjiru Njeri'};
+  group('when the directory is not theirs to read', () {
+    test('the id comes off a booking of their own', () async {
+      final s = server(
+        tenantsStatus: 403,
+        bookings: const [
+          {'id': 1, 'tenantId': 8, 'phoneNumber': '254700000000'},
+          {'id': 2, 'tenantId': 13, 'phoneNumber': '254718024761'},
+        ],
+      );
+      addTearDown(s.dio.close);
+
+      await s.invoices.listInvoices();
+
+      expect(s.paths, contains(Endpoints.allBookings));
+      expect(s.paths, contains(Endpoints.tenantInvoices('13')));
+    });
+
+    test('a booking of somebody else is not inherited', () async {
+      final s = server(
+        tenantsStatus: 403,
+        bookings: const [
+          {'id': 1, 'tenantId': 8, 'phoneNumber': '254700000000'},
+        ],
+      );
+      addTearDown(s.dio.close);
+
+      final result = await s.invoices.listInvoices();
+
+      expect(result.valueOrNull!.items, isEmpty);
+      expect(
+        s.paths.where((p) => p.startsWith('/payments/get/invoices/')),
+        isEmpty,
+      );
+    });
+  });
+
+  group('an account with no tenancy', () {
+    const unnamed = {'userId': 'nobody-guid', 'fullName': 'Wanjiru Njeri'};
 
     test('gets an empty statement rather than an error', () async {
       final s = server(account: unnamed);
@@ -163,15 +254,18 @@ void main() {
         ),
       );
       addTearDown(dio.close);
+      // The tenancy resolves; it is the statement itself that is refused.
+      const resolved = {
+        Endpoints.account: account,
+        Endpoints.tenants: directory,
+      };
       dio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (request, handler) => handler.resolve(
             Response(
               requestOptions: request,
-              statusCode: request.path == Endpoints.account ? 200 : 403,
-              data: request.path == Endpoints.account
-                  ? account
-                  : {'message': 'Forbidden'},
+              statusCode: resolved.containsKey(request.path) ? 200 : 403,
+              data: resolved[request.path] ?? {'message': 'Forbidden'},
             ),
           ),
         ),

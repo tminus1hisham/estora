@@ -167,41 +167,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _SectionHeader('Appearance'),
             const ThemeModeControl(),
 
-            const Divider(),
-            _SectionHeader('Notifications'),
-            // Section 49's channels.
-            for (final channel in const [
-              NotificationChannel.push,
-              NotificationChannel.sms,
-              NotificationChannel.email,
-            ])
-              SwitchListTile(
-                value: selected.contains(channel),
-                onChanged: channels.hasValue
-                    ? (value) => ref
-                          .read(notificationChannelsProvider.notifier)
-                          .toggle(channel, value)
-                    : null,
-                title: Text(channel.label),
-                subtitle: Text(switch (channel) {
-                  NotificationChannel.push =>
-                    'Invoices, payments and booking reminders on this device',
-                  NotificationChannel.sms => 'Text messages for urgent alerts',
-                  NotificationChannel.email =>
-                    'Copies of invoices and receipts',
-                  _ => '',
-                }, style: Theme.of(context).textTheme.bodySmall),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
-              child: Text(
-                'In-app notifications cannot be turned off — they are how we '
-                'record what we have told you.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-            ),
+            // const Divider(),
+            // _SectionHeader('Notifications'),
+            // // Section 49's channels.
+            // for (final channel in const [
+            //   NotificationChannel.push,
+            //   NotificationChannel.sms,
+            //   NotificationChannel.email,
+            // ])
+            //   SwitchListTile(
+            //     value: selected.contains(channel),
+            //     onChanged: channels.hasValue
+            //         ? (value) => ref
+            //               .read(notificationChannelsProvider.notifier)
+            //               .toggle(channel, value)
+            //         : null,
+            //     title: Text(channel.label),
+            //     subtitle: Text(switch (channel) {
+            //       NotificationChannel.push =>
+            //         'Invoices, payments and booking reminders on this device',
+            //       NotificationChannel.sms => 'Text messages for urgent alerts',
+            //       NotificationChannel.email =>
+            //         'Copies of invoices and receipts',
+            //       _ => '',
+            //     }, style: Theme.of(context).textTheme.bodySmall),
+            //   ),
+            // Padding(
+            //   padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
+            //   child: Text(
+            //     'In-app notifications cannot be turned off — they are how we '
+            //     'record what we have told you.',
+            //     style: Theme.of(
+            //       context,
+            //     ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            //   ),
+            // ),
 
             if (_biometricAvailable) ...[
               const Divider(),

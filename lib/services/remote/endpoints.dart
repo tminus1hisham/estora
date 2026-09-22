@@ -130,6 +130,13 @@ class Endpoints {
   static String updateUnit(String id) => '/properties/update/unit/$id';
   static String deleteUnit(String id) => '/properties/delete/unit/$id';
 
+  // -- Tenants -------------------------------------------------------------
+
+  /// The tenant directory. Each record carries its own `id` — the id the
+  /// invoice route is keyed on — beside the `userId` of the account that
+  /// signs in as it; see [AccountIdentity.tenantId].
+  static const String tenants = '/properties/get/all/tenants';
+
   // -- Leases --------------------------------------------------------------
 
   /// The caller's lease agreements. The route takes no parameter: whose

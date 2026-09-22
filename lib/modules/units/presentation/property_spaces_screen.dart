@@ -89,7 +89,16 @@ class _SpacesList extends ConsumerWidget {
             'Every space in this property has been taken. Pull down to check '
             'again, send an enquiry, or browse other properties.',
         action: FilledButton.tonal(
-          onPressed: () => context.goNamed(Routes.browse),
+          // Browse is the page directly beneath this one, so going back to it
+          // is a pop rather than another copy of it on the stack. The
+          // fallback covers arriving here from a link, with nothing beneath.
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.pushNamed(Routes.browse);
+            }
+          },
           child: const Text('Back to browse'),
         ),
       );

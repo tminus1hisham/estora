@@ -76,41 +76,121 @@ class AccountIdentity {
     return result;
   }
 
-  /// The id the invoice route is keyed on: the signed-in account's own `id`.
+  /// The id the invoice and lease routes are keyed on: the **tenant
+  /// record's** own `id`, never the signed-in account's.
   ///
-  /// `api.md` names the path parameter `tenantId`, and the id the server
-  /// resolves it against is the account's — the `id` the sign-in response
-  /// and `/auth/get/account` both carry. So it is read straight off the
-  /// account and kept for the session. An account payload without an `id`
-  /// is a [NotFoundFailure]: there is nothing to ask for, not a route that
-  /// failed.
+  /// The server keeps the two apart. `MallUsers` numbers the person who
+  /// signs in; `Tenant` numbers the tenancy that is billed, and carries that
+  /// person's `userId` as its link back — the record read from
+  /// `/properties/get/all/tenants` as `{id: 13, userId: "65a5219e-…"}`.
+  /// `Payments_getInvoices` means the tenancy, so asking it with the
+  /// account's `id` reads whichever tenancy happens to wear that number:
+  /// somebody else's statement, or none.
+  ///
+  /// Resolved once and kept for the session, in this order:
+  ///
+  /// 1. a `tenantId` the account names outright;
+  /// 2. the tenant record in the directory whose `userId` is this account's;
+  /// 3. the `tenantId` on a booking made from this account's number — the
+  ///    route a tenant's own token can always read, for when the directory
+  ///    is not theirs to see.
+  ///
+  /// Steps 2 and 3 are probes: a route that refuses hands the question on
+  /// rather than failing the statement. An account none of the three names
+  /// has no tenancy to bill, which is a [NotFoundFailure] — read by the
+  /// screens as an empty statement, not as a route that failed.
   Future<Result<String>> tenantId() async {
     final cached = _tenantId;
     if (cached != null) return Ok(cached);
 
     final account = await load();
-    return switch (account) {
-      Err<Json>(:final failure) => Err(failure),
-      Ok<Json>(:final value) => () {
-        final id = _accountId(value);
-        return id == null
-            ? const Err<String>(
-                NotFoundFailure('This account has no tenant record yet.'),
-              )
-            : Ok<String>(_tenantId = id);
-      }(),
-    };
+    if (account case Err<Json>(:final failure)) return Err(failure);
+    final self = (account as Ok<Json>).value;
+
+    final named = _identifier(self['tenantId']);
+    if (named != null) return Ok(_tenantId = named);
+
+    final registered = await _registeredTenantId(self);
+    if (registered != null) return Ok(_tenantId = registered);
+
+    final booked = await _bookedTenantId(self);
+    if (booked != null) return Ok(_tenantId = booked);
+
+    return const Err<String>(
+      NotFoundFailure('This account has no tenant record yet.'),
+    );
   }
 
-  /// The account's `id`. Honours an explicit `tenantId` first, should the
-  /// account route ever start naming one.
-  static String? _accountId(Json account) {
-    for (final key in const ['tenantId', 'id']) {
-      final value = account[key]?.toString();
-      if (value != null && value.isNotEmpty) return value;
+  /// The tenant record this account signs in as, from the tenant directory.
+  ///
+  /// Matched on `userId` — the field the server itself joins the two records
+  /// on — and, failing that, on the number the account signs in with. The
+  /// tenant's own `id` never enters the comparison: that is the answer being
+  /// looked for, and matching it against the account's would reinstate the
+  /// confusion this resolves.
+  Future<String?> _registeredTenantId(Json account) async {
+    final userId = _identifier(account['userId']);
+    final phone = _phone(account['phoneNumber']);
+    if (userId == null && phone == null) return null;
+
+    final tenants = await _api.get<List<Json>>(
+      Endpoints.tenants,
+      parse: rawListFromJson,
+    );
+    if (tenants case Ok<List<Json>>(:final value)) {
+      for (final tenant in value) {
+        if (_bool(tenant['isDeleted'])) continue;
+        final mine =
+            (userId != null && _identifier(tenant['userId']) == userId) ||
+            (phone != null && _phone(tenant['phoneNumber']) == phone);
+        if (mine) {
+          final id = _identifier(tenant['id']);
+          if (id != null) return id;
+        }
+      }
     }
     return null;
   }
+
+  /// The tenant a booking of this account's was written against.
+  ///
+  /// Whose bookings the route answers with is the server's decision, so the
+  /// number the account signs in with has to match the booking's before its
+  /// `tenantId` is taken: a manager reading everybody's bookings must not
+  /// inherit the first tenant in the list.
+  Future<String?> _bookedTenantId(Json account) async {
+    final phone = _phone(account['phoneNumber']);
+    if (phone == null) return null;
+
+    final bookings = await _api.get<List<Json>>(
+      Endpoints.allBookings,
+      parse: rawListFromJson,
+    );
+    if (bookings case Ok<List<Json>>(:final value)) {
+      for (final booking in value) {
+        if (_phone(booking['phoneNumber']) != phone) continue;
+        final id = _identifier(booking['tenantId']);
+        if (id != null) return id;
+      }
+    }
+    return null;
+  }
+
+  /// An id as the server wrote it, or null where it wrote nothing. `0` is
+  /// nothing: it is what an unset foreign key serialises as.
+  static String? _identifier(Object? value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty || text == '0') return null;
+    return text;
+  }
+
+  /// A number in the one form two records can be compared in.
+  static String? _phone(Object? value) {
+    final text = _identifier(value);
+    return text == null ? null : PhoneNumber.normalize(text);
+  }
+
+  static bool _bool(Object? value) => value == true || value == 'true';
 
   /// Ends the account's tenure here: the session is over, or belongs to
   /// someone else now.
@@ -1034,43 +1114,55 @@ class RemoteBookingRepository implements BookingRepository {
 // ---------------------------------------------------------------------------
 
 class RemoteLeaseRepository implements LeaseRepository {
-  RemoteLeaseRepository(this._api);
+  RemoteLeaseRepository(this._api, this._identity);
 
   final ApiClient _api;
+  final AccountIdentity _identity;
 
-  /// The lease route takes no parameter: whose leases come back is the
-  /// server's decision, made from the bearer token, and the app shows what
-  /// it is given — the same footing as the bookings route, and for the same
-  /// reason. Narrowing them here to the account's tenant record was
-  /// considered and rejected: that record is only reachable through a
-  /// booking, and a lease a manager wrote without one would have vanished
-  /// from the list of the tenant it belongs to.
+  /// The lease route takes no parameter, so the tenancy is applied here.
   ///
-  /// Narrowed by [status] here because the route offers no parameter. The
-  /// whole set is in hand, so this filters all of it.
+  /// A lease carries the `tenantId` of the tenant record it was written
+  /// against — the same id the statement is keyed on, and not the account's
+  /// — so the list is narrowed to that record where the account has one.
+  /// An account with no tenant record is someone reading the route on
+  /// another footing, a manager or an owner: they are shown what the server
+  /// gave them, which is the decision it made from the bearer token.
+  ///
+  /// Narrowed by [status] here for the same reason: the route offers no
+  /// parameter, and the whole set is in hand.
   @override
   Future<Result<Page<Lease>>> listLeases({
     LeaseStatus? status,
     int page = 1,
-  }) => _api
-      .get<List<Lease>>(
-        Endpoints.leaseAgreements,
-        parse: (json) => rawListFromJson(json)
-            // The route is typed as a bare acknowledgement. Should it answer
-            // with one, the acknowledgement is not a lease.
-            .where((item) => item['id'] != null)
-            .map(leaseFromJson)
-            .toList(growable: false),
-      )
-      .then(
-        (result) => result.map(
-          (leases) => Page.single(
-            leases
-                .where((lease) => status == null || lease.status == status)
-                .toList(growable: false),
+  }) async {
+    // A tenancy that cannot be resolved leaves the list as the server sent
+    // it, rather than emptying a manager's screen.
+    final mine = (await _identity.tenantId()).valueOrNull;
+
+    return _api
+        .get<List<Lease>>(
+          Endpoints.leaseAgreements,
+          parse: (json) => rawListFromJson(json)
+              // The route is typed as a bare acknowledgement. Should it
+              // answer with one, the acknowledgement is not a lease.
+              .where((item) => item['id'] != null)
+              .map(leaseFromJson)
+              .toList(growable: false),
+        )
+        .then(
+          (result) => result.map(
+            (leases) => Page.single(
+              leases
+                  .where(
+                    (lease) =>
+                        (status == null || lease.status == status) &&
+                        (mine == null || lease.tenantId == mine),
+                  )
+                  .toList(growable: false),
+            ),
           ),
-        ),
-      );
+        );
+  }
 
   /// The contract lists the caller's leases and does not serve them one by
   /// one, so the list is read and the one asked for is picked out of it. A
@@ -1118,10 +1210,11 @@ class RemoteInvoiceRepository implements InvoiceRepository {
   final ApiClient _api;
   final AccountIdentity _identity;
 
-  /// `Payments_getInvoices`: the statement keyed on the signed-in account's
-  /// id — see [AccountIdentity.tenantId].
+  /// `Payments_getInvoices`: the statement keyed on the tenant record the
+  /// account signs in as, never on the account's own id — see
+  /// [AccountIdentity.tenantId].
   ///
-  /// An account the server has not named has nothing invoiced to it: the
+  /// An account with no tenancy has nothing invoiced to it: the
   /// answer is an empty statement, not an error. The screen's own empty state
   /// says invoices appear once there is a booking or a lease, which is exactly
   /// the situation. Every other failure — the account route refusing, the

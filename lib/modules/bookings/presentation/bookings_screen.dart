@@ -69,7 +69,7 @@ class _BookingList extends ConsumerWidget {
             'Units you book will appear here while you complete the '
             'requirements.',
         action: FilledButton.tonal(
-          onPressed: () => context.goNamed(Routes.browse),
+          onPressed: () => context.pushNamed(Routes.browse),
           child: const Text('Browse available units'),
         ),
       );
