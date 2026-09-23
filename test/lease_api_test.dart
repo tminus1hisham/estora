@@ -83,7 +83,7 @@ void main() {
           final data = switch (request.path) {
             Endpoints.account => account,
             Endpoints.tenants => tenants,
-            Endpoints.allBookings => const <Object>[],
+            Endpoints.allEnquiries => const <Object>[],
             _ => answer,
           };
           handler.resolve(
@@ -232,6 +232,16 @@ void main() {
       expect(parsed.unitNumber, isNull);
       expect(parsed.signatures, isEmpty);
       expect(parsed.activationConditions, isEmpty);
+    });
+
+    test('names its property and unit from the live flat fields', () {
+      final named = leaseFromJson({
+        ...lease(1),
+        'propertyName': 'Grace Mall',
+        'unitNumber': 'G-04',
+      });
+      expect(named.propertyName, 'Grace Mall');
+      expect(named.unitNumber, 'G-04');
     });
 
     test('omits a condition the server left blank', () {

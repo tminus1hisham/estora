@@ -56,7 +56,7 @@ typedef _Sent = ({String method, String path, Object? body});
           path: request.path,
           body: request.data,
         ));
-        final (Object data, int code) = request.path == Endpoints.bookUnit
+        final (Object data, int code) = request.path == Endpoints.enquireUnit
             ? (answer, status)
             : ({'message': 'Unauthorized'}, 401);
         handler.resolve(
@@ -83,7 +83,7 @@ void main() {
 
     expect(result.valueOrNull?.message, 'Booking success.');
     expect(sent.single.method, 'POST');
-    expect(sent.single.path, Endpoints.bookUnit);
+    expect(sent.single.path, Endpoints.enquireUnit);
     expect(sent.single.body, {
       'propertyId': 2,
       'fullName': 'Amina Njeri',

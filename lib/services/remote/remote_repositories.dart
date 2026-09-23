@@ -163,7 +163,7 @@ class AccountIdentity {
     if (phone == null) return null;
 
     final bookings = await _api.get<List<Json>>(
-      Endpoints.allBookings,
+      Endpoints.allEnquiries,
       parse: rawListFromJson,
     );
     if (bookings case Ok<List<Json>>(:final value)) {
@@ -947,7 +947,7 @@ class RemoteBookingRepository implements BookingRepository {
     required String idempotencyKey,
   }) async {
     final posted = await _api.post<Booking?>(
-      Endpoints.bookUnit,
+      Endpoints.enquireUnit,
       body: bookingRequestToJson(target: target, applicant: applicant),
       idempotencyKey: idempotencyKey,
       parse: createdBookingFromJson,
@@ -995,9 +995,10 @@ class RemoteBookingRepository implements BookingRepository {
     };
   }
 
-  /// Posts the enquiry to the booking route and keeps the acknowledgement.
+  /// Posts the enquiry and keeps the acknowledgement.
   ///
-  /// The route is the contract's `Payments_bookUnit`, and its request is an
+  /// The route is the contract's `Payments_bookUnit`, now served at
+  /// `/payments/enquire/unit`, and its request is an
   /// enquiry's shape: a property and the applicant. It answers `{message,
   /// success}` and no record, so the receipt is the server's message and
   /// nothing is read back.
@@ -1006,7 +1007,7 @@ class RemoteBookingRepository implements BookingRepository {
     PropertyEnquiry enquiry, {
     required String idempotencyKey,
   }) => _api.post<EnquiryReceipt>(
-    Endpoints.bookUnit,
+    Endpoints.enquireUnit,
     body: enquiryToJson(enquiry),
     idempotencyKey: idempotencyKey,
     parse: enquiryReceiptFromJson,
@@ -1028,7 +1029,7 @@ class RemoteBookingRepository implements BookingRepository {
     int page = 1,
   }) => _api
       .get<List<Booking>>(
-        Endpoints.allBookings,
+        Endpoints.allEnquiries,
         parse: (json) => listFromJson(json, bookingFromJson),
       )
       .then(

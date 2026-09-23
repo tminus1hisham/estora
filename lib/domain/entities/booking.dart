@@ -52,7 +52,7 @@ class BookingApplicant {
 /// An enquiry about a property: who is asking, what they trade, and what
 /// they are looking for.
 ///
-/// This is the shape `POST /payments/book/unit` takes — a property and the
+/// This is the shape `POST /payments/enquire/unit` takes — a property and the
 /// applicant, with free text for the rest. Nothing on it names a block, a
 /// size or a unit: the tenant describes what they want and the landlord
 /// answers. It is not a booking and produces no record the app can read

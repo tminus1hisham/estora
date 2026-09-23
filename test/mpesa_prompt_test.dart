@@ -88,7 +88,7 @@ _repositories({Object? confirmAnswer, int confirmStatus = 200}) {
       onRequest: (request, handler) {
         sent.add((path: request.path, body: request.data));
         final (Object data, int status) = switch (request.path) {
-          Endpoints.allBookings => (_bookings, 200),
+          Endpoints.allEnquiries => (_bookings, 200),
           Endpoints.confirmBookedUnit => (
             confirmAnswer ?? {'message': 'STK push sent', 'success': true},
             confirmStatus,
@@ -123,7 +123,7 @@ void main() {
 
       final page = (await bookings.listBookings()).valueOrNull!;
 
-      expect(sent.single.path, Endpoints.allBookings);
+      expect(sent.single.path, Endpoints.allEnquiries);
       expect(page.items.map((b) => b.id), ['9', '7']);
 
       final waiting = page.items.first;

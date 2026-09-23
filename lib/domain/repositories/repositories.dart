@@ -218,7 +218,7 @@ abstract interface class BookingRepository {
     required String idempotencyKey,
   });
 
-  /// Sends an enquiry about a property (`POST /payments/book/unit`).
+  /// Sends an enquiry about a property (`POST /payments/enquire/unit`).
   ///
   /// The contract's request is who is asking and what they are looking for,
   /// against a property — no block, size or unit. The answer is an

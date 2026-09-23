@@ -87,8 +87,8 @@ final _listed = [
           body: request.data,
         ));
         final (Object data, int status) = switch (request.path) {
-          Endpoints.bookUnit => (created, 200),
-          Endpoints.allBookings => (_listed, 200),
+          Endpoints.enquireUnit => (created, 200),
+          Endpoints.allEnquiries => (_listed, 200),
           // Every unit route is what a tenant sees: refused.
           _ => ({'message': 'Unauthorized'}, 401),
         };
@@ -121,7 +121,7 @@ void main() {
     expect(booking.unitId, '12'); // the server's allocation, read back
 
     expect(sent.single.method, 'POST');
-    expect(sent.single.path, Endpoints.bookUnit);
+    expect(sent.single.path, Endpoints.enquireUnit);
     expect(sent.single.body, {
       'propertyId': 2,
       'blockId': 2,
@@ -150,8 +150,8 @@ void main() {
       // booking elsewhere, and not the one someone else just made.
       expect(result.valueOrNull!.id, '9');
       expect(sent.map((s) => s.path), [
-        Endpoints.bookUnit,
-        Endpoints.allBookings,
+        Endpoints.enquireUnit,
+        Endpoints.allEnquiries,
       ]);
     },
   );
@@ -168,7 +168,7 @@ void main() {
     );
 
     expect(result, isA<Err<Booking>>());
-    expect(sent.map((s) => s.path), [Endpoints.bookUnit]);
+    expect(sent.map((s) => s.path), [Endpoints.enquireUnit]);
   });
 
   test('the same block without a size asks for any unit in it', () async {

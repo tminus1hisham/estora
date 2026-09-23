@@ -721,7 +721,7 @@
         }
       }
     },
-    "/v1/api/payments/book/unit": {
+    "/v1/api/payments/enquire/unit": {
       "post": {
         "tags": [
           "Payments"
@@ -761,7 +761,7 @@
         }
       }
     },
-    "/v1/api/payments/get/all/bookings": {
+    "/v1/api/payments/get/all/enqueries": {
       "get": {
         "tags": [
           "Payments"
@@ -915,6 +915,33 @@
             "x-nullable": false
           }
         ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Invoice"
+              }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/all/invoices": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getAllInvoices",
         "responses": {
           "200": {
             "x-nullable": false,
@@ -1448,6 +1475,30 @@
               "items": {
                 "$ref": "#/definitions/MpesaTransactions"
               }
+            }
+          },
+          "400": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/payments/get/manager/report": {
+      "get": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "Payments_getManagerReport",
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
             }
           },
           "400": {
@@ -2390,7 +2441,7 @@
         }
       }
     },
-    "/v1/api/properties/get/lease/aggreements": {
+    "/v1/api/properties/get/lease/agreements": {
       "get": {
         "tags": [
           "Properties"
@@ -3328,25 +3379,19 @@
         "blockId",
         "unitId",
         "tenantId",
+        "propertyName",
+        "unitNumber",
         "isDeferred",
         "type",
         "invoiceStatus",
         "isPaid",
         "paymentReceipt",
         "settledAmount",
-        "invoiceDate",
         "dueDate",
-        "settledOn",
         "cancellationReason",
-        "subtotal",
-        "taxAmount",
-        "discountAmount",
         "totalAmount",
-        "paidAmount",
-        "balanceDue",
         "currencyCode",
         "notes",
-        "termsAndConditions",
         "createdByName",
         "createdByUserId",
         "updatedByName",
@@ -3384,9 +3429,11 @@
           "type": "integer",
           "format": "int64"
         },
-        "bookingId": {
-          "type": "integer",
-          "format": "int64"
+        "propertyName": {
+          "type": "string"
+        },
+        "unitNumber": {
+          "type": "string"
         },
         "isDeferred": {
           "type": "boolean"
@@ -3410,10 +3457,6 @@
           "type": "number",
           "format": "decimal"
         },
-        "invoiceDate": {
-          "type": "string",
-          "format": "date-time"
-        },
         "dueDate": {
           "type": "string",
           "format": "date-time"
@@ -3433,27 +3476,7 @@
         "cancellationReason": {
           "type": "string"
         },
-        "subtotal": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "taxAmount": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "discountAmount": {
-          "type": "number",
-          "format": "decimal"
-        },
         "totalAmount": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "paidAmount": {
-          "type": "number",
-          "format": "decimal"
-        },
-        "balanceDue": {
           "type": "number",
           "format": "decimal"
         },
@@ -3461,9 +3484,6 @@
           "type": "string"
         },
         "notes": {
-          "type": "string"
-        },
-        "termsAndConditions": {
           "type": "string"
         },
         "createdByName": {
@@ -3510,6 +3530,7 @@
       "type": "integer",
       "description": "",
       "x-enumNames": [
+        "InitialPayment",
         "Rent",
         "Deposit",
         "BookingFee",
@@ -3533,7 +3554,8 @@
         7,
         8,
         9,
-        10
+        10,
+        11
       ]
     },
     "Property": {
@@ -4164,6 +4186,8 @@
         "propertyId",
         "blockId",
         "unitId",
+        "unitNumber",
+        "propertyName",
         "tenantId",
         "leaseAgreementUrls",
         "status",
@@ -4196,6 +4220,12 @@
         "unitId": {
           "type": "integer",
           "format": "int64"
+        },
+        "unitNumber": {
+          "type": "string"
+        },
+        "propertyName": {
+          "type": "string"
         },
         "tenantId": {
           "type": "integer",
@@ -4482,7 +4512,8 @@
         "bankAccountNumber",
         "bankName",
         "branchName",
-        "proofOfPaymentUrl"
+        "proofOfPaymentUrl",
+        "invoiceNumber"
       ],
       "properties": {
         "paymentDate": {
@@ -4544,6 +4575,9 @@
         },
         "proofOfPaymentUrl": {
           "type": "string"
+        },
+        "invoiceNumber": {
+          "type": "string"
         }
       }
     },
@@ -4577,6 +4611,7 @@
         "deletedPaymentReference",
         "extendedPaymentReceipt",
         "proofOfPaymentUrl",
+        "invoiceNumber",
         "createdAt",
         "updatedAt"
       ],
@@ -4671,6 +4706,9 @@
           "type": "string"
         },
         "proofOfPaymentUrl": {
+          "type": "string"
+        },
+        "invoiceNumber": {
           "type": "string"
         },
         "createdAt": {

@@ -101,10 +101,18 @@ class InvoiceCard extends ConsumerWidget {
           name: invoice.propertyName,
           unit: invoice.unitNumber,
         );
-    final tag = PropertyTag(
-      name: invoice.propertyName,
-      unit: invoice.unitNumber,
-      maxLines: stacked ? 2 : 1,
+    // Purple on the statement, so the mall stands out down a list of cards;
+    // nudged 4px left of the text edge. A translate, so nothing reflows.
+    final tag = Transform.translate(
+      offset: const Offset(-4, 0),
+      child: PropertyTag(
+        name: invoice.propertyName,
+        unit: invoice.unitNumber,
+        maxLines: stacked ? 2 : 1,
+        color: theme.brightness == Brightness.dark
+            ? AppPalette.violet300
+            : AppPalette.violet700,
+      ),
     );
 
     final well = GlassWell(

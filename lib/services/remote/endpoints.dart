@@ -51,12 +51,15 @@ class Endpoints {
   };
 
   // -- Payments ------------------------------------------------------------
-  static const String bookUnit = '/payments/book/unit';
+  static const String enquireUnit = '/payments/enquire/unit';
   static const String confirmBookedUnit = '/payments/confirm/booked/unit';
 
   /// The bookings the caller may see. Whose they are is the server's call:
   /// the route takes no parameter, and the app does not second-guess it.
-  static const String allBookings = '/payments/get/all/bookings';
+  ///
+  /// `enqueries` is the contract's spelling, kept as published: a corrected
+  /// path would simply miss the route.
+  static const String allEnquiries = '/payments/get/all/enqueries';
   static String unitBookings(String unitId) =>
       '/payments/get/bookings/unit/$unitId';
   static String tenantInvoices(String tenantId) =>
@@ -141,10 +144,7 @@ class Endpoints {
 
   /// The caller's lease agreements. The route takes no parameter: whose
   /// leases come back is the server's decision, made from the bearer token,
-  /// the same way [allBookings] and [ownerReport] work.
-  ///
-
-  /// because a corrected path would simply miss the route.
+  /// the same way [allEnquiries] and [ownerReport] work.
   static const String leaseAgreements = '/properties/get/lease/agreements';
 
   // -- Roles and claims ----------------------------------------------------

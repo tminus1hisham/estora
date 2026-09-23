@@ -23,7 +23,7 @@ import 'widgets/applicant_fields.dart';
 /// This is what the property's main action leads to. Nothing here books,
 /// prices or pays: the tenant says who they are, what they trade and what
 /// they are after, and the request goes to the landlord as
-/// `POST /payments/book/unit`. The server acknowledges and the rest happens
+/// `POST /payments/enquire/unit`. The server acknowledges and the rest happens
 /// between the two of them. So the screen asks for exactly the contract's
 /// fields and nothing it would have to guess, and the details are prefilled
 /// from the signed-in account so the common case is one message and a tap.

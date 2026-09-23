@@ -95,7 +95,7 @@ void main() {
               return;
             }
             data = tenants;
-          } else if (request.path == Endpoints.allBookings) {
+          } else if (request.path == Endpoints.allEnquiries) {
             data = bookings;
           } else if (request.path.startsWith('/payments/get/invoices/')) {
             data = invoicesFor;
@@ -193,7 +193,7 @@ void main() {
 
       await s.invoices.listInvoices();
 
-      expect(s.paths, contains(Endpoints.allBookings));
+      expect(s.paths, contains(Endpoints.allEnquiries));
       expect(s.paths, contains(Endpoints.tenantInvoices('13')));
     });
 
@@ -353,6 +353,29 @@ void main() {
         invoiceFromJson(invoice(1, status: 'Pending')).status,
         InvoiceStatus.overdue,
       );
+    });
+  });
+
+  group('where an invoice bills for', () {
+    test('the live flat propertyName and unitNumber are read', () {
+      final parsed = invoiceFromJson({
+        ...invoice(1),
+        'propertyId': 2,
+        'propertyName': 'Grace Mall',
+        'unitNumber': 'G-04',
+      });
+      expect(parsed.propertyName, 'Grace Mall');
+      expect(parsed.unitNumber, 'G-04');
+    });
+
+    test('an embedded property and unit still name it', () {
+      final parsed = invoiceFromJson({
+        ...invoice(1),
+        'property': {'propertyName': 'Sarit Mall'},
+        'unit': {'unitNumber': 'A-12'},
+      });
+      expect(parsed.propertyName, 'Sarit Mall');
+      expect(parsed.unitNumber, 'A-12');
     });
   });
 }

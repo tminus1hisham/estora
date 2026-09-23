@@ -616,8 +616,12 @@ Lease leaseFromJson(Json json) {
     unitId: _str(json['unitId']),
     tenantId: _str(json['tenantId']),
     bookingId: _strOrNull(json['bookingId']),
-    propertyName: _strOrNull(property?['propertyName']),
-    unitNumber: _strOrNull(unit?['unitNumber']),
+    // Flat on the live lease, like the invoice; embedded objects as fallback.
+    propertyName:
+        _strOrNull(json['propertyName']) ??
+        _strOrNull(property?['propertyName']),
+    unitNumber:
+        _strOrNull(json['unitNumber']) ?? _strOrNull(unit?['unitNumber']),
     startDate: _date(json['startDate']),
     endDate: _date(json['endDate']),
     monthlyRent: _money(json, 'monthlyRent', currency),
@@ -740,8 +744,13 @@ Invoice invoiceFromJson(Json json) {
     leaseId: _strOrNull(json['leaseId']),
     propertyId: _strOrNull(json['propertyId']),
     unitId: _strOrNull(json['unitId']),
-    propertyName: _strOrNull(property?['propertyName']),
-    unitNumber: _strOrNull(unit?['unitNumber']),
+    // The live invoice names its property and unit flat on the record; an
+    // embedded `property` / `unit` object is read only where those are absent.
+    propertyName:
+        _strOrNull(json['propertyName']) ??
+        _strOrNull(property?['propertyName']),
+    unitNumber:
+        _strOrNull(json['unitNumber']) ?? _strOrNull(unit?['unitNumber']),
     tenantName: _strOrNull(tenant?['fullName']),
     invoiceDate: _date(json['invoiceDate']),
     dueDate: _date(json['dueDate']),

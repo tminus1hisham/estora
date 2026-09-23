@@ -19,7 +19,13 @@ import '../core/theme/app_theme.dart';
 /// It sits inside a pane already, so it is a plain translucent fill rather
 /// than a second pane of glass.
 class PropertyTag extends StatelessWidget {
-  const PropertyTag({this.name, this.unit, this.maxLines = 1, super.key});
+  const PropertyTag({
+    this.name,
+    this.unit,
+    this.maxLines = 1,
+    this.color,
+    super.key,
+  });
 
   /// The property, e.g. "Sarit Mall".
   final String? name;
@@ -31,6 +37,10 @@ class PropertyTag extends StatelessWidget {
   /// wrapped; more at a large text size, where the whole name is worth a
   /// second line.
   final int maxLines;
+
+  /// A hue to tint the tag with — its words, glyph, fill and hairline —
+  /// where a screen wants its tags to stand apart. Null keeps the neutral.
+  final Color? color;
 
   /// Whether there is anything to say. A tag with neither a name nor a unit
   /// would be an empty capsule, so callers leave it out instead.
@@ -51,7 +61,8 @@ class PropertyTag extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final dark = theme.brightness == Brightness.dark;
-    final ink = scheme.onSurfaceVariant;
+    final tint = color;
+    final ink = tint ?? scheme.onSurfaceVariant;
     final base = theme.textTheme.labelSmall?.copyWith(
       color: ink,
       fontWeight: AppTypography.medium,
@@ -86,12 +97,16 @@ class PropertyTag extends StatelessWidget {
         decoration: ShapeDecoration(
           shape: StadiumBorder(
             side: BorderSide(
-              color: dark
+              color: tint != null
+                  ? tint.withValues(alpha: dark ? 0.28 : 0.22)
+                  : dark
                   ? Colors.white.withValues(alpha: 0.08)
                   : AppPalette.navy900.withValues(alpha: 0.06),
             ),
           ),
-          color: dark
+          color: tint != null
+              ? tint.withValues(alpha: dark ? 0.16 : 0.10)
+              : dark
               ? Colors.white.withValues(alpha: 0.06)
               : AppPalette.navy900.withValues(alpha: 0.04),
         ),
