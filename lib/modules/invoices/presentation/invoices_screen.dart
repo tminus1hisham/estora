@@ -6,7 +6,6 @@ import '../../../components/app_reveal.dart';
 import '../../../components/app_skeleton.dart';
 import '../../../components/glass_empty_pane.dart';
 import '../../../components/glass_material.dart';
-import '../../../components/glass_tinted_capsule.dart';
 import '../../../components/state_views.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
@@ -299,11 +298,7 @@ class _Constrained extends StatelessWidget {
   }
 }
 
-/// A tenant with no invoices at all: what the screen is for, on a pane of
-/// its own, and still pull-to-refresh.
-///
-/// Centred when it fits and scrolled when it does not, so at an accessibility
-/// text size it runs on down the page rather than overflowing it.
+/// The same centered, refreshable empty state as the transactions pane.
 class _EmptyStatement extends StatelessWidget {
   const _EmptyStatement({
     required this.onRefresh,
@@ -317,34 +312,16 @@ class _EmptyStatement extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppRefreshIndicator(
       onRefresh: onRefresh,
-      child: LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(Gap.lg),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight - Gap.lg * 2,
-            ),
-            // Above the middle, where the eye settles on an empty screen;
-            // dead centre under a title reads as sitting low.
-            child: Align(
-              alignment: const Alignment(0, -0.3),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: GlassEmptyPane(
-                  icon: Icons.receipt_long_rounded,
-                  caption: 'Billing, in one place',
-                  title: 'No invoices yet',
-                  message:
-                      'Your rent and service invoices will appear here when issued. Track what is due and keep a record of every payment.',
-                  action: GlassTintedCapsule(
-                    label: 'See transactions',
-                    icon: Icons.history_rounded,
-                    onPressed: onSeeTransactions,
-                  ),
-                ),
-              ),
-            ),
+      child: RefreshPlaceholder(
+        child: EmptyState(
+          icon: Icons.receipt_long_outlined,
+          title: 'No invoices yet',
+          message:
+              'Your rent and service invoices will appear here when issued.',
+          action: FilledButton.tonalIcon(
+            onPressed: onSeeTransactions,
+            icon: const Icon(Icons.history_rounded),
+            label: const Text('See transactions'),
           ),
         ),
       ),
