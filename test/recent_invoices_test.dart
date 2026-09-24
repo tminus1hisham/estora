@@ -8,7 +8,8 @@ import 'package:estora/core/utils/money.dart';
 import 'package:estora/domain/entities/billing.dart';
 import 'package:estora/domain/enums/domain_enums.dart';
 import 'package:estora/modules/home/presentation/widgets/recent_invoices.dart';
-import 'package:estora/navigation/routes.dart';
+import 'package:estora/modules/invoices/application/invoice_controller.dart';
+import 'package:estora/modules/invoices/presentation/widgets/invoice_sheet.dart';
 
 Invoice _invoice(int day, InvoiceStatus status) => Invoice(
   id: '$day',
@@ -46,18 +47,16 @@ void main() {
             ),
           ),
         ),
-        GoRoute(
-          path: '/invoices/:invoiceId',
-          name: Routes.invoiceDetail,
-          builder: (_, state) => Scaffold(
-            body: Text('Invoice ${state.pathParameters['invoiceId']}'),
-          ),
-        ),
       ],
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          invoiceDetailProvider(
+            '6',
+          ).overrideWith((ref) async => _invoice(6, InvoiceStatus.paid)),
+        ],
         child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
       ),
     );
@@ -77,7 +76,7 @@ void main() {
     );
     await tester.tap(find.text('INV-6'));
     await tester.pumpAndSettle();
-    expect(find.text('Invoice 6'), findsOneWidget);
+    expect(find.byType(InvoiceSheet), findsOneWidget);
   });
 
   testWidgets('recent invoices show every unpaid invoice and no paid ones', (

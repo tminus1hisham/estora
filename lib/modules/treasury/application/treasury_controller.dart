@@ -5,6 +5,7 @@ import '../../../core/utils/idempotency_key.dart';
 import '../../../domain/entities/treasury.dart';
 import '../../../services/providers.dart';
 import '../../invoices/application/invoice_controller.dart';
+import '../../owner/application/owner_controller.dart';
 
 /// Every M-Pesa transaction the till received.
 final mpesaTransactionsProvider = FutureProvider<List<MpesaTransaction>>((
@@ -110,7 +111,7 @@ class TreasuryActions {
 
     if (result.isOk) {
       await keys.release(intent);
-      _ref.invalidate(bankPaymentsProvider);
+      _bankChanged();
       _ref.invalidate(invoiceListProvider);
       if (draft.invoiceId != null) {
         _ref.invalidate(invoiceDetailProvider(draft.invoiceId!));
@@ -123,15 +124,21 @@ class TreasuryActions {
     final result = await _ref
         .read(treasuryRepositoryProvider)
         .updateBankPayment(payment);
-    if (result.isOk) _ref.invalidate(bankPaymentsProvider);
+    if (result.isOk) _bankChanged();
     return result;
+  }
+
+  /// The Revenue report counts bank payments too, so it is re-read with them.
+  void _bankChanged() {
+    _ref.invalidate(bankPaymentsProvider);
+    _ref.invalidate(ownerReportProvider);
   }
 
   Future<Result<void>> deleteBankPayment(String bankPaymentId) async {
     final result = await _ref
         .read(treasuryRepositoryProvider)
         .deleteBankPayment(bankPaymentId);
-    if (result.isOk) _ref.invalidate(bankPaymentsProvider);
+    if (result.isOk) _bankChanged();
     return result;
   }
 }

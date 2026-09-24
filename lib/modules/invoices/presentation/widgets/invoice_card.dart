@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../components/amount_text.dart';
 import '../../../../components/glass_material.dart';
@@ -12,8 +12,8 @@ import '../../../../core/theme/status_palette.dart';
 import '../../../../core/utils/date_format.dart';
 import '../../../../domain/entities/billing.dart';
 import '../../../../domain/enums/domain_enums.dart';
-import '../../../../navigation/routes.dart';
 import '../../application/billing_property_filter.dart';
+import 'invoice_sheet.dart';
 import 'pay_invoice.dart';
 
 /// One invoice, as a frosted pane with its status down a tinted rail.
@@ -35,7 +35,7 @@ class InvoiceCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final stacked = prefersStacked(context);
-    final (label, tone) = _status;
+    final (label, tone) = invoiceStatus(invoice);
     final color = context.statusColors.resolve(tone);
     final muted = scheme.onSurfaceVariant;
 
@@ -45,29 +45,51 @@ class InvoiceCard extends ConsumerWidget {
       overflow: TextOverflow.ellipsis,
       style: theme.textTheme.titleSmall?.copyWith(
         color: muted,
+        fontSize: 14,
         fontWeight: AppTypography.semibold,
+        letterSpacing: -0.1,
       ),
     );
 
-    // Due while it is owed; once settled, when it was issued.
+    // Due while it is owed; once settled, when it was issued. Small print
+    // beside the number, lit only when the date is the thing to notice.
+    final when = invoice.isPayable ? invoice.dueDate : invoice.invoiceDate;
+    final dateColor = invoice.isDeferred
+        ? muted
+        : invoice.isOverdue
+        ? context.statusColors.danger
+        : invoice.isDueSoon
+        ? context.statusColors.warning
+        : muted;
     final date = Semantics(
-      label: invoice.isPayable
-          ? 'Due ${AppDate.short(invoice.dueDate)}'
-          : 'Issued ${AppDate.short(invoice.invoiceDate)}',
+      label: '${invoice.isPayable ? 'Due' : 'Issued'} ${AppDate.short(when)}',
       excludeSemantics: true,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.calendar_today_outlined, size: 15, color: muted),
-          Gap.w4,
+          Icon(Icons.event_rounded, size: 14, color: dateColor),
+          const SizedBox(width: 5),
           Flexible(
-            child: Text(
-              AppDate.short(
-                invoice.isPayable ? invoice.dueDate : invoice.invoiceDate,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: invoice.isPayable ? 'Due ' : 'Issued ',
+                    style: TextStyle(
+                      color: dateColor.withValues(alpha: 0.75),
+                      fontWeight: AppTypography.regular,
+                    ),
+                  ),
+                  TextSpan(text: _date(when)),
+                ],
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: dateColor,
+                fontWeight: AppTypography.semibold,
+                letterSpacing: 0.1,
+              ),
             ),
           ),
         ],
@@ -82,7 +104,7 @@ class InvoiceCard extends ConsumerWidget {
     );
 
     final Widget? pay = invoice.isPayable
-        ? _PayButton(
+        ? PayNowButton(
             expand: stacked,
             onPressed: () => payInvoice(context, ref, invoice),
           )
@@ -106,9 +128,12 @@ class InvoiceCard extends ConsumerWidget {
           Gap.h4,
           Align(alignment: Alignment.centerLeft, child: date),
         ] else
+          // Both loose, so the date sits flush right instead of at the start
+          // of its half of the line.
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: number),
+              Flexible(child: number),
               Gap.w8,
               Flexible(child: date),
             ],
@@ -150,10 +175,7 @@ class InvoiceCard extends ConsumerWidget {
     const railWidth = 32.0;
     return GlassTap(
       scale: 0.98,
-      onTap: () => context.pushNamed(
-        Routes.invoiceDetail,
-        pathParameters: {'invoiceId': invoice.id},
-      ),
+      onTap: () => showInvoiceSheet(context, invoice),
       child: FrostedPane(
         padding: EdgeInsets.zero,
         child: Stack(
@@ -163,7 +185,9 @@ class InvoiceCard extends ConsumerWidget {
               top: 0,
               bottom: 0,
               width: railWidth,
-              child: ExcludeSemantics(child: _Rail(label: label, color: color)),
+              child: ExcludeSemantics(
+                child: _Rail(label: label, color: color),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -186,14 +210,22 @@ class InvoiceCard extends ConsumerWidget {
       ? 'Invoice #${invoice.invoiceNumber}'
       : invoice.invoiceNumber;
 
-  /// What the rail and chip say. An issued invoice is "Unpaid" to a tenant.
-  (String, StatusTone) get _status {
-    if (invoice.isDeferred) return ('Deferred', StatusTone.neutral);
-    if (invoice.status == InvoiceStatus.issued) {
-      return ('Unpaid', StatusTone.danger);
-    }
-    return (invoice.status.label, invoice.status.tone);
+  /// "18 Oct" while it is this year's; "18 Oct 2025" otherwise.
+  static String _date(DateTime value) =>
+      value.toLocal().year == DateTime.now().year
+      ? _dayMonth.format(value.toLocal())
+      : AppDate.short(value);
+
+  static final DateFormat _dayMonth = DateFormat('d MMM');
+}
+
+/// What the rail and chip say. An issued invoice is "Unpaid" to a tenant.
+(String, StatusTone) invoiceStatus(Invoice invoice) {
+  if (invoice.isDeferred) return ('Deferred', StatusTone.neutral);
+  if (invoice.status == InvoiceStatus.issued) {
+    return ('Unpaid', StatusTone.danger);
   }
+  return (invoice.status.label, invoice.status.tone);
 }
 
 /// The status down the card's left edge: a solid bar, a tinted band, and the
@@ -239,9 +271,10 @@ class _Rail extends StatelessWidget {
 }
 
 /// "Pay now" as a lit green key, rimmed in white light so it reads as a
-/// piece of the glass rather than a flat slab laid on it.
-class _PayButton extends StatelessWidget {
-  const _PayButton({required this.onPressed, this.expand = false});
+/// piece of the glass rather than a flat slab laid on it. The invoice card and
+/// the invoice sheet both use it.
+class PayNowButton extends StatelessWidget {
+  const PayNowButton({required this.onPressed, this.expand = false, super.key});
 
   final VoidCallback onPressed;
   final bool expand;

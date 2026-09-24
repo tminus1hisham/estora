@@ -336,29 +336,52 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('renders the branded fallback when no source is supplied', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        themed(
-          child: const Scaffold(
-            body: AppMedia(
-              source: null,
-              fallbackIcon: Icons.storefront_rounded,
-              semanticLabel: 'Property image unavailable',
+    for (final source in [null, '', '   ', 'assets/images/missing-cover.png']) {
+      testWidgets('renders the property placeholder for source: $source', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          themed(
+            child: Scaffold(
+              body: AppMedia(
+                source: source,
+                fallbackIcon: Icons.storefront_rounded,
+                semanticLabel: 'Property image unavailable',
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      expect(find.byType(Image), findsNothing);
-      expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
-      expect(
-        find.bySemanticsLabel('Property image unavailable'),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    });
+        await tester.pumpAndSettle();
+        final placeholder = find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName.contains(
+                'property_placeholder',
+              ),
+        );
+        expect(placeholder, findsOneWidget);
+        final selected = tester.widget<Image>(placeholder).image as AssetImage;
+        expect(
+          selected.assetName,
+          isIn([
+            'assets/images/property_placeholder.png',
+            for (var i = 2; i <= 5; i++)
+              'assets/images/property_placeholder_$i.png',
+          ]),
+        );
+        tester.element(find.byType(AppMedia)).markNeedsBuild();
+        await tester.pumpAndSettle();
+        expect(tester.widget<Image>(placeholder).image, selected);
+        expect(find.byIcon(Icons.storefront_rounded), findsNothing);
+        expect(
+          find.bySemanticsLabel('Property image unavailable'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   testWidgets('a focused booking route hides shell navigation', (tester) async {

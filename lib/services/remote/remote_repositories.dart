@@ -1920,10 +1920,26 @@ class RemoteOwnerRepository implements OwnerRepository {
       propertyId == null
           ? Endpoints.ownerReport
           : Endpoints.mpesaPaymentsByProperty(propertyId),
-      parse: (json) => listFromJson(json, mpesaTransactionFromJson),
+      // The owner report answers `{mpesaPayments, invoices, bankPayments}`
+      // live, not the bare list the by-property route does.
+      parse: (json) => switch (json['mpesaPayments']) {
+        List rows =>
+          rows.whereType<Json>().map(mpesaTransactionFromJson).toList(),
+        _ => listFromJson(json, mpesaTransactionFromJson),
+      },
     );
-    if (received case Err<List<MpesaTransaction>>(:final failure)) {
-      return Err(failure);
+    // The by-property route answers a property with no arrivals with a 400
+    // "Mpesa payment not found." rather than an empty list (live, 2026-09-24).
+    final List<MpesaTransaction> arrivals;
+    switch (received) {
+      case Ok(:final value):
+        arrivals = value;
+      case Err(failure: ValidationFailure(:final message))
+          when propertyId != null &&
+              message.toLowerCase().contains('not found'):
+        arrivals = const [];
+      case Err(:final failure):
+        return Err(failure);
     }
 
     final invoices = <Invoice>[];
@@ -1940,11 +1956,23 @@ class RemoteOwnerRepository implements OwnerRepository {
       }
     }
 
+    // The owner-wide bank list, the one the Bank tile opens onto, cut to the
+    // property in view.
+    final bank = await _api.get<List<BankPayment>>(
+      Endpoints.bankPayments,
+      parse: (json) => listFromJson(json, bankPaymentFromJson),
+    );
+    if (bank case Err<List<BankPayment>>(:final failure)) return Err(failure);
+
     return Ok(
       OwnerReport(
         propertyId: propertyId,
-        received: received.valueOrNull!,
+        received: arrivals,
         invoices: invoices,
+        banked: [
+          for (final payment in bank.valueOrNull!)
+            if (propertyId == null || payment.propertyId == propertyId) payment,
+        ],
       ),
     );
   }

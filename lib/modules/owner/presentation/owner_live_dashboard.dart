@@ -226,15 +226,17 @@ class _PropertiesOverview extends StatelessWidget {
               'Properties assigned to you will appear here once they are set up.',
         )
       else
-        OwnerWidgetGrid(
-          children: [
-            for (final property in properties.take(4))
-              OwnerPropertyTile(
-                property: property,
-                availableUnits: availability?[property.id],
-              ),
-          ],
-        ),
+        // Only the newest; live ids are auto-increment, so highest is latest.
+        for (final property in [
+          properties.reduce(
+            (a, b) =>
+                (int.tryParse(b.id) ?? 0) > (int.tryParse(a.id) ?? 0) ? b : a,
+          ),
+        ])
+          OwnerPropertyTile(
+            property: property,
+            availableUnits: availability?[property.id],
+          ),
     ],
   );
 }

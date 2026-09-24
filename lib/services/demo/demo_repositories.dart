@@ -276,6 +276,9 @@ class DemoOwnerRepository implements OwnerRepository {
             (invoice) => propertyId == null || invoice.propertyId == propertyId,
           )
           .toList(growable: false),
+      banked: _fixtures.bankPayments
+          .where((row) => propertyId == null || row.propertyId == propertyId)
+          .toList(growable: false),
     ),
   );
 

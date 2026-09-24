@@ -188,6 +188,10 @@ enum GlassDepth {
 
   /// A bar or platter that other content passes under.
   chrome,
+
+  /// A sheet floated over the page: barely tinted, heavily blurred, so the
+  /// page shows through as colour while its detail melts away.
+  sheet,
 }
 
 /// A pane of frosted glass with continuous corners.
@@ -225,6 +229,7 @@ class FrostedPane extends StatelessWidget {
       GlassDepth.inset => 12.0,
       GlassDepth.card => 26.0,
       GlassDepth.chrome => 30.0,
+      GlassDepth.sheet => 44.0,
     };
 
     // The veil. Light panes are milk; dark panes are navy smoke. Thin enough
@@ -238,12 +243,14 @@ class FrostedPane extends StatelessWidget {
         GlassDepth.inset => AppPalette.navy700.withValues(alpha: 0.28),
         GlassDepth.card => AppPalette.navy800.withValues(alpha: 0.46),
         GlassDepth.chrome => AppPalette.navy900.withValues(alpha: 0.62),
+        GlassDepth.sheet => AppPalette.navy900.withValues(alpha: 0.30),
       };
     } else {
       fill = switch (depth) {
         GlassDepth.inset => Colors.white.withValues(alpha: 0.42),
         GlassDepth.card => Colors.white.withValues(alpha: 0.58),
         GlassDepth.chrome => AppPalette.stone0.withValues(alpha: 0.72),
+        GlassDepth.sheet => Colors.white.withValues(alpha: 0.20),
       };
     }
 

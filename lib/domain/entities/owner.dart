@@ -896,6 +896,7 @@ class OwnerReport {
   OwnerReport({
     required List<MpesaTransaction> received,
     required List<Invoice> invoices,
+    List<BankPayment> banked = const [],
     this.propertyId,
     String? currency,
   }) : currency =
@@ -908,6 +909,9 @@ class OwnerReport {
        ),
        invoices = List<Invoice>.unmodifiable(
          [...invoices]..sort((a, b) => b.invoiceDate.compareTo(a.invoiceDate)),
+       ),
+       banked = List<BankPayment>.unmodifiable(
+         [...banked]..sort((a, b) => b.paidAt.compareTo(a.paidAt)),
        );
 
   /// The property the report is cut to, or null for every property the owner
@@ -925,7 +929,16 @@ class OwnerReport {
   /// Every invoice raised on these properties, newest first.
   final List<Invoice> invoices;
 
-  bool get isEmpty => received.isEmpty && invoices.isEmpty;
+  /// Every bank payment recorded against these properties, newest first.
+  final List<BankPayment> banked;
+
+  bool get isEmpty => received.isEmpty && invoices.isEmpty && banked.isEmpty;
+
+  /// Everything that came in, M-Pesa and bank alike, as when and how much.
+  List<(DateTime?, Money)> get _arrivals => [
+    for (final row in received) (_whenOrNull(row), row.amount),
+    for (final row in banked) (row.paidAt, row.amount),
+  ];
 
   /// The invoices still carrying a balance, soonest due first.
   List<Invoice> get outstandingInvoices =>
@@ -980,20 +993,21 @@ class OwnerReport {
   /// between billed and collected is what that view exists to show.
   ReportSlice sliceOver(CollectionWindow window, {DateTime? now}) {
     final bounds = window.resolve(now ?? DateTime.now());
-    final inWindow = received
-        .where((row) {
-          final at = _whenOrNull(row);
-          return at != null &&
-              !at.isBefore(bounds.from) &&
-              at.isBefore(bounds.to);
-        })
+    final arrivals = _arrivals;
+    final inWindow = arrivals
+        .where(
+          (row) =>
+              row.$1 != null &&
+              !row.$1!.isBefore(bounds.from) &&
+              row.$1!.isBefore(bounds.to),
+        )
         .toList(growable: false);
 
     return ReportSlice(
       window: window,
       from: bounds.from,
       to: bounds.to,
-      collected: _sum(inWindow.map((row) => row.amount)),
+      collected: _sum(inWindow.map((row) => row.$2)),
       paymentCount: inWindow.length,
       points: [
         for (final bucket in bounds.buckets)
@@ -1004,9 +1018,9 @@ class OwnerReport {
             // Counted over everything received, not just the window: a
             // month's view draws the five months before it for comparison.
             collected: _sum(
-              received
-                  .where((row) => bucket.contains(_when(row)))
-                  .map((row) => row.amount),
+              arrivals
+                  .where((row) => row.$1 != null && bucket.contains(row.$1!))
+                  .map((row) => row.$2),
             ),
             billed: bucket.isBillingPeriod
                 ? _sum(

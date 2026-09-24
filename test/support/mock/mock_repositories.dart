@@ -970,6 +970,10 @@ class MockOwnerRepository with _MockLatency implements OwnerRepository {
                   .toList(growable: false),
             ),
       ],
+      banked: _server.backOffice
+          .listBankPayments()
+          .where((row) => propertyId == null || row.propertyId == propertyId)
+          .toList(growable: false),
     );
   });
 

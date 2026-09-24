@@ -124,7 +124,7 @@ class InvoiceDocumentHero extends StatelessWidget {
                 if (payable) ...[
                   Gap.h8,
                   Text(
-                    _urgency,
+                    invoiceUrgency(invoice),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: StatusColors.dark.resolve(tone),
                       fontWeight: AppTypography.semibold,
@@ -176,20 +176,22 @@ class InvoiceDocumentHero extends StatelessWidget {
     );
   }
 
-  String get _urgency {
-    final days = invoice.daysUntilDue;
-    if (invoice.isOverdue || days < 0) {
-      final late = days.abs();
-      return late == 0
-          ? 'Payment overdue'
-          : 'Overdue by $late ${late == 1 ? 'day' : 'days'}';
-    }
-    return switch (days) {
-      0 => 'Due today',
-      1 => 'Due tomorrow',
-      _ => 'Due in $days days',
-    };
+}
+
+/// "Due in 3 days", "Overdue by 2 days" — how soon a payable invoice is due.
+String invoiceUrgency(Invoice invoice) {
+  final days = invoice.daysUntilDue;
+  if (invoice.isOverdue || days < 0) {
+    final late = days.abs();
+    return late == 0
+        ? 'Payment overdue'
+        : 'Overdue by $late ${late == 1 ? 'day' : 'days'}';
   }
+  return switch (days) {
+    0 => 'Due today',
+    1 => 'Due tomorrow',
+    _ => 'Due in $days days',
+  };
 }
 
 /// What the invoice is made of.
@@ -202,12 +204,16 @@ class InvoiceDocumentHero extends StatelessWidget {
 /// issued with, so recomputing any of them here would risk showing a tenant
 /// something their invoice does not say.
 class InvoiceLedger extends StatelessWidget {
-  const InvoiceLedger({required this.invoice, super.key});
+  const InvoiceLedger({required this.invoice, this.bare = false, super.key});
 
   final Invoice invoice;
 
+  /// Only the lines and totals, for a caller that supplies its own pane.
+  final bool bare;
+
   @override
   Widget build(BuildContext context) {
+    if (bare) return _ledger(context);
     // Headed the way the statement heads a month, so the two screens read as
     // one document at two distances; the currency is stated once there, so
     // no line has to repeat it.

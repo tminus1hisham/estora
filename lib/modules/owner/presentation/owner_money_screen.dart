@@ -24,7 +24,6 @@ import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
 import '../../../navigation/routes.dart';
 import '../../properties/application/property_controller.dart';
-import '../../treasury/application/treasury_controller.dart';
 import '../application/owner_controller.dart';
 import 'owner_invoices_screen.dart';
 
@@ -53,16 +52,6 @@ class OwnerMoneyScreen extends ConsumerWidget {
     final report = ref.watch(ownerReportProvider);
     final selected = ref.watch(reportPropertyProvider);
     final properties = ref.watch(propertyListProvider).value ?? const [];
-    // Bank arrivals are not part of the report — the contract serves them as
-    // one owner-wide list — so the tile counts them from that list, cut to
-    // the property in view when there is one. Null while they are still on
-    // their way, or failed: the tile then shows a dash rather than a zero it
-    // would have to take back.
-    final bankCount = ref
-        .watch(bankPaymentsProvider)
-        .value
-        ?.where((payment) => selected == null || payment.propertyId == selected)
-        .length;
 
     Future<void> refresh() async {
       await ref.refresh(ownerReportProvider.future).then<void>((_) {});
@@ -101,7 +90,8 @@ class OwnerMoneyScreen extends ConsumerWidget {
         AsyncLoading() when !report.hasValue => const AppSkeletonList(
           header: true,
         ),
-        AsyncError(:final error) when !report.hasValue => ErrorView(
+        // Even over a previous answer: that one may be another property's.
+        AsyncError(:final error) => ErrorView(
           failure: error is Failure ? error : UnknownFailure(error.toString()),
           onRetry: refresh,
         ),
@@ -110,7 +100,6 @@ class OwnerMoneyScreen extends ConsumerWidget {
           // Dimmed, not replaced, while the next property's answer is on its
           // way — the figures change rather than blank.
           stale: report.isLoading,
-          bankCount: bankCount,
           onRefresh: refresh,
         ),
       },
@@ -198,15 +187,11 @@ class _Money extends StatelessWidget {
   const _Money({
     required this.report,
     required this.stale,
-    required this.bankCount,
     required this.onRefresh,
   });
 
   final OwnerReport report;
   final bool stale;
-
-  /// How many bank payments the owner has, or null while unknown.
-  final int? bankCount;
   final Future<void> Function() onRefresh;
 
   @override
@@ -281,7 +266,6 @@ class _Money extends StatelessWidget {
                             index: 1,
                             child: _LedgerTabs(
                               report: report,
-                              bankCount: bankCount,
                               abreast: abreast,
                             ),
                           ),
@@ -303,19 +287,15 @@ class _Money extends StatelessWidget {
 /// unpaid, then the arrivals, bank and M-Pesa. Each tile says how many rows
 /// it opens onto, and tapping it opens them.
 ///
-/// The invoice counts and the M-Pesa count are the report's own, so a tile
-/// and the list it opens are counted from the same records. The bank count is
-/// read from the owner-wide bank list, which is the only place the contract
-/// serves it.
+/// Every count is the report's own, so a tile and the collected figure are
+/// counted from the same records.
 class _LedgerTabs extends StatelessWidget {
   const _LedgerTabs({
     required this.report,
-    required this.bankCount,
     required this.abreast,
   });
 
   final OwnerReport report;
-  final int? bankCount;
 
   /// Whether each pair of tiles sits side by side or one above the other.
   final bool abreast;
@@ -379,7 +359,7 @@ class _LedgerTabs extends StatelessWidget {
             _CountTile(
               label: 'Bank',
               noun: 'payment',
-              count: bankCount,
+              count: report.banked.length,
               icon: Icons.account_balance_outlined,
               color: primary,
               onTap: () => context.pushNamed(Routes.bankPayments),

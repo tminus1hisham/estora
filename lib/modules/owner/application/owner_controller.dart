@@ -158,7 +158,7 @@ final ownerReportProvider = FutureProvider<OwnerReport>((ref) async {
     Ok(:final value) => value,
     Err(:final failure) => throw failure,
   };
-});
+}, retry: (_, _) => null);
 
 final ownerActionsProvider = Provider<OwnerActions>(OwnerActions.new);
 

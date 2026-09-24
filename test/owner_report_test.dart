@@ -87,12 +87,14 @@ void main() {
         onRequest: (request, handler) {
           paths.add(request.path);
           final data = answer(request.path);
+          // A `(status, body)` record answers with that status.
+          final (status, body) = switch (data) {
+            (int status, Object body) => (status, body),
+            null => (404, {'message': 'Not found'}),
+            _ => (200, data),
+          };
           handler.resolve(
-            Response(
-              requestOptions: request,
-              statusCode: data == null ? 404 : 200,
-              data: data ?? {'message': 'Not found'},
-            ),
+            Response(requestOptions: request, statusCode: status, data: body),
           );
         },
       ),
@@ -122,6 +124,7 @@ void main() {
           '/payments/get/invoices/property/2' => [
             invoice(200, propertyId: 2, due: '2026-09-20T00:00:00Z'),
           ],
+          Endpoints.bankPayments => <Object>[],
           _ => null,
         },
       );
@@ -157,6 +160,7 @@ void main() {
           '/payments/get/invoices/property/2' => [
             invoice(200, propertyId: 2, due: '2026-09-20T00:00:00Z'),
           ],
+          Endpoints.bankPayments => <Object>[],
           _ => null,
         },
       );
@@ -175,7 +179,69 @@ void main() {
       expect(s.paths, [
         Endpoints.mpesaPaymentsByProperty('2'),
         Endpoints.propertyInvoices('2'),
+        Endpoints.bankPayments,
       ]);
+    });
+
+    test('reads a property with no arrivals as none, not a failure', () async {
+      // Live: the by-property route answers 400 rather than an empty list.
+      final s = server(
+        (path) => switch (path) {
+          '/payments/get/mpesa/payment/by/property/2' => (
+            400,
+            {'message': 'Mpesa payment not found.'},
+          ),
+          '/payments/get/invoices/property/2' => [
+            invoice(200, propertyId: 2, due: '2026-09-20T00:00:00Z'),
+          ],
+          Endpoints.bankPayments => <Object>[],
+          _ => null,
+        },
+      );
+      addTearDown(s.dio.close);
+
+      final result = await RemoteOwnerRepository(
+        s.api,
+      ).getReport(propertyId: '2');
+
+      final report = result.valueOrNull!;
+      expect(report.received, isEmpty);
+      expect(report.invoices.single.id, '200');
+    });
+
+    test('reads the live report object and counts bank payments in', () async {
+      Map<String, Object?> banked(int id, int propertyId) => {
+        'id': id,
+        'propertyId': propertyId,
+        'amount': 5000,
+        'paymentDate': DateTime.now().toUtc().toIso8601String(),
+        'paymentMethod': 'RTGS',
+        'paymentReference': 'REF$id',
+      };
+      final s = server(
+        (path) => switch (path) {
+          Endpoints.properties => [
+            {'id': 1, 'propertyName': 'Sarit Mall'},
+          ],
+          // Live shape: an object, not a list. Once read as one bogus arrival.
+          Endpoints.ownerReport => {
+            'mpesaPayments': <Object>[],
+            'invoices': <Object>[],
+            'bankPayments': <Object>[],
+          },
+          '/payments/get/invoices/property/1' => <Object>[],
+          Endpoints.bankPayments => [banked(1, 1), banked(2, 9)],
+          _ => null,
+        },
+      );
+      addTearDown(s.dio.close);
+
+      final all = (await RemoteOwnerRepository(s.api).getReport()).valueOrNull!;
+      expect(all.received, isEmpty);
+      expect(all.banked, hasLength(2));
+      final month = all.sliceOver(const CollectionWindow.month());
+      expect(month.collected, Money.fromMajor(10000, 'KES'));
+      expect(month.paymentCount, 2);
     });
 
     test('fails whole rather than showing half a portfolio', () async {
@@ -187,6 +253,7 @@ void main() {
           ],
           Endpoints.ownerReport => <Object>[],
           '/payments/get/invoices/property/1' => <Object>[],
+          Endpoints.bankPayments => <Object>[],
           _ => null,
         },
       );
@@ -310,6 +377,7 @@ void main() {
               ],
             ),
           ],
+          Endpoints.bankPayments => <Object>[],
           _ => null,
         },
       );

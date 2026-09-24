@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
@@ -7,7 +9,7 @@ import 'app_skeleton.dart';
 ///
 /// Sources beginning with `http://` or `https://` use [Image.network]; every
 /// other non-empty source uses [Image.asset]. A null or failed source renders
-/// a branded architectural fallback.
+/// a randomly chosen bundled property placeholder, stable while displayed.
 class AppMedia extends StatelessWidget {
   const AppMedia({
     this.source,
@@ -88,7 +90,7 @@ class AppMedia extends StatelessWidget {
   Widget get _image {
     final value = source?.trim();
     if (value == null || value.isEmpty) {
-      return _MediaFallback(icon: fallbackIcon);
+      return _placeholder;
     }
 
     if (_isRemote) {
@@ -96,7 +98,7 @@ class AppMedia extends StatelessWidget {
         value,
         fit: fit,
         excludeFromSemantics: true,
-        errorBuilder: (_, _, _) => _MediaFallback(icon: fallbackIcon),
+        errorBuilder: (_, _, _) => _placeholder,
         loadingBuilder: (context, child, progress) => progress == null
             ? child
             : const AppSkeleton(height: double.infinity),
@@ -108,10 +110,13 @@ class AppMedia extends StatelessWidget {
       value,
       fit: fit,
       excludeFromSemantics: true,
-      errorBuilder: (_, _, _) => _MediaFallback(icon: fallbackIcon),
+      errorBuilder: (_, _, _) => _placeholder,
       frameBuilder: _fadeInFrame,
     );
   }
+
+  Widget get _placeholder =>
+      _PropertyPlaceholder(fit: fit, fallbackIcon: fallbackIcon);
 
   Widget _fadeInFrame(
     BuildContext context,
@@ -127,6 +132,36 @@ class AppMedia extends StatelessWidget {
       child: child,
     );
   }
+}
+
+class _PropertyPlaceholder extends StatefulWidget {
+  const _PropertyPlaceholder({required this.fit, required this.fallbackIcon});
+
+  final BoxFit fit;
+  final IconData fallbackIcon;
+
+  @override
+  State<_PropertyPlaceholder> createState() => _PropertyPlaceholderState();
+}
+
+class _PropertyPlaceholderState extends State<_PropertyPlaceholder> {
+  static const _assets = [
+    'assets/images/property_placeholder.png',
+    'assets/images/property_placeholder_2.png',
+    'assets/images/property_placeholder_3.png',
+    'assets/images/property_placeholder_4.png',
+    'assets/images/property_placeholder_5.png',
+  ];
+
+  late final _asset = _assets[Random().nextInt(_assets.length)];
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+    _asset,
+    fit: widget.fit,
+    excludeFromSemantics: true,
+    errorBuilder: (_, _, _) => _MediaFallback(icon: widget.fallbackIcon),
+  );
 }
 
 class _MediaFallback extends StatelessWidget {

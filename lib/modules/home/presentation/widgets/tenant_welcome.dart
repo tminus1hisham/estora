@@ -94,7 +94,7 @@ class TenantWelcome extends StatelessWidget {
                           name == null || name!.isEmpty
                               ? 'Welcome'
                               : 'Welcome, $name',
-                          style: text.titleSmall?.copyWith(
+                          style: text.titleLarge?.copyWith(
                             color: AppPalette.brass200,
                           ),
                         ),

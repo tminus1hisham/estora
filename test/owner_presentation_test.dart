@@ -12,7 +12,6 @@ import 'package:estora/domain/entities/owner.dart';
 import 'package:estora/modules/owner/application/owner_controller.dart';
 import 'package:estora/modules/owner/presentation/widgets/invoice_payments_sheet.dart';
 import 'package:estora/modules/properties/application/property_controller.dart';
-import 'package:estora/modules/treasury/application/treasury_controller.dart';
 import 'package:estora/navigation/owner_shell.dart';
 import 'package:estora/navigation/routes.dart';
 import 'package:estora/services/providers.dart';
@@ -234,7 +233,6 @@ void main() {
       tester.element(find.byType(OwnerShell)),
     );
     final report = container.read(ownerReportProvider).requireValue;
-    final bank = container.read(bankPaymentsProvider).requireValue;
 
     // The tiles sit under the collected card, past the fold on a phone.
     await tester.scrollUntilVisible(
@@ -262,7 +260,7 @@ void main() {
         find.descendant(of: tile(label), matching: find.text('$count'));
     expect(figure('Paid', report.paidInvoices.length), findsOneWidget);
     expect(figure('Unpaid', report.outstandingInvoices.length), findsOneWidget);
-    expect(figure('Bank', bank.length), findsOneWidget);
+    expect(figure('Bank', report.banked.length), findsOneWidget);
     expect(figure('M-Pesa', report.received.length), findsOneWidget);
     final order = [
       for (final label in ['Paid', 'Unpaid', 'Bank', 'M-Pesa'])
