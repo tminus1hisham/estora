@@ -79,11 +79,8 @@ class _PaymentList extends ConsumerWidget {
     }
 
     final months = _groupByMonth(payments);
-    // A tenant paying at more than one mall, reading them all together, needs
-    // each row to say which one it paid. Narrowed to one, it would only
-    // repeat the pill above.
-    final tagged =
-        propertyName == null && ref.watch(billingPropertiesProvider).length > 1;
+    // The row's own property name where the record carries one; otherwise
+    // placed by the invoice it paid.
     final placeOf = ref.watch(paymentPropertyProvider);
 
     return AppRefreshIndicator(
@@ -106,7 +103,8 @@ class _PaymentList extends ConsumerWidget {
                   for (final payment in month.payments)
                     _PaymentRow(
                       payment: payment,
-                      propertyName: tagged ? placeOf(payment)?.name : null,
+                      propertyName:
+                          payment.propertyName ?? placeOf(payment)?.name,
                     ),
                 ],
               );
@@ -183,8 +181,8 @@ class _PaymentRow extends StatelessWidget {
 
   final Payment payment;
 
-  /// The mall the payment was for, shown as a tag under the title when the
-  /// history spans more than one.
+  /// The estora the payment was for, tagged under the title with its unit, as
+  /// an invoice card is.
   final String? propertyName;
 
   @override
@@ -213,14 +211,15 @@ class _PaymentRow extends StatelessWidget {
 
   Widget? _footnote(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final tag = PropertyTag.canShow(name: propertyName)
+    final tag =
+        PropertyTag.canShow(name: propertyName, unit: payment.unitNumber)
         ? Padding(
             // Under the title, not under the glyph: the tag belongs to the
             // words, as it does on an invoice card.
             padding: const EdgeInsetsDirectional.only(start: 40 + Gap.md),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
-              child: PropertyTag(name: propertyName),
+              child: PropertyTag(name: propertyName, unit: payment.unitNumber),
             ),
           )
         : null;

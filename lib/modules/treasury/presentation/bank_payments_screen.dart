@@ -131,6 +131,8 @@ class _PaymentRow extends StatelessWidget {
       ),
       title: payment.paymentReference,
       subtitle: [
+        if (payment.propertyName != null) payment.propertyName!,
+        if (payment.unitNumber != null) payment.unitNumber!,
         payment.paymentMethod,
         if (payment.paidByName != null) payment.paidByName!,
         if (bank.isNotEmpty) bank,

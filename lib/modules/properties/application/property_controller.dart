@@ -39,7 +39,7 @@ final propertyDetailProvider = FutureProvider.family<PropertyDetail, String>((
   final buildings = buildingsResult.valueOrNull ?? const <Building>[];
 
   // Floors hang off buildings, so they need one call each. Fetched in parallel
-  // rather than in sequence, since a mall can have several wings.
+  // rather than in sequence, since a estora can have several wings.
   final floorLists = await Future.wait(
     buildings.map((b) => repository.listFloors(b.id)),
   );

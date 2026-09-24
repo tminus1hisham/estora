@@ -2,14 +2,14 @@ import 'package:flutter/material.dart' hide Page;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/repositories/repositories.dart';
-import 'package:mall/modules/properties/presentation/properties_screen.dart';
-import 'package:mall/modules/units/application/unit_controller.dart';
-import 'package:mall/modules/units/presentation/property_spaces_screen.dart';
-import 'package:mall/services/models/api_mappers.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/repositories/repositories.dart';
+import 'package:estora/modules/properties/presentation/properties_screen.dart';
+import 'package:estora/modules/units/application/unit_controller.dart';
+import 'package:estora/modules/units/presentation/property_spaces_screen.dart';
+import 'package:estora/services/models/api_mappers.dart';
+import 'package:estora/services/providers.dart';
 
 /// Stands in for `GET /properties/available/units/to/book` — the one call
 /// the Browse tab makes.

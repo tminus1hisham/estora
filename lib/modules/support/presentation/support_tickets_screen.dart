@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
+import '../../../components/app_skeleton.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/page_empty_state.dart';
 import '../../../components/page_header.dart';
+import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
 import '../../../components/surface_atoms.dart';
+import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/status_palette.dart';
 import '../../../core/utils/date_format.dart';
@@ -15,12 +19,8 @@ import '../../../navigation/routes.dart';
 import '../application/support_controller.dart';
 import '../application/support_models.dart';
 
-/// Everything the tenant has raised about their space, and where it has got to.
-///
-/// The screen is honest about being a preview: there is no support endpoint
-/// yet, so the list is seeded sample data plus whatever is raised in-session.
-/// Saying so once, calmly, near the top is better than letting a tenant file a
-/// real problem into a notebook that nobody reads.
+/// Everything the tenant has raised, and where it has got to, read from
+/// `tickets/get/all`.
 class SupportTicketsScreen extends ConsumerWidget {
   const SupportTicketsScreen({super.key});
 
@@ -28,9 +28,8 @@ class SupportTicketsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tickets = ref.watch(supportTicketsProvider);
     final filter = ref.watch(ticketFilterProvider);
-    final visible = filter == null
-        ? tickets
-        : tickets.where((ticket) => ticket.status == filter).toList();
+    Future<void> refresh() =>
+        ref.read(supportTicketsProvider.notifier).refresh();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Support tickets')),
@@ -39,13 +38,29 @@ class SupportTicketsScreen extends ConsumerWidget {
         children: [
           const Padding(
             padding: EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.md),
-            child: _Intro(),
+            child: PageHeader(
+              compact: true,
+              title: 'How can we help?',
+              subtitle:
+                  'Raise an issue with your space and follow it to an answer.',
+            ),
           ),
           _StatusFilters(filter: filter),
           Expanded(
-            child: visible.isEmpty
-                ? _NoMatches(filter: filter)
-                : _TicketList(tickets: visible),
+            child: switch (tickets) {
+              AsyncLoading() when !tickets.hasValue => const AppSkeletonList(),
+              AsyncError(:final error) when !tickets.hasValue => ErrorView(
+                failure: error is Failure
+                    ? error
+                    : UnknownFailure(error.toString()),
+                onRetry: refresh,
+              ),
+              _ => _TicketBody(
+                tickets: tickets.requireValue,
+                filter: filter,
+                onRefresh: refresh,
+              ),
+            },
           ),
         ],
       ),
@@ -58,53 +73,34 @@ class SupportTicketsScreen extends ConsumerWidget {
   }
 }
 
-class _Intro extends StatelessWidget {
-  const _Intro();
+class _TicketBody extends StatelessWidget {
+  const _TicketBody({
+    required this.tickets,
+    required this.filter,
+    required this.onRefresh,
+  });
+
+  final List<SupportTicket> tickets;
+  final TicketStatus? filter;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final visible = filter == null
+        ? tickets
+        : tickets.where((ticket) => ticket.status == filter).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const PageHeader(
-          compact: true,
-          title: 'How can we help?',
-          subtitle:
-              'Raise an issue with your space and follow it to an answer.',
-        ),
-        Gap.h12,
-        // Set as a quiet row rather than a banner: it is a caveat, not news.
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.info_outline_rounded,
-              size: 16,
-              color: scheme.onSurfaceVariant,
-            ),
-            Gap.w8,
-            Expanded(
-              child: Text(
-                'A preview with sample tickets until the support desk is '
-                'connected.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+    if (visible.isEmpty) {
+      return _NoMatches(filter: filter, onRefresh: onRefresh);
+    }
+    return AppRefreshIndicator(
+      onRefresh: onRefresh,
+      child: _TicketList(tickets: visible),
     );
   }
 }
 
-/// The status chips. `closed` has no chip of its own — nothing seeds one and a
-/// tenant never closes a ticket from here — but "All" still shows it if the
-/// desk ever sends one down.
+/// The status chips, one per state a ticket can be in.
 class _StatusFilters extends ConsumerWidget {
   const _StatusFilters({required this.filter});
 
@@ -130,11 +126,7 @@ class _StatusFilters extends ConsumerWidget {
               onSelected: (_) => select(null),
             ),
           ),
-          for (final status in const [
-            TicketStatus.open,
-            TicketStatus.inProgress,
-            TicketStatus.resolved,
-          ])
+          for (final status in TicketStatus.values)
             Padding(
               padding: const EdgeInsets.only(right: Gap.sm),
               child: FilterChip(
@@ -181,12 +173,11 @@ class _TicketCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final tone = context.statusColors.resolve(ticket.status.tone);
-    final latest = ticket.latestMessage;
 
     return AppSurfaceCard(
       onTap: () => context.pushNamed(
         Routes.ticketDetail,
-        pathParameters: {'reference': ticket.reference},
+        pathParameters: {'ticketId': ticket.id},
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,7 +200,7 @@ class _TicketCard extends StatelessWidget {
                     ),
                     Gap.h4,
                     Text(
-                      ticket.subject,
+                      ticket.category.label,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: AppTypography.semibold,
                       ),
@@ -220,7 +211,7 @@ class _TicketCard extends StatelessWidget {
             ],
           ),
           Gap.h12,
-          // Wrap, not Row: at 320 with large text the chip and the category
+          // Wrap, not Row: at 320 with large text the chip and the property
           // will not share a line, and they should stack instead of clipping.
           Wrap(
             spacing: Gap.sm,
@@ -228,29 +219,34 @@ class _TicketCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               StatusChip(label: ticket.status.label, tone: ticket.status.tone),
-              Text(
-                ticket.category.label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+              if (ticket.propertyName case final property?)
+                Text(
+                  property,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
             ],
           ),
-          if (latest != null) ...[
-            Gap.h12,
-            Text(
-              '${latest.fromSupport ? 'Support' : 'You'}: ${latest.body}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                height: 1.4,
-              ),
+          Gap.h12,
+          // The desk's answer, when there is one, is the news; otherwise the
+          // tenant's own words remind them which ticket this is.
+          Text(
+            switch (ticket.approvalRemarks) {
+              final remarks? when ticket.remarksFromSupport =>
+                'Support: $remarks',
+              _ => ticket.comment,
+            },
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.4,
             ),
-          ],
+          ),
           Gap.h8,
           Text(
-            'Raised ${AppDate.short(ticket.raisedAt)} · '
+            'Raised ${AppDate.short(ticket.createdAt)} · '
             'updated ${AppDate.relativeDays(ticket.updatedAt)}',
             style: theme.textTheme.labelSmall?.copyWith(
               color: scheme.onSurfaceVariant,
@@ -263,9 +259,10 @@ class _TicketCard extends StatelessWidget {
 }
 
 class _NoMatches extends ConsumerWidget {
-  const _NoMatches({required this.filter});
+  const _NoMatches({required this.filter, required this.onRefresh});
 
   final TicketStatus? filter;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -276,12 +273,13 @@ class _NoMatches extends ConsumerWidget {
           ? Icons.support_agent_outlined
           : Icons.filter_alt_off_outlined,
       caption: 'Support',
+      onRefresh: onRefresh,
       title: status == null
           ? 'No tickets yet'
           : 'Nothing ${status.label.toLowerCase()}',
       message: status == null
-          ? 'Anything you raise about your space will be tracked here, with '
-                'every reply kept in one thread.'
+          ? 'Anything you raise about your space will be tracked here, '
+                'along with the answer from the desk.'
           : 'No tickets are sitting at this status. Clear the filter to see '
                 'everything you have raised.',
       action: status != null

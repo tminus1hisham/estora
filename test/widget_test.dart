@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'support/repository_overrides.dart';
-import 'package:mall/components/amount_text.dart';
-import 'package:mall/components/countdown_timer.dart';
-import 'package:mall/components/country_code_field.dart';
-import 'package:mall/components/status_chip.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/core/utils/phone_number.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/leases/presentation/sign_agreement_screen.dart';
-import 'package:mall/modules/leases/application/lease_controller.dart';
-import 'package:mall/domain/repositories/repositories.dart';
+import 'package:estora/components/amount_text.dart';
+import 'package:estora/components/countdown_timer.dart';
+import 'package:estora/components/country_code_field.dart';
+import 'package:estora/components/status_chip.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/core/utils/phone_number.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/leases/presentation/sign_agreement_screen.dart';
+import 'package:estora/modules/leases/application/lease_controller.dart';
+import 'package:estora/domain/repositories/repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:mall/services/providers.dart';
+import 'package:estora/services/providers.dart';
 
 /// Widget-level checks for the rules that are enforced in the UI rather than
 /// on the server: the signing gate, and how figures and statuses are rendered.

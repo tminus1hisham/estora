@@ -310,7 +310,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpace.md),
                 child: Text(
-                  'NEW TO Mall?',
+                  'NEW TO Estora?',
                   textAlign: TextAlign.center,
                   style: textTheme.labelSmall?.copyWith(
                     color: kAuthOnDark.withValues(alpha: 0.55),

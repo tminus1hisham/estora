@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart' hide Page;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/domain/repositories/repositories.dart';
-import 'package:mall/modules/documents/application/document_controller.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/domain/repositories/repositories.dart';
+import 'package:estora/modules/documents/application/document_controller.dart';
+import 'package:estora/services/providers.dart';
 
 void main() {
   testWidgets('a signed document URL is handed to the platform', (

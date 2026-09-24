@@ -1,15 +1,15 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/core/error/failure.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/services/providers.dart';
-import 'package:mall/services/remote/api_client.dart';
-import 'package:mall/services/remote/endpoints.dart';
-import 'package:mall/services/remote/remote_repositories.dart';
-import 'package:mall/storage/token_store.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/core/error/failure.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/services/providers.dart';
+import 'package:estora/services/remote/api_client.dart';
+import 'package:estora/services/remote/endpoints.dart';
+import 'package:estora/services/remote/remote_repositories.dart';
+import 'package:estora/storage/token_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Tokens implements TokenStore {

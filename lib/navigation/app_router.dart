@@ -65,8 +65,6 @@ import '../modules/treasury/presentation/bank_payments_screen.dart';
 import '../modules/treasury/presentation/mpesa_transactions_screen.dart';
 import '../modules/units/presentation/property_spaces_screen.dart';
 import '../modules/units/presentation/unit_detail_screen.dart';
-import '../modules/utilities/presentation/utilities_screen.dart';
-import '../modules/utilities/presentation/utility_detail_screen.dart';
 import 'app_shell.dart';
 import 'owner_shell.dart';
 import 'page_transitions.dart';
@@ -314,7 +312,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       //
       // Raising a ticket and following it. Pushed over the shell for the same
       // reason as Browse: Home and Profile both link here, and neither should
-      // lose its place. `new` is declared before `:reference` so the ticket
+      // lose its place. `new` is declared before `:ticketId` so the ticket
       // pattern does not swallow it.
       GoRoute(
         path: Routes.supportPath,
@@ -334,7 +332,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             pageBuilder: (_, state) => lateralPage(
               state: state,
               child: TicketDetailScreen(
-                reference: state.pathParameters['reference']!,
+                ticketId: state.pathParameters['ticketId']!,
               ),
             ),
           ),
@@ -377,34 +375,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Utilities
-          //
-          // Water and electricity for the space the tenant holds. It took the
-          // tab Browse used to have: a tenant with a lease reads this every
-          // month, where browsing is something they did once.
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: Routes.utilitiesPath,
-                name: Routes.utilities,
-                builder: (_, _) => const UtilitiesScreen(),
-                routes: [
-                  GoRoute(
-                    path: Routes.utilityDetailPath,
-                    name: Routes.utilityDetail,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: UtilityDetailScreen(
-                        kind: UtilityKind.fromSlug(
-                          state.pathParameters['kind'],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          // Utilities is hidden for now: no tab, no branch. The module under
+          // modules/utilities is kept for when it returns.
 
           // Lease
           //

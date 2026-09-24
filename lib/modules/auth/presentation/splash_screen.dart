@@ -13,7 +13,7 @@ class SplashScreen extends StatelessWidget {
 
     return Scaffold(
       body: Semantics(
-        label: 'Mall is starting',
+        label: 'Estora is starting',
         liveRegion: true,
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -60,7 +60,7 @@ class SplashScreen extends StatelessWidget {
                           const AppBrandMark(size: 88, withShadow: true),
                           Gap.h24,
                           Text(
-                            'Mall',
+                            'Estora',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(

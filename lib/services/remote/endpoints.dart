@@ -147,6 +147,15 @@ class Endpoints {
   /// the same way [allEnquiries] and [ownerReport] work.
   static const String leaseAgreements = '/properties/get/lease/agreements';
 
+  // -- Support tickets -----------------------------------------------------
+
+  /// The caller's tickets. No parameter: whose come back is the server's
+  /// call from the bearer token, as with [leaseAgreements].
+  static const String tickets = '/tickets/get/all';
+  static const String createTicket = '/tickets/create';
+  static String updateTicket(String id) => '/tickets/update/$id';
+  static String closeTicket(String id) => '/tickets/close/$id';
+
   // -- Roles and claims ----------------------------------------------------
   static const String roles = '/roles/get/all/roles';
   static const String createRole = '/roles/create/role';

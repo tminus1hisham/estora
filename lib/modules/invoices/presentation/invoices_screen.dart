@@ -172,7 +172,7 @@ class _InvoicesPane extends ConsumerWidget {
     final tab = ref.watch(invoiceTabProvider);
     final visible = ref.watch(filteredInvoicesProvider);
     // "All" is all at the chosen property: the counts on the filter and the
-    // empty states answer for the mall the tenant is looking at.
+    // empty states answer for the estora the tenant is looking at.
     final all = ref.watch(scopedInvoicesProvider);
     final property = ref.watch(selectedBillingPropertyProvider);
 

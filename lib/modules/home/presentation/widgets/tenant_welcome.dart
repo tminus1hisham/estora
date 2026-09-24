@@ -67,7 +67,7 @@ class TenantWelcome extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            'MALL',
+                            'Estora',
                             style: text.titleMedium?.copyWith(
                               color: Colors.white,
                               letterSpacing: 5,
@@ -100,20 +100,20 @@ class TenantWelcome extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      AppReveal(
-                        index: 1,
-                        child: Text(
-                          'A little space.\nA lot of possibility.',
-                          style: text.headlineLarge?.copyWith(
-                            color: Colors.white,
-                            fontSize: 32,
-                            height: 1.12,
-                            letterSpacing: -1.2,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
+                      // AppReveal(
+                      //   index: 1,
+                      //   child: Text(
+                      //     'A little space.\nA lot of possibility.',
+                      //     style: text.headlineLarge?.copyWith(
+                      //       color: Colors.white,
+                      //       fontSize: 32,
+                      //       height: 1.12,
+                      //       letterSpacing: -1.2,
+                      //       fontWeight: FontWeight.w800,
+                      //     ),
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 12),
                       AppReveal(
                         index: 2,
                         child: Text(

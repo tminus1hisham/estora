@@ -2,12 +2,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "mall",
+      "name": "estora",
       "request": "launch",
       "type": "dart"
     },
     {
-      "name": "mall (demo data)",
+      "name": "estora (demo data)",
       "request": "launch",
       "type": "dart",
       "toolArgs": ["--dart-define=DEMO_DATA=true"]

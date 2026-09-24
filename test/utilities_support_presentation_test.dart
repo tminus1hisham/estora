@@ -1,23 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/modules/support/application/support_controller.dart';
-import 'package:mall/modules/support/application/support_models.dart';
-import 'package:mall/modules/support/presentation/support_tickets_screen.dart';
-import 'package:mall/modules/support/presentation/ticket_detail_screen.dart';
-import 'package:mall/modules/utilities/application/utility_controller.dart';
-import 'package:mall/modules/utilities/presentation/utilities_screen.dart';
-import 'package:mall/modules/utilities/presentation/utility_detail_screen.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/modules/support/application/support_controller.dart';
+import 'package:estora/modules/support/application/support_models.dart';
+import 'package:estora/modules/support/presentation/support_tickets_screen.dart';
+import 'package:estora/modules/support/presentation/ticket_detail_screen.dart';
+import 'package:estora/modules/utilities/application/utility_controller.dart';
+import 'package:estora/modules/utilities/presentation/utilities_screen.dart';
+import 'package:estora/modules/utilities/presentation/utility_detail_screen.dart';
 
-/// The two screens that stand on mock data.
+import 'support/mock/mock_server.dart';
+import 'support/repository_overrides.dart';
+
+/// Utilities and support at a small phone and an accessibility text size, and
+/// the state each owns — a reading that is entered, and a ticket that is
+/// raised, answered and closed.
 ///
-/// Neither has an API behind it yet, so there is no contract test to lean on;
-/// what is worth pinning instead is that they survive a small phone at an
-/// accessibility text size, and that the one piece of state each of them does
-/// own behaves — a reading that is entered, and a ticket that is replied to.
+/// Utilities has no API behind it; support runs on the mock server's copy of
+/// the `Tickets` routes. The wire shape itself is in `ticket_api_test.dart`.
 void main() {
+  late MockServer server;
+
+  setUp(() => server = MockServer());
+
+  /// A ticket raised against the demo tenant's own unit.
+  SupportTicket raise(String comment) => server.raiseTicket(
+    TicketDraft(
+      category: SupportCategory.maintenance,
+      comment: comment,
+      propertyId: 'prop_sarit',
+      propertyName: 'Sarit Centre',
+      unitId: 'unit_g12',
+    ),
+  );
+
+  List<Override> overrides() => [
+    ...mockRepositoryOverrides,
+    mockServerProvider.overrideWithValue(server),
+  ];
+
+  /// Past the mock's simulated latency, then settled.
+  Future<void> settle(WidgetTester tester) async {
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+  }
+
   Widget host(Widget screen, {bool dark = false}) => ProviderScope(
+    overrides: overrides(),
     child: MaterialApp(
       theme: dark ? AppTheme.dark : AppTheme.light,
       builder: (context, child) => MediaQuery(
@@ -43,13 +75,19 @@ void main() {
       testWidgets('$name fits a 320px phone at large text, dark: $dark', (
         tester,
       ) async {
+        raise('The mixer tap at the rear wash area drips steadily overnight.');
+        server.answerTicket(
+          raise('Three corridor lights are out near the service lift.').id,
+          'The fittings were replaced on Thursday.',
+          status: TicketStatus.resolved,
+        );
         tester.view.physicalSize = const Size(320, 1800);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
 
         await tester.pumpWidget(host(screen, dark: dark));
-        await tester.pumpAndSettle();
+        await settle(tester);
         expect(tester.takeException(), isNull);
 
         await tester.drag(
@@ -101,71 +139,90 @@ void main() {
     );
   });
 
-  testWidgets('a reply joins the thread and opens on the ticket', (
+  testWidgets("the desk's answer shows, and closing ends the ticket", (
     tester,
   ) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    final ticket = container
-        .read(supportTicketsProvider)
-        .firstWhere((candidate) => candidate.status.isLive);
+    final ticket = raise('The mixer tap drips steadily overnight.');
+    server.answerTicket(ticket.id, 'A plumber is booked for tomorrow at 8.');
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: TicketDetailScreen(reference: ticket.reference),
-        ),
+    await tester.pumpWidget(host(TicketDetailScreen(ticketId: ticket.id)));
+    await settle(tester);
+    expect(
+      find.text('The mixer tap drips steadily overnight.'),
+      findsOneWidget,
+    );
+    expect(find.text('A plumber is booked for tomorrow at 8.'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Close ticket'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Fixed, thank you.');
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Close ticket'),
       ),
     );
-    await tester.pumpAndSettle();
-    expect(find.text(ticket.subject), findsWidgets);
+    await settle(tester);
 
-    container
-        .read(supportTicketsProvider.notifier)
-        .reply(ticket.reference, 'Any word on this?');
-    await tester.pumpAndSettle();
-
-    expect(find.text('Any word on this?'), findsOneWidget);
+    expect(server.tickets[ticket.id]!.status, TicketStatus.closed);
+    expect(server.tickets[ticket.id]!.approvalRemarks, 'Fixed, thank you.');
+    expect(find.textContaining('This ticket is closed'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Close ticket'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a stale reference explains itself rather than breaking', (
+  testWidgets('a stale id explains itself rather than breaking', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      host(const TicketDetailScreen(reference: 'TKT-0000')),
-    );
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(host(const TicketDetailScreen(ticketId: '0000')));
+    await settle(tester);
     expect(find.byType(TicketDetailScreen), findsOneWidget);
     expect(find.textContaining('TKT-0000'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
-  test(
-    'a raised ticket is filed open, newest first, with its own reference',
-    () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+  test('a raised ticket is read back from the server, newest first', () async {
+    raise('An older ticket about the shutter motor.');
+    final container = ProviderContainer(overrides: overrides());
+    addTearDown(container.dispose);
 
-      final before = container.read(supportTicketsProvider);
-      final raised = container
-          .read(supportTicketsProvider.notifier)
-          .raise(
-            subject: 'Corridor light out',
-            description: 'Off since Tuesday.',
-            category: SupportCategory.maintenance,
-            priority: TicketPriority.normal,
-          );
+    final before = await container.read(supportTicketsProvider.future);
+    final result = await container
+        .read(supportTicketsProvider.notifier)
+        .raise(
+          const TicketDraft(
+            category: SupportCategory.utilities,
+            comment: 'Corridor light out since Tuesday.',
+            propertyId: 'prop_sarit',
+            propertyName: 'Sarit Centre',
+            unitId: 'unit_g12',
+          ),
+        );
 
-      final after = container.read(supportTicketsProvider);
-      expect(after.length, before.length + 1);
-      expect(after.first.reference, raised.reference);
-      expect(after.first.status, TicketStatus.open);
-      expect(before.map((t) => t.reference), isNot(contains(raised.reference)));
-      // The description opens the thread, so the detail screen reads in order.
-      expect(after.first.thread.single.body, 'Off since Tuesday.');
-    },
-  );
+    expect(result, isA<Ok<void>>());
+    final after = container.read(supportTicketsProvider).requireValue;
+    expect(after.length, before.length + 1);
+    expect(after.first.comment, 'Corridor light out since Tuesday.');
+    expect(after.first.status, TicketStatus.open);
+    expect(after.first.category, SupportCategory.utilities);
+  });
+
+  test('an edit replaces the comment and keeps the unit', () async {
+    final ticket = raise('The shutter sticks halfway.');
+    final container = ProviderContainer(overrides: overrides());
+    addTearDown(container.dispose);
+    await container.read(supportTicketsProvider.future);
+
+    await container
+        .read(supportTicketsProvider.notifier)
+        .edit(
+          ticket.id,
+          ticket.toDraft().copyWith(comment: 'The shutter will not open.'),
+        );
+
+    final edited = container.read(supportTicketsProvider).requireValue.single;
+    expect(edited.comment, 'The shutter will not open.');
+    expect(edited.unitId, 'unit_g12');
+    expect(edited.status, TicketStatus.open);
+  });
 }

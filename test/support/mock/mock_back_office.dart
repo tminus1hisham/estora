@@ -13,10 +13,10 @@
 /// would reject.
 library;
 
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/access.dart';
-import 'package:mall/domain/entities/treasury.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/access.dart';
+import 'package:estora/domain/entities/treasury.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
 import 'mock_server.dart';
 
 class MockBackOffice {
@@ -495,7 +495,9 @@ class MockBackOffice {
       payerPhone: existing.payerPhone,
       payerName: existing.payerName,
       propertyId: existing.propertyId,
+      propertyName: existing.propertyName,
       blockId: existing.blockId,
+      unitNumber: existing.unitNumber,
       thirdPartyTransactionId: existing.thirdPartyTransactionId,
       organisationBalance: existing.organisationBalance,
       isReissued: existing.isReissued,

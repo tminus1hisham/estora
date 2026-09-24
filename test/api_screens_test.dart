@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'support/repository_overrides.dart';
-import 'package:mall/app.dart';
-import 'package:mall/navigation/routes.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/app.dart';
+import 'package:estora/navigation/routes.dart';
+import 'package:estora/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The screens added for the published contract, opened in the real app.
@@ -31,7 +31,7 @@ void main() {
         // AppConfig.dataSource is set to.
         ...mockRepositoryOverrides,
       ],
-      child: const MallApp(),
+      child: const EstoraApp(),
     );
   }
 

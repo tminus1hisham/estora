@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/utils/phone_number.dart';
+import 'package:estora/core/utils/phone_number.dart';
 
 /// The platform keys accounts, roles, claims and M-Pesa prompts on the phone
 /// number, so two spellings of one handset are two different users to the

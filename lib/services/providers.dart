@@ -172,6 +172,13 @@ final treasuryRepositoryProvider = Provider<TreasuryRepository>(
       : RemoteTreasuryRepository(ref.watch(apiClientProvider)),
 );
 
+final supportRepositoryProvider = Provider<SupportRepository>(
+  (ref) => RemoteSupportRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(accountIdentityProvider),
+  ),
+);
+
 final accessRepositoryProvider = Provider<AccessRepository>(
   (ref) => RemoteAccessRepository(ref.watch(apiClientProvider)),
 );

@@ -19,7 +19,7 @@ import '../application/structure_controller.dart';
 /// The wings a property is divided into.
 ///
 /// A block is not decoration: it is what a unit number means. "SHOP-12" is
-/// ambiguous across a mall and unambiguous inside East Wing, and the contract
+/// ambiguous across a estora and unambiguous inside East Wing, and the contract
 /// models it that way — a block has its own lifecycle, its own floor count and
 /// its own unit tally. Until this screen existed the app could read blocks but
 /// never show or change them.

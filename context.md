@@ -1,4 +1,4 @@
-# Mall & Commercial Property Management Platform
+# Estora & Commercial Property Management Platform
 
 ## 1. Project Overview
 
@@ -6,7 +6,7 @@ The system is a multi-property commercial real-estate management platform design
 
 The initial focus is:
 
-1. Mall/property creation and configuration.
+1. Estora/property creation and configuration.
 2. Unit/space management.
 3. Unit availability and pricing.
 4. Leasing/booking.
@@ -55,7 +55,7 @@ Platform
   |
   +-- Property Owner
   |
-  +-- Property / Mall
+  +-- Property / Estora
         |
         +-- Buildings / Wings / Floors
               |
@@ -78,7 +78,7 @@ Platform
                           +-- Access Control
 ```
 
-The system should not hard-code the concept of “mall” too deeply.
+The system should not hard-code the concept of “estora” too deeply.
 
 A better domain model is:
 
@@ -94,7 +94,7 @@ property.type = MALL
 
 This allows the platform to later support:
 
-- Mall
+- Estora
 - Office Building
 - Business Centre
 - Warehouse
@@ -269,7 +269,7 @@ Organization:
 ABC Property Management Ltd
 
 Properties:
-- Sarit Mall
+- Sarit Estora
 - ABC Business Centre
 - XYZ Retail Centre
 ```
@@ -465,7 +465,7 @@ Permissions should be composable into roles.
 
 # 11. Property
 
-Represents a mall or commercial property.
+Represents a estora or commercial property.
 
 ### Fields
 
@@ -546,7 +546,7 @@ A property may contain multiple buildings/wings.
 Example:
 
 ```
-Sarit Mall
+Sarit Estora
     |
     +-- Main Building
     +-- East Wing
@@ -1834,7 +1834,7 @@ Notifications
 Example:
 
 ```
-Sarit Mall
+Sarit Estora
 Unit A-102
 
 Lease:
@@ -3047,7 +3047,7 @@ Assume:
 
 ```
 Property:
-Sarit Mall
+Sarit Estora
 
 Unit:
 SHOP-101
@@ -3755,7 +3755,7 @@ The MVP should be considered functional when the following complete workflow wor
 Admin creates organization
         |
         v
-Property manager creates mall
+Property manager creates estora
         |
         v
 Property manager creates unit types
@@ -3836,7 +3836,7 @@ If this workflow works reliably, the platform has a solid MVP.
 Do not build this as:
 
 ```
-Mall CRUD
+Estora CRUD
 +
 Tenant CRUD
 +
@@ -4037,7 +4037,7 @@ The architecture should therefore be designed around **property, tenancy, financ
 This allows the same platform to eventually manage:
 
 ```
-Malls
+Estoras
 Shopping Centres
 Office Buildings
 Warehouses

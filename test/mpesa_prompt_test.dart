@@ -2,17 +2,17 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/error/failure.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/billing.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/payments/presentation/widgets/mpesa_payment_sheet.dart';
-import 'package:mall/services/remote/api_client.dart';
-import 'package:mall/services/remote/endpoints.dart';
-import 'package:mall/services/remote/remote_repositories.dart';
-import 'package:mall/storage/token_store.dart';
+import 'package:estora/core/error/failure.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/billing.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/payments/presentation/widgets/mpesa_payment_sheet.dart';
+import 'package:estora/services/remote/api_client.dart';
+import 'package:estora/services/remote/endpoints.dart';
+import 'package:estora/services/remote/remote_repositories.dart';
+import 'package:estora/storage/token_store.dart';
 
 /// The two STK routes and the bookings list, against the shapes the contract
 /// publishes for them — and the sheet that fronts them, against a server

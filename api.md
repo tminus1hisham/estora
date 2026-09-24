@@ -500,7 +500,7 @@
             "schema": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/MallUsers"
+                "$ref": "#/definitions/EstoraUsers"
               }
             }
           }
@@ -524,7 +524,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/MallUsers"
+              "$ref": "#/definitions/EstoraUsers"
             },
             "x-nullable": false
           }
@@ -630,7 +630,7 @@
             "x-nullable": false,
             "description": "",
             "schema": {
-              "$ref": "#/definitions/MallUsers"
+              "$ref": "#/definitions/EstoraUsers"
             }
           },
           "401": {
@@ -2893,6 +2893,139 @@
           }
         }
       }
+    },
+    "/v1/api/tickets/get/all": {
+      "get": {
+        "tags": [
+          "Tickets"
+        ],
+        "operationId": "Tickets_GetAllTickets",
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Tickets"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/tickets/create": {
+      "post": {
+        "tags": [
+          "Tickets"
+        ],
+        "operationId": "Tickets_CreateTicket",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateTicketRequest"
+            },
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/tickets/update/{id}": {
+      "put": {
+        "tags": [
+          "Tickets"
+        ],
+        "operationId": "Tickets_UpdateTicket",
+        "consumes": [
+          "application/json",
+          "text/json",
+          "application/*+json"
+        ],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateTicketRequest"
+            },
+            "x-nullable": false
+          },
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          }
+        }
+      }
+    },
+    "/v1/api/tickets/close/{id}": {
+      "put": {
+        "tags": [
+          "Tickets"
+        ],
+        "operationId": "Tickets_CloseTicket",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "format": "int64",
+            "x-nullable": false
+          },
+          {
+            "type": "string",
+            "name": "status",
+            "in": "query",
+            "x-nullable": false
+          },
+          {
+            "type": "string",
+            "name": "remarks",
+            "in": "query",
+            "x-nullable": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-nullable": false,
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/SuccessResponse"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -2952,11 +3085,11 @@
           }
         },
         "user": {
-          "$ref": "#/definitions/MallUsers"
+          "$ref": "#/definitions/EstoraUsers"
         }
       }
     },
-    "MallUsers": {
+    "EstoraUsers": {
       "type": "object",
       "required": [
         "id",
@@ -3676,7 +3809,7 @@
       "type": "integer",
       "description": "",
       "x-enumNames": [
-        "Mall",
+        "Estora",
         "ShoppingCentre",
         "OfficeBuilding",
         "Warehouse",
@@ -4310,6 +4443,8 @@
         "is_reissued",
         "is_edited",
         "is_split",
+        "propertyName",
+        "unitNumber",
         "createdAt",
         "updatedAt"
       ],
@@ -4382,6 +4517,12 @@
         },
         "is_split": {
           "type": "boolean"
+        },
+        "propertyName": {
+          "type": "string"
+        },
+        "unitNumber": {
+          "type": "string"
         },
         "createdAt": {
           "type": "string",
@@ -4612,6 +4753,8 @@
         "extendedPaymentReceipt",
         "proofOfPaymentUrl",
         "invoiceNumber",
+        "propertyName",
+        "unitNumber",
         "createdAt",
         "updatedAt"
       ],
@@ -4709,6 +4852,12 @@
           "type": "string"
         },
         "invoiceNumber": {
+          "type": "string"
+        },
+        "propertyName": {
+          "type": "string"
+        },
+        "unitNumber": {
           "type": "string"
         },
         "createdAt": {
@@ -5199,6 +5348,114 @@
         },
         "roleClaimType": {
           "type": "string"
+        }
+      }
+    },
+    "Tickets": {
+      "type": "object",
+      "required": [
+        "id",
+        "propertyId",
+        "propertyName",
+        "unitId",
+        "ticketType",
+        "comment",
+        "attachments",
+        "status",
+        "approvalRemarks",
+        "approvedByName",
+        "approvedById",
+        "createdById",
+        "createdByName",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "propertyId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "propertyName": {
+          "type": "string"
+        },
+        "unitId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "ticketType": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "attachments": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "approvalRemarks": {
+          "type": "string"
+        },
+        "approvedByName": {
+          "type": "string"
+        },
+        "approvedById": {
+          "type": "string"
+        },
+        "createdById": {
+          "type": "string"
+        },
+        "createdByName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "CreateTicketRequest": {
+      "type": "object",
+      "required": [
+        "comment",
+        "ticketType",
+        "attachments",
+        "propertyId",
+        "propertyName",
+        "unitId"
+      ],
+      "properties": {
+        "comment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ticketType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attachments": {
+          "type": "string"
+        },
+        "propertyId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "propertyName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unitId": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     }

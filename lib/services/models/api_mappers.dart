@@ -26,6 +26,7 @@ import '../../domain/entities/dashboard_summary.dart';
 import '../../domain/entities/lease.dart';
 import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
+import '../../domain/entities/support_ticket.dart';
 import '../../domain/entities/tenant.dart';
 import '../../domain/entities/treasury.dart';
 import '../../domain/entities/unit.dart';
@@ -944,6 +945,10 @@ List<Payment> paymentsFromInvoiceJson(Json invoice) {
         invoiceNumber: _str(invoice['invoiceNumber'], 'INV-$invoiceId'),
         leaseId: _strOrNull(invoice['leaseId']),
         propertyId: _strOrNull(row['propertyId'] ?? invoice['propertyId']),
+        propertyName: _strOrNull(
+          row['propertyName'] ?? invoice['propertyName'],
+        ),
+        unitNumber: _strOrNull(row['unitNumber'] ?? invoice['unitNumber']),
         amount: Money.fromJson(row['transAmount'], currency),
         currency: currency,
         paymentMethod: PaymentMethod.mpesa,
@@ -1098,7 +1103,9 @@ MpesaTransaction mpesaTransactionFromJson(Json json) => MpesaTransaction(
   payerPhone: _strOrNull(json['msisdn']),
   payerName: _strOrNull(json['firstName']),
   propertyId: _strOrNull(json['propertyId']),
+  propertyName: _strOrNull(json['propertyName']),
   blockId: _strOrNull(json['blockId']),
+  unitNumber: _strOrNull(json['unitNumber']),
   thirdPartyTransactionId: _strOrNull(json['thirdPartyTransID']),
   organisationBalance: _strOrNull(json['orgAccountBalance']),
   isReissued: _bool(json['is_reissued']),
@@ -1129,7 +1136,9 @@ BankPayment bankPaymentFromJson(Json json) => BankPayment(
   invoiceId: _strOrNull(json['invoiceId']),
   tenantId: _strOrNull(json['tenantId']),
   propertyId: _strOrNull(json['propertyId']),
+  propertyName: _strOrNull(json['propertyName']),
   blockId: _strOrNull(json['blockId']),
+  unitNumber: _strOrNull(json['unitNumber']),
   purpose: _strOrNull(json['purpose']),
   paidByName: _strOrNull(json['paidBy']),
   bankAccountNumber: _strOrNull(json['bankAccountNumber']),
@@ -1513,6 +1522,39 @@ NotificationItem notificationFromJson(Json json) => NotificationItem(
   },
   targetId: _strOrNull(json['targetId']),
 );
+
+// -- Support tickets ---------------------------------------------------------
+
+SupportTicket supportTicketFromJson(Json json) {
+  final createdAt = _date(json['createdAt']);
+  return SupportTicket(
+    id: _str(json['id']),
+    category: SupportCategory.fromApi(_strOrNull(json['ticketType'])),
+    comment: _str(json['comment']),
+    status: TicketStatus.fromApi(_strOrNull(json['status'])),
+    propertyId: _str(json['propertyId']),
+    propertyName: _strOrNull(json['propertyName']),
+    unitId: _str(json['unitId']),
+    attachments: _strOrNull(json['attachments']),
+    approvalRemarks: _strOrNull(json['approvalRemarks']),
+    approvedByName: _strOrNull(json['approvedByName']),
+    approvedById: _strOrNull(json['approvedById']),
+    createdById: _strOrNull(json['createdById']),
+    createdByName: _strOrNull(json['createdByName']),
+    createdAt: createdAt,
+    // A ticket nobody has touched may carry no update stamp at all.
+    updatedAt: _dateOrNull(json['updatedAt']) ?? createdAt,
+  );
+}
+
+Json ticketDraftToJson(TicketDraft draft) => {
+  'comment': draft.comment,
+  'ticketType': draft.category.api,
+  'attachments': draft.attachments,
+  'propertyId': _idToApi(draft.propertyId),
+  'propertyName': draft.propertyName,
+  'unitId': _idToApi(draft.unitId),
+};
 
 // -- Dashboard ---------------------------------------------------------------
 

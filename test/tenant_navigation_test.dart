@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/app.dart';
-import 'package:mall/modules/home/presentation/home_screen.dart';
-import 'package:mall/modules/profile/presentation/profile_screen.dart';
-import 'package:mall/modules/properties/presentation/properties_screen.dart';
-import 'package:mall/modules/support/presentation/new_ticket_screen.dart';
-import 'package:mall/modules/support/presentation/support_tickets_screen.dart';
-import 'package:mall/modules/utilities/presentation/utilities_screen.dart';
-import 'package:mall/modules/utilities/presentation/utility_detail_screen.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/app.dart';
+import 'package:estora/modules/home/presentation/home_screen.dart';
+import 'package:estora/modules/profile/presentation/profile_screen.dart';
+import 'package:estora/modules/properties/presentation/properties_screen.dart';
+import 'package:estora/modules/support/presentation/new_ticket_screen.dart';
+import 'package:estora/modules/support/presentation/support_tickets_screen.dart';
+import 'package:estora/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/mock/mock_server.dart';
@@ -17,7 +15,7 @@ import 'support/repository_overrides.dart';
 
 /// The tenant's way around the app after Browse gave up its tab.
 ///
-/// Three claims are worth holding still. The fifth tab is Utilities. Browse
+/// Three claims are worth holding still. Utilities is hidden. Browse
 /// and Support are pushed over the shell rather than replacing it, so the tab
 /// the tenant left is still underneath them. And both are reachable from the
 /// two places that were meant to carry them — Profile for each, Home for
@@ -47,7 +45,7 @@ void main() {
         ...mockRepositoryOverrides,
         mockServerProvider.overrideWithValue(server),
       ],
-      child: const MallApp(),
+      child: const EstoraApp(),
     );
   }
 
@@ -85,30 +83,14 @@ void main() {
     await scrollAndTap(tester, find.text(label));
   }
 
-  testWidgets('Utilities holds the fifth tab, and Browse holds none', (
-    tester,
-  ) async {
+  testWidgets('Neither Utilities nor Browse holds a tab', (tester) async {
     usePhoneViewport(tester);
     await tester.pumpWidget(await buildApp());
     await signIn(tester);
 
     expect(find.byType(HomeScreen), findsOneWidget);
-    expect(find.widgetWithText(NavigationBar, 'Utilities'), findsOneWidget);
+    expect(find.widgetWithText(NavigationBar, 'Utilities'), findsNothing);
     expect(find.widgetWithText(NavigationBar, 'Browse'), findsNothing);
-
-    await tester.tap(find.text('Utilities'));
-    await tester.pumpAndSettle();
-
-    // A tab, so the bar it was reached from is still on screen.
-    expect(find.byType(UtilitiesScreen), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
-
-    // Both meters are there, and one opens its own page through the router.
-    expect(find.text('Water'), findsWidgets);
-    expect(find.text('Electricity'), findsWidgets);
-    await scrollAndTap(tester, find.text('Water').first);
-    expect(find.byType(UtilityDetailScreen), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('Profile opens Browse over the shell, not in place of it', (
@@ -161,19 +143,22 @@ void main() {
     expect(find.byType(NewTicketScreen), findsOneWidget);
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Subject'),
-      'Corridor light out',
-    );
-    await tester.enterText(
       find.widgetWithText(TextFormField, 'What is happening?'),
       'The light outside the unit has been off since Tuesday evening.',
     );
     await tester.tap(find.widgetWithText(FilledButton, 'Send to support'));
     await tester.pumpAndSettle();
 
-    // Back on the list, with the new ticket on it.
+    // Back on the list, with the new ticket on it, filed against the unit on
+    // the tenant's lease.
     expect(find.byType(SupportTicketsScreen), findsOneWidget);
-    expect(find.text('Corridor light out'), findsOneWidget);
+    expect(
+      find.text(
+        'The light outside the unit has been off since Tuesday evening.',
+      ),
+      findsOneWidget,
+    );
+    expect(server.tickets.values.single.unitId, isNotEmpty);
     expect(tester.takeException(), isNull);
   });
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/modules/owner/presentation/owner_account_screen.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/modules/owner/presentation/owner_account_screen.dart';
+import 'package:estora/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/repository_overrides.dart';

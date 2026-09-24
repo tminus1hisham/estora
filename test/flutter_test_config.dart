@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:mall/core/debug/debug_log.dart';
+import 'package:estora/core/debug/debug_log.dart';
 
 /// Runs once around the whole suite.
 ///

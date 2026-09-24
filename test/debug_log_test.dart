@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/debug/debug_log.dart';
+import 'package:estora/core/debug/debug_log.dart';
 
 /// The two promises the logger makes.
 ///
@@ -31,7 +31,7 @@ void main() {
 
   test('an entry reaches debugPrint under its scope', () {
     DebugLog.write('auth', 'Creating a business tenant account');
-    expect(captured.single, '[mall.auth] Creating a business tenant account');
+    expect(captured.single, '[estora.auth] Creating a business tenant account');
   });
 
   test('a payload is redacted by key, keeping its shape', () {

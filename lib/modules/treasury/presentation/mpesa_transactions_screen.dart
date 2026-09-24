@@ -220,6 +220,8 @@ class _TransactionRow extends ConsumerWidget {
       ),
       title: transaction.transactionId,
       subtitle: [
+        if (transaction.propertyName != null) transaction.propertyName!,
+        if (transaction.unitNumber != null) transaction.unitNumber!,
         if (transaction.payerName != null) transaction.payerName!,
         if (transaction.maskedPayerPhone != null) transaction.maskedPayerPhone!,
       ].join(' · '),
@@ -330,6 +332,13 @@ class _TransactionSheetState extends ConsumerState<_TransactionSheet> {
                 ),
                 if (when != null)
                   DetailRow(label: 'Received', value: AppDate.dateTime(when)),
+                if (transaction.propertyName != null)
+                  DetailRow(
+                    label: 'Property',
+                    value: transaction.propertyName!,
+                  ),
+                if (transaction.unitNumber != null)
+                  DetailRow(label: 'Unit', value: transaction.unitNumber!),
                 if (transaction.payerName != null)
                   DetailRow(label: 'From', value: transaction.payerName!),
                 if (transaction.maskedPayerPhone != null)

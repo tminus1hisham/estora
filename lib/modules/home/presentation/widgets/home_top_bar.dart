@@ -130,7 +130,7 @@ class _HomeTopBarState extends State<HomeTopBar> {
                 const AppBrandMark(size: 36),
                 Gap.w12,
                 Text(
-                  'Mall',
+                  'Estora',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: foreground,
                     letterSpacing: -0.5,

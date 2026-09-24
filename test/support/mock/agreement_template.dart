@@ -1,4 +1,4 @@
-import 'package:mall/core/utils/date_format.dart';
+import 'package:estora/core/utils/date_format.dart';
 import 'mock_records.dart';
 import 'mock_server.dart';
 

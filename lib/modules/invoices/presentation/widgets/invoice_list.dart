@@ -51,7 +51,7 @@ class InvoiceMonthSection extends StatelessWidget {
         Padding(
           // Tight to its cards: the heading belongs to what is under it, and
           // the compact cards would sit adrift under a wider gap.
-          padding: const EdgeInsets.fromLTRB(Gap.xs, 0, Gap.xs, 10),
+          padding: const EdgeInsets.fromLTRB(Gap.xs, 0, Gap.xs, Gap.sm),
           child: InvoiceSectionHeader(
             title: AppDate.monthYear(group.month).toUpperCase(),
             trailing: count == 1 ? '1 invoice' : '$count invoices',
@@ -61,7 +61,7 @@ class InvoiceMonthSection extends StatelessWidget {
           // Enough to keep each card's glass edge distinct, no more — the
           // cards are short, and a wide gap between them would make the
           // statement read as loose tiles rather than a list.
-          if (index > 0) const SizedBox(height: 10),
+          if (index > 0) const SizedBox(height: Gap.sm),
           InvoiceCard(invoice: invoice),
         ],
       ],

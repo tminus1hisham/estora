@@ -9,15 +9,15 @@
 /// methods that exist only to serve the mock.
 library;
 
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/billing.dart';
-import 'package:mall/domain/entities/booking.dart';
-import 'package:mall/domain/entities/lease.dart';
-import 'package:mall/domain/entities/property.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/entities/treasury.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/billing.dart';
+import 'package:estora/domain/entities/booking.dart';
+import 'package:estora/domain/entities/lease.dart';
+import 'package:estora/domain/entities/property.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/entities/treasury.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
 
 // ---------------------------------------------------------------------------
 // Property (section 11)

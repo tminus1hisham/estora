@@ -1,12 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/error/failure.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/domain/entities/booking.dart';
-import 'package:mall/services/remote/api_client.dart';
-import 'package:mall/services/remote/endpoints.dart';
-import 'package:mall/services/remote/remote_repositories.dart';
-import 'package:mall/storage/token_store.dart';
+import 'package:estora/core/error/failure.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/domain/entities/booking.dart';
+import 'package:estora/services/remote/api_client.dart';
+import 'package:estora/services/remote/endpoints.dart';
+import 'package:estora/services/remote/remote_repositories.dart';
+import 'package:estora/storage/token_store.dart';
 
 /// Sending an enquiry from a property: one request to the booking route
 /// carrying the property and who is asking, and the server's acknowledgement

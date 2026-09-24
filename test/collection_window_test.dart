@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/domain/entities/owner.dart';
+import 'package:estora/domain/entities/owner.dart';
 
 /// How a [CollectionWindow] is drawn, which both fake servers rely on.
 ///

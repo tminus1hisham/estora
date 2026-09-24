@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/modules/owner/presentation/owner_properties_screen.dart';
-import 'package:mall/modules/owner/presentation/widgets/owner_dashboard_widgets.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/modules/owner/presentation/owner_properties_screen.dart';
+import 'package:estora/modules/owner/presentation/widgets/owner_dashboard_widgets.dart';
 
 import 'support/repository_overrides.dart';
 
@@ -29,13 +29,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(OwnerPropertyTile), findsOneWidget);
     expect(find.text('ABC Business Centre'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Mall'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Estora'));
     await tester.pumpAndSettle();
     expect(find.text('No matching properties'), findsOneWidget);
     await tester.tap(find.text('Clear filters'));
     await tester.pumpAndSettle();
     expect(find.byType(OwnerPropertyTile), findsNWidgets(2));
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Mall'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Estora'));
     await tester.pumpAndSettle();
     expect(find.byType(OwnerPropertyTile), findsOneWidget);
     expect(find.text('Sarit Mall'), findsOneWidget);

@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'adaptive_app_frame.dart';
 
-/// The five-tab bottom navigation.
+/// The four-tab bottom navigation.
 ///
 /// Section 45 lists eight destinations — Home, My Lease, Invoices, Payments,
 /// Documents, Property, Notifications, Profile — which is more than a bottom
@@ -33,11 +33,7 @@ class AppShell extends StatelessWidget {
       selectedIcon: Icon(Icons.home_rounded),
       label: 'Home',
     ),
-    NavigationDestination(
-      icon: Icon(Icons.bolt_outlined),
-      selectedIcon: Icon(Icons.bolt_rounded),
-      label: 'Utilities',
-    ),
+    // Utilities is hidden for now; its module is kept for when it returns.
     NavigationDestination(
       icon: Icon(Icons.description_outlined),
       selectedIcon: Icon(Icons.description_rounded),

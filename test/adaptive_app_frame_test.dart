@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/navigation/adaptive_app_frame.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/navigation/adaptive_app_frame.dart';
 
 void main() {
   for (final width in [320.0, 1200.0]) {

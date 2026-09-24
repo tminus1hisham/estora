@@ -271,9 +271,9 @@ class Routes {
   // and from Profile, so it is pushed over the shell rather than owned by
   // either tab: both ways in leave the tenant where they were.
   //
-  // `/support/new` is declared before `/support/:reference` in the router for
+  // `/support/new` is declared before `/support/:ticketId` in the router for
   // the usual reason — the shorter pattern would otherwise read `new` as a
-  // ticket reference.
+  // ticket id.
   static const support = 'support';
   static const supportPath = '/support';
 
@@ -281,7 +281,7 @@ class Routes {
   static const newTicketPath = 'new';
 
   static const ticketDetail = 'ticket-detail';
-  static const ticketDetailPath = ':reference';
+  static const ticketDetailPath = ':ticketId';
 
   // -- Reachable from the home tab ------------------------------------------
   static const notifications = 'notifications';

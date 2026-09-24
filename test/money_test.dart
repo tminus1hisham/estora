@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/utils/money.dart';
+import 'package:estora/core/utils/money.dart';
 
 /// Money is the foundation every financial figure in the app sits on, so it is
 /// tested first. Section 84 governs financial data; the reason `Money` holds

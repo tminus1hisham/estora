@@ -7,10 +7,10 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/error/failure.dart';
-import 'package:mall/modules/auth/application/auth_controller.dart';
-import 'package:mall/services/providers.dart';
-import 'package:mall/storage/token_store.dart';
+import 'package:estora/core/error/failure.dart';
+import 'package:estora/modules/auth/application/auth_controller.dart';
+import 'package:estora/services/providers.dart';
+import 'package:estora/storage/token_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/repository_overrides.dart';

@@ -3,21 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mall/components/occupancy_meter.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/owner.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/owner/presentation/owner_properties_screen.dart';
-import 'package:mall/modules/owner/presentation/owner_property_screen.dart';
-import 'package:mall/modules/structure/presentation/block_screen.dart';
-import 'package:mall/modules/structure/presentation/blocks_screen.dart';
-import 'package:mall/navigation/routes.dart';
-import 'package:mall/services/models/api_mappers.dart';
-import 'package:mall/services/providers.dart';
-import 'package:mall/services/remote/api_client.dart';
-import 'package:mall/services/remote/endpoints.dart';
-import 'package:mall/storage/token_store.dart';
+import 'package:estora/components/occupancy_meter.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/owner.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/owner/presentation/owner_properties_screen.dart';
+import 'package:estora/modules/owner/presentation/owner_property_screen.dart';
+import 'package:estora/modules/structure/presentation/block_screen.dart';
+import 'package:estora/modules/structure/presentation/blocks_screen.dart';
+import 'package:estora/navigation/routes.dart';
+import 'package:estora/services/models/api_mappers.dart';
+import 'package:estora/services/providers.dart';
+import 'package:estora/services/remote/api_client.dart';
+import 'package:estora/services/remote/endpoints.dart';
+import 'package:estora/storage/token_store.dart';
 
 /// Occupancy for the owner: the contract publishes no figure, so the app
 /// counts the unit records the server sends and shows the same share on the

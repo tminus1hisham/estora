@@ -3,18 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'support/repository_overrides.dart';
-import 'package:mall/app.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/auth/application/auth_controller.dart';
-import 'package:mall/modules/account/presentation/edit_contact_screen.dart';
-import 'package:mall/modules/account/presentation/security_screen.dart';
-import 'package:mall/modules/auth/presentation/login_screen.dart';
-import 'package:mall/modules/auth/presentation/splash_screen.dart';
-import 'package:mall/modules/home/presentation/home_screen.dart';
-import 'package:mall/navigation/owner_shell.dart';
-import 'package:mall/navigation/routes.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/app.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/auth/application/auth_controller.dart';
+import 'package:estora/modules/account/presentation/edit_contact_screen.dart';
+import 'package:estora/modules/account/presentation/security_screen.dart';
+import 'package:estora/modules/auth/presentation/login_screen.dart';
+import 'package:estora/modules/auth/presentation/splash_screen.dart';
+import 'package:estora/modules/home/presentation/home_screen.dart';
+import 'package:estora/navigation/owner_shell.dart';
+import 'package:estora/navigation/routes.dart';
+import 'package:estora/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The auth redirect from `app_router.dart`.
@@ -44,7 +44,7 @@ void main() {
             ...mockRepositoryOverrides,
             authControllerProvider.overrideWith(() => _RoleAuth(role)),
           ],
-          child: const MallApp(),
+          child: const EstoraApp(),
         ),
       );
       await tester.pumpAndSettle();
@@ -82,7 +82,7 @@ void main() {
         // AppConfig.dataSource is set to.
         ...mockRepositoryOverrides,
       ],
-      child: const MallApp(),
+      child: const EstoraApp(),
     );
   }
 
@@ -169,12 +169,8 @@ void main() {
       isNull,
     );
 
-    // Utilities took the tab Browse gave up, so its own pages stay in-branch.
-    expect(_hasRouteNamed(shell.routes, Routes.utilities), isTrue);
-    expect(
-      _routeNamed(shell.routes, Routes.utilityDetail).parentNavigatorKey,
-      isNull,
-    );
+    // Utilities is hidden for now.
+    expect(_hasRouteNamed(shell.routes, Routes.utilities), isFalse);
   });
 
   testWidgets('current property route carries the lease identifier', (

@@ -33,7 +33,9 @@ class MpesaTransaction {
     this.payerPhone,
     this.payerName,
     this.propertyId,
+    this.propertyName,
     this.blockId,
+    this.unitNumber,
     this.thirdPartyTransactionId,
     this.organisationBalance,
     this.isReissued = false,
@@ -66,7 +68,9 @@ class MpesaTransaction {
   final String? payerPhone;
   final String? payerName;
   final String? propertyId;
+  final String? propertyName;
   final String? blockId;
+  final String? unitNumber;
   final String? thirdPartyTransactionId;
   final String? organisationBalance;
 
@@ -103,7 +107,9 @@ class BankPayment {
     this.invoiceId,
     this.tenantId,
     this.propertyId,
+    this.propertyName,
     this.blockId,
+    this.unitNumber,
     this.purpose,
     this.paidByName,
     this.bankAccountNumber,
@@ -133,7 +139,9 @@ class BankPayment {
   final String? invoiceId;
   final String? tenantId;
   final String? propertyId;
+  final String? propertyName;
   final String? blockId;
+  final String? unitNumber;
   final String? purpose;
   final String? paidByName;
   final String? bankAccountNumber;

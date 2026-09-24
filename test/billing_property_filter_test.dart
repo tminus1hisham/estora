@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/billing.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/invoices/application/billing_property_filter.dart';
-import 'package:mall/modules/invoices/application/invoice_controller.dart';
-import 'package:mall/modules/invoices/presentation/invoices_screen.dart';
-import 'package:mall/modules/payments/application/payment_controller.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/billing.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/invoices/application/billing_property_filter.dart';
+import 'package:estora/modules/invoices/application/invoice_controller.dart';
+import 'package:estora/modules/invoices/presentation/invoices_screen.dart';
+import 'package:estora/modules/payments/application/payment_controller.dart';
 
 Invoice _invoice(
   String id, {

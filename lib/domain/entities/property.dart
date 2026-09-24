@@ -2,9 +2,9 @@ import '../../core/utils/money.dart';
 import '../enums/domain_enums.dart';
 import 'owner.dart';
 
-/// Section 11. A mall or other commercial property.
+/// Section 11. A estora or other commercial property.
 ///
-/// The spec is explicit (section 2) that "mall" must not be hard-coded into the
+/// The spec is explicit (section 2) that "estora" must not be hard-coded into the
 /// model — a property carries a [PropertyType] instead, so the same screens
 /// serve an office block or a warehouse without change.
 class Property {
@@ -97,7 +97,7 @@ class Property {
 /// Section 13. A wing or block within a property.
 ///
 /// The contract calls this a `PropertyBlock` and gives it a lifecycle and a
-/// size of its own: a wing can be under construction while the mall around it
+/// size of its own: a wing can be under construction while the estora around it
 /// trades, and it can be counted and measured separately. Those fields are
 /// nullable because the tenant-facing browse screens have always been able to
 /// render a block knowing only its name.

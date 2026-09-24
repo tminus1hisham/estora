@@ -304,4 +304,4 @@ finally {
     $icoStream.Dispose()
 }
 
-Write-Output "Generated $($appIconTargets.Count + 5) PNG assets and the Windows ICO from the Mall arcade mark."
+Write-Output "Generated $($appIconTargets.Count + 5) PNG assets and the Windows ICO from the Estora arcade mark."

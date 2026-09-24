@@ -5,7 +5,7 @@ import '../core/theme/app_theme.dart';
 /// Where something belongs: a small storefront glyph and the property's name,
 /// with the unit after it — "Sarit Mall · SHOP-101".
 ///
-/// A tenant can lease in more than one mall, and an invoice, a payment or a
+/// A tenant can lease in more than one estora, and an invoice, a payment or a
 /// lease read out of context says nothing about which shop it is for. The tag
 /// answers that at a glance, down a list, without taking a line of prose.
 ///

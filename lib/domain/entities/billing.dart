@@ -180,6 +180,8 @@ class Payment {
     this.invoiceId,
     this.leaseId,
     this.propertyId,
+    this.propertyName,
+    this.unitNumber,
     this.provider,
     this.providerTransactionId,
     this.paidAt,
@@ -197,6 +199,8 @@ class Payment {
   final String? invoiceId;
   final String? leaseId;
   final String? propertyId;
+  final String? propertyName;
+  final String? unitNumber;
 
   final Money amount;
   final String currency;

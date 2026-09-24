@@ -33,7 +33,7 @@ settled payment.
 
 ## Invoices and leases are keyed on the tenant record, not the account
 
-`GET /payments/get/invoices/{tenantId}` means `Tenant.id`, not `MallUsers.id`.
+`GET /payments/get/invoices/{tenantId}` means `Tenant.id`, not `EstoraUsers.id`.
 The two records are separate and joined on `userId`, so the account's own `id`
 reads whichever tenancy happens to wear that number, or none.
 

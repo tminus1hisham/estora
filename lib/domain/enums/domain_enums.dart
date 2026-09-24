@@ -52,7 +52,7 @@ T _parseCode<T>(
 // ---------------------------------------------------------------------------
 
 enum PropertyType {
-  mall,
+  estora,
   retailCenter,
   office,
   warehouse,
@@ -63,7 +63,7 @@ enum PropertyType {
   unknown;
 
   String get api => switch (this) {
-    PropertyType.mall => 'MALL',
+    PropertyType.estora => 'MALL',
     PropertyType.retailCenter => 'RETAIL_CENTER',
     PropertyType.office => 'OFFICE',
     PropertyType.warehouse => 'WAREHOUSE',
@@ -75,7 +75,7 @@ enum PropertyType {
   };
 
   String get label => switch (this) {
-    PropertyType.mall => 'Mall',
+    PropertyType.estora => 'Estora',
     PropertyType.retailCenter => 'Shopping centre',
     PropertyType.office => 'Office building',
     PropertyType.warehouse => 'Warehouse',
@@ -89,7 +89,7 @@ enum PropertyType {
   /// The contract's ordinal. `other` has none — it is the app's own catch-all,
   /// so it is sent as the nearest thing the server understands.
   int get code => switch (this) {
-    PropertyType.mall => 0,
+    PropertyType.estora => 0,
     PropertyType.retailCenter => 1,
     PropertyType.office => 2,
     PropertyType.warehouse => 3,
@@ -100,7 +100,7 @@ enum PropertyType {
   };
 
   static const Map<int, PropertyType> _codes = {
-    0: PropertyType.mall,
+    0: PropertyType.estora,
     1: PropertyType.retailCenter,
     2: PropertyType.office,
     3: PropertyType.warehouse,
@@ -182,7 +182,7 @@ enum PropertyStatus {
 
 /// A block's own lifecycle, which is not the property's.
 ///
-/// A wing can be under construction while the mall around it trades, and the
+/// A wing can be under construction while the estora around it trades, and the
 /// contract models that separately — hence a separate enum rather than reusing
 /// [PropertyStatus] and losing the distinction.
 enum BlockStatus {

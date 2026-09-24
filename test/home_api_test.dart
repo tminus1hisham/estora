@@ -2,19 +2,19 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
-import 'package:mall/core/theme/app_theme.dart';
+import 'package:estora/core/theme/app_theme.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mall/modules/home/presentation/home_screen.dart';
-import 'package:mall/modules/owner/presentation/owner_portfolio_screen.dart';
-import 'package:mall/navigation/routes.dart';
-import 'package:mall/services/providers.dart';
-import 'package:mall/services/remote/api_client.dart';
-import 'package:mall/services/remote/endpoints.dart';
-import 'package:mall/storage/token_store.dart';
+import 'package:estora/modules/home/presentation/home_screen.dart';
+import 'package:estora/modules/owner/presentation/owner_portfolio_screen.dart';
+import 'package:estora/navigation/routes.dart';
+import 'package:estora/services/providers.dart';
+import 'package:estora/services/remote/api_client.dart';
+import 'package:estora/services/remote/endpoints.dart';
+import 'package:estora/storage/token_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Tokens implements TokenStore {

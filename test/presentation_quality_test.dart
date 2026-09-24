@@ -3,32 +3,31 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mall/app.dart';
-import 'package:mall/components/amount_text.dart';
-import 'package:mall/components/app_brand_mark.dart';
-import 'package:mall/components/app_media.dart';
-import 'package:mall/components/money_count_up.dart';
-import 'package:mall/components/status_chip.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/core/theme/status_palette.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/entities/dashboard_summary.dart';
-import 'package:mall/domain/entities/property.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/auth/application/auth_controller.dart';
-import 'package:mall/modules/auth/presentation/login_screen.dart';
-import 'package:mall/modules/units/application/unit_controller.dart';
-import 'package:mall/modules/bookings/presentation/booking_screen.dart';
-import 'package:mall/modules/home/application/dashboard_controller.dart';
-import 'package:mall/modules/home/presentation/home_screen.dart';
-import 'package:mall/modules/home/presentation/widgets/balance_card.dart';
-import 'package:mall/modules/home/presentation/widgets/home_hero.dart';
-import 'package:mall/modules/notifications/application/notification_controller.dart';
-import 'package:mall/modules/properties/application/property_controller.dart';
-import 'package:mall/navigation/routes.dart';
-
+import 'package:estora/app.dart';
+import 'package:estora/components/amount_text.dart';
+import 'package:estora/components/app_brand_mark.dart';
+import 'package:estora/components/app_media.dart';
+import 'package:estora/components/money_count_up.dart';
+import 'package:estora/components/status_chip.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/core/theme/status_palette.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/entities/dashboard_summary.dart';
+import 'package:estora/domain/entities/property.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/auth/application/auth_controller.dart';
+import 'package:estora/modules/auth/presentation/login_screen.dart';
+import 'package:estora/modules/units/application/unit_controller.dart';
+import 'package:estora/modules/bookings/presentation/booking_screen.dart';
+import 'package:estora/modules/home/application/dashboard_controller.dart';
+import 'package:estora/modules/home/presentation/home_screen.dart';
+import 'package:estora/modules/home/presentation/widgets/balance_card.dart';
+import 'package:estora/modules/home/presentation/widgets/home_hero.dart';
+import 'package:estora/modules/notifications/application/notification_controller.dart';
+import 'package:estora/modules/properties/application/property_controller.dart';
+import 'package:estora/navigation/routes.dart';
 
 const _user = AppUser(
   id: 'usr_presentation',
@@ -142,7 +141,7 @@ void main() {
           availabilityProvider.overrideWith(_StubAvailability.new),
         ],
       ],
-      child: const MallApp(),
+      child: const EstoraApp(),
     );
   }
 

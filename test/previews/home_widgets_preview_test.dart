@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/billing.dart';
-import 'package:mall/domain/entities/dashboard_summary.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/auth/application/auth_controller.dart';
-import 'package:mall/modules/home/application/dashboard_controller.dart';
-import 'package:mall/modules/home/presentation/home_screen.dart';
-import 'package:mall/modules/notifications/application/notification_controller.dart';
-import 'package:mall/navigation/adaptive_app_frame.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/billing.dart';
+import 'package:estora/domain/entities/dashboard_summary.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/auth/application/auth_controller.dart';
+import 'package:estora/modules/home/application/dashboard_controller.dart';
+import 'package:estora/modules/home/presentation/home_screen.dart';
+import 'package:estora/modules/notifications/application/notification_controller.dart';
+import 'package:estora/navigation/adaptive_app_frame.dart';
 
 import '../support/preview_capture.dart';
 

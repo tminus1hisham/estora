@@ -1,20 +1,21 @@
 import 'dart:async';
 
-import 'package:mall/core/error/failure.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/access.dart';
-import 'package:mall/domain/entities/billing.dart';
-import 'package:mall/domain/entities/booking.dart';
-import 'package:mall/domain/entities/dashboard_summary.dart';
-import 'package:mall/domain/entities/lease.dart';
-import 'package:mall/domain/entities/owner.dart';
-import 'package:mall/domain/entities/property.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/entities/treasury.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/domain/repositories/repositories.dart';
+import 'package:estora/core/error/failure.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/access.dart';
+import 'package:estora/domain/entities/billing.dart';
+import 'package:estora/domain/entities/booking.dart';
+import 'package:estora/domain/entities/dashboard_summary.dart';
+import 'package:estora/domain/entities/lease.dart';
+import 'package:estora/domain/entities/owner.dart';
+import 'package:estora/domain/entities/property.dart';
+import 'package:estora/domain/entities/support_ticket.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/entities/treasury.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/domain/repositories/repositories.dart';
 import 'mock_back_office.dart';
 import 'mock_records.dart';
 import 'mock_server.dart';
@@ -1140,6 +1141,31 @@ class MockPropertyStructureRepository
 // ---------------------------------------------------------------------------
 // Treasury
 // ---------------------------------------------------------------------------
+
+class MockSupportRepository with _MockLatency implements SupportRepository {
+  MockSupportRepository(this._server);
+
+  final MockServer _server;
+
+  @override
+  Future<Result<List<SupportTicket>>> listTickets() =>
+      guard(_server.listTickets);
+
+  @override
+  Future<Result<void>> raiseTicket(TicketDraft draft) =>
+      guard(() => _server.raiseTicket(draft));
+
+  @override
+  Future<Result<void>> updateTicket(String ticketId, TicketDraft draft) =>
+      guard(() => _server.updateTicket(ticketId, draft));
+
+  @override
+  Future<Result<void>> closeTicket(
+    String ticketId, {
+    required TicketStatus status,
+    required String remarks,
+  }) => guard(() => _server.closeTicket(ticketId, status, remarks));
+}
 
 class MockTreasuryRepository with _MockLatency implements TreasuryRepository {
   MockTreasuryRepository(this._server);

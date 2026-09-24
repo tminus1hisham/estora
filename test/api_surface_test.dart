@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/error/failure.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/booking.dart';
-import 'package:mall/domain/entities/property.dart';
-import 'package:mall/domain/entities/treasury.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/domain/repositories/repositories.dart';
+import 'package:estora/core/error/failure.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/booking.dart';
+import 'package:estora/domain/entities/property.dart';
+import 'package:estora/domain/entities/treasury.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/domain/repositories/repositories.dart';
 import 'support/mock/mock_repositories.dart';
 import 'support/mock/mock_server.dart';
 

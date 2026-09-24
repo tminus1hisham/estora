@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/components/even_grid.dart';
+import 'package:estora/components/even_grid.dart';
 
 /// Cards of deliberately different content heights: one line against four.
 Widget _card(String label, int lines) => Card(
@@ -66,11 +66,7 @@ void main() {
     await _pump(
       tester,
       width: 600,
-      children: [
-        _card('a', 1),
-        _card('b', 3),
-        _card('c', 1),
-      ],
+      children: [_card('a', 1), _card('b', 3), _card('c', 1)],
     );
 
     final sizes = _cardSizes(tester).toList();
@@ -121,12 +117,7 @@ void main() {
     await _pump(
       tester,
       width: 340,
-      children: [
-        _card('a', 1),
-        _card('b', 4),
-        _card('c', 1),
-        _card('d', 2),
-      ],
+      children: [_card('a', 1), _card('b', 4), _card('c', 1), _card('d', 2)],
     );
 
     final sizes = _cardSizes(tester).toList();

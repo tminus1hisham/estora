@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/components/app_refresh_indicator.dart';
-import 'package:mall/components/state_views.dart';
-import 'package:mall/core/error/failure.dart';
+import 'package:estora/components/app_refresh_indicator.dart';
+import 'package:estora/components/state_views.dart';
+import 'package:estora/core/error/failure.dart';
 
 void main() {
   for (final empty in [false, true]) {

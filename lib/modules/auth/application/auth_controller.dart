@@ -218,7 +218,7 @@ class AuthController extends Notifier<AuthState> {
         DebugLog.write('auth', 'Stored session found; unlocking biometrically');
         final unlock = await ref
             .read(biometricUnlockProvider)
-            .authenticate(reason: 'Unlock Mall to continue');
+            .authenticate(reason: 'Unlock Estora to continue');
         if (!unlock.succeeded) {
           // Invisible to the HTTP log, because nothing was ever sent. Without
           // this line, a handset that keeps landing on the sign-in screen with

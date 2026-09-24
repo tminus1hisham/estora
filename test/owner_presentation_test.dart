@@ -3,22 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'support/repository_overrides.dart';
-import 'package:mall/app.dart';
-import 'package:mall/components/app_surface_card.dart';
-import 'package:mall/components/collection_columns.dart';
-import 'package:mall/components/unit_status_strip.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/domain/entities/owner.dart';
-import 'package:mall/modules/owner/application/owner_controller.dart';
-import 'package:mall/modules/owner/presentation/widgets/invoice_payments_sheet.dart';
-import 'package:mall/modules/properties/application/property_controller.dart';
-import 'package:mall/modules/treasury/application/treasury_controller.dart';
-import 'package:mall/navigation/owner_shell.dart';
-import 'package:mall/navigation/routes.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/app.dart';
+import 'package:estora/components/app_surface_card.dart';
+import 'package:estora/components/collection_columns.dart';
+import 'package:estora/components/unit_status_strip.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/domain/entities/owner.dart';
+import 'package:estora/modules/owner/application/owner_controller.dart';
+import 'package:estora/modules/owner/presentation/widgets/invoice_payments_sheet.dart';
+import 'package:estora/modules/properties/application/property_controller.dart';
+import 'package:estora/modules/treasury/application/treasury_controller.dart';
+import 'package:estora/navigation/owner_shell.dart';
+import 'package:estora/navigation/routes.dart';
+import 'package:estora/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:mall/core/utils/money.dart';
+import 'package:estora/core/utils/money.dart';
 
 /// Section 88's owner screens, held to the same layout standard as the tenant's.
 ///
@@ -40,7 +40,7 @@ void main() {
         // AppConfig.dataSource is set to.
         ...mockRepositoryOverrides,
       ],
-      child: const MallApp(),
+      child: const EstoraApp(),
     );
   }
 

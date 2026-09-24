@@ -1,15 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:mall/core/error/failure.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/domain/entities/property.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/domain/repositories/repositories.dart';
-import 'package:mall/modules/home/presentation/available_home.dart';
-import 'package:mall/modules/owner/presentation/owner_live_dashboard.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/core/error/failure.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/domain/entities/property.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/domain/repositories/repositories.dart';
+import 'package:estora/modules/home/presentation/available_home.dart';
+import 'package:estora/modules/owner/presentation/owner_live_dashboard.dart';
+import 'package:estora/services/providers.dart';
 
 class _Units extends Mock implements UnitRepository {}
 
@@ -17,7 +17,7 @@ Property property(String id) => Property(
   id: id,
   name: id,
   code: '',
-  propertyType: PropertyType.mall,
+  propertyType: PropertyType.estora,
   status: PropertyStatus.active,
   city: 'Nairobi',
   country: 'Kenya',

@@ -1,10 +1,10 @@
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/lease.dart';
-import 'package:mall/domain/entities/owner.dart';
-import 'package:mall/domain/entities/property.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/lease.dart';
+import 'package:estora/domain/entities/owner.dart';
+import 'package:estora/domain/entities/property.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
 import 'mock_records.dart';
 import 'mock_server.dart';
 
@@ -17,7 +17,7 @@ import 'mock_server.dart';
 /// followed against this app and the figures will match the document.
 ///
 /// A second property, ABC Business Centre, exists to prove the model is not
-/// mall-specific (section 6) and to exercise the tax path in section 57, which
+/// estora-specific (section 6) and to exercise the tax path in section 57, which
 /// Sarit Mall deliberately leaves off so its totals stay exactly as written.
 void seedMockServer(MockServer server) {
   const kes = 'KES';
@@ -29,7 +29,7 @@ void seedMockServer(MockServer server) {
     id: saritId,
     name: 'Sarit Mall',
     code: 'SARIT',
-    propertyType: PropertyType.mall,
+    propertyType: PropertyType.estora,
     status: PropertyStatus.active,
     description:
         'A flagship retail destination in Westlands with high footfall across '
@@ -81,7 +81,7 @@ void seedMockServer(MockServer server) {
     country: 'Kenya',
     totalArea: 9000,
     // Serviced office space is let by the suite, so its rate per square metre
-    // is an order of magnitude above a mall's shop floor. Both properties
+    // is an order of magnitude above a estora's shop floor. Both properties
     // being priced the same way is the point — the model does not care which.
     rentRatePerSqm: Money.fromMajor(900, kes),
     imageUrl: 'assets/images/property_abc_business_centre.jpg',

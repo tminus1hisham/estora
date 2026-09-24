@@ -6,7 +6,7 @@ import 'invoice_controller.dart';
 
 /// Which of a tenant's properties the billing screens are showing.
 ///
-/// A tenant can lease in more than one mall, and a statement that runs two
+/// A tenant can lease in more than one estora, and a statement that runs two
 /// malls' rent together answers "what do I owe?" but not "what do I owe at
 /// Sarit?". The invoices tab lets them narrow both of its panes — what was
 /// billed and what was paid — to one property, and back to all of them.
@@ -26,7 +26,7 @@ class BillingProperty {
   });
 
   /// The server's property id. Properties are told apart by this, never by
-  /// name: two malls may share one, and a renamed mall is still the same one.
+  /// name: two malls may share one, and a renamed estora is still the same one.
   final String id;
 
   /// The name the invoices carry, or a stand-in when none of them did.
@@ -85,7 +85,7 @@ final billingPropertiesProvider = Provider<List<BillingProperty>>((ref) {
 /// The property the tenant picked, by id; null for all of them.
 ///
 /// Shared by both panes of the invoices tab, so turning from the statement to
-/// the transactions keeps the tenant in the mall they were looking at.
+/// the transactions keeps the tenant in the estora they were looking at.
 final billingPropertyFilterProvider =
     NotifierProvider<BillingPropertyFilter, String?>(BillingPropertyFilter.new);
 
@@ -94,7 +94,7 @@ class BillingPropertyFilter extends Notifier<String?> {
   String? build() {
     // A property that is no longer billed — the last lease there has ended
     // and its invoices have gone from the statement — cannot stay picked, or
-    // the tab would sit filtered to nothing behind a pill naming a mall the
+    // the tab would sit filtered to nothing behind a pill naming a estora the
     // tenant can no longer choose. Drop back to all of them.
     ref.listen(billingPropertiesProvider, (_, properties) {
       final id = state;
@@ -177,7 +177,7 @@ final scopedPaymentsProvider = Provider<AsyncValue<List<Payment>>>((ref) {
 /// [scopedPaymentsProvider]; null where it cannot be placed.
 ///
 /// For a history showing every property, where each row has to say which
-/// mall it paid.
+/// estora it paid.
 final paymentPropertyProvider = Provider<BillingProperty? Function(Payment)>((
   ref,
 ) {

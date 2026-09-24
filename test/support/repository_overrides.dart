@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/services/providers.dart';
 import 'mock/mock_server.dart';
 import 'mock/mock_repositories.dart';
 
@@ -51,6 +51,9 @@ final mockRepositoryOverrides = [
   ),
   treasuryRepositoryProvider.overrideWith(
     (ref) => MockTreasuryRepository(ref.watch(mockServerProvider)),
+  ),
+  supportRepositoryProvider.overrideWith(
+    (ref) => MockSupportRepository(ref.watch(mockServerProvider)),
   ),
   accessRepositoryProvider.overrideWith(
     (ref) => MockAccessRepository(ref.watch(mockServerProvider)),

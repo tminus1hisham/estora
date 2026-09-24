@@ -27,7 +27,7 @@ import 'package:flutter/foundation.dart';
 /// through the VM service and is quietly dropped by consoles that are not
 /// listening, `flutter test` among them. A diagnostic nobody can see is not a
 /// diagnostic, so entries take the plainer route that reaches the `flutter
-/// run` terminal and the IDE console alike, and carry a `[mall.<scope>]`
+/// run` terminal and the IDE console alike, and carry a `[estora.<scope>]`
 /// prefix so a console filter or a `grep` can still pick out one channel.
 class DebugLog {
   const DebugLog._();
@@ -75,7 +75,7 @@ class DebugLog {
   }) {
     if (!enabled) return;
 
-    final entry = StringBuffer('[mall.$scope] $message');
+    final entry = StringBuffer('[estora.$scope] $message');
     if (detail != null) entry.write('\n${describe(detail)}');
     if (error != null) entry.write('\n  error: $error');
     if (stackTrace != null) entry.write('\n$stackTrace');

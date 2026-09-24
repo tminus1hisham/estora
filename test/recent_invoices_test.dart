@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mall/components/amount_text.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/billing.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/home/presentation/widgets/recent_invoices.dart';
-import 'package:mall/navigation/routes.dart';
+import 'package:estora/components/amount_text.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/billing.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/home/presentation/widgets/recent_invoices.dart';
+import 'package:estora/navigation/routes.dart';
 
 Invoice _invoice(int day, InvoiceStatus status) => Invoice(
   id: '$day',
@@ -28,7 +28,7 @@ Invoice _invoice(int day, InvoiceStatus status) => Invoice(
 );
 
 void main() {
-  testWidgets('recent invoices show newest five and open invoice details', (
+  testWidgets('with nothing owed, recent invoices show the last two paid', (
     tester,
   ) async {
     final router = GoRouter(
@@ -62,12 +62,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('INV-1'), findsNothing);
     final numbers = tester
         .widgetList<Text>(find.byType(Text))
         .map((text) => text.data)
         .where((text) => text?.startsWith('INV-') ?? false);
-    expect(numbers, ['INV-6', 'INV-5', 'INV-4', 'INV-3', 'INV-2']);
+    expect(numbers, ['INV-6', 'INV-5']);
     expect(find.text('Pay now'), findsNothing);
     expect(
       tester
@@ -79,6 +78,37 @@ void main() {
     await tester.tap(find.text('INV-6'));
     await tester.pumpAndSettle();
     expect(find.text('Invoice 6'), findsOneWidget);
+  });
+
+  testWidgets('recent invoices show every unpaid invoice and no paid ones', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: RecentInvoices(
+                invoices: [
+                  for (var day = 1; day <= 7; day++)
+                    _invoice(
+                      day,
+                      day.isEven ? InvoiceStatus.paid : InvoiceStatus.overdue,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final numbers = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((text) => text.data)
+        .where((text) => text?.startsWith('INV-') ?? false);
+    expect(numbers, ['INV-7', 'INV-5', 'INV-3', 'INV-1']);
   });
 
   testWidgets('partially paid invoice uses balance and fits large text', (
@@ -112,11 +142,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    // The label and the due date share one rich-text line above the figure.
-    expect(
-      find.textContaining('Amount due', findRichText: true),
-      findsOneWidget,
-    );
+    expect(find.text('PARTIALLY PAID'), findsOneWidget);
     expect(find.text('Partially paid'), findsOneWidget);
     expect(find.text('Pay now'), findsOneWidget);
     expect(

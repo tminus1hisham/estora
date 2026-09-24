@@ -1,4 +1,4 @@
-# Mall brand mark
+# Estora brand mark
 
 Three piers, two arches: the colonnade every retail arcade is built from.
 

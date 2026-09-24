@@ -1,4 +1,4 @@
-# Mall
+# Estora
 
 Flutter property-management app with two account views:
 

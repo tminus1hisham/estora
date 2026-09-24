@@ -3,19 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'support/repository_overrides.dart';
-import 'package:mall/app.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/modules/bookings/presentation/booking_screen.dart';
-import 'package:mall/modules/bookings/presentation/bookings_screen.dart';
-import 'package:mall/modules/home/presentation/home_screen.dart';
-import 'package:mall/modules/profile/presentation/profile_screen.dart';
-import 'package:mall/modules/properties/presentation/properties_screen.dart';
-import 'package:mall/navigation/routes.dart';
-import 'package:mall/modules/units/presentation/property_spaces_screen.dart';
-import 'package:mall/modules/units/presentation/unit_detail_screen.dart';
+import 'package:estora/app.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/modules/bookings/presentation/booking_screen.dart';
+import 'package:estora/modules/bookings/presentation/bookings_screen.dart';
+import 'package:estora/modules/home/presentation/home_screen.dart';
+import 'package:estora/modules/profile/presentation/profile_screen.dart';
+import 'package:estora/modules/properties/presentation/properties_screen.dart';
+import 'package:estora/navigation/routes.dart';
+import 'package:estora/modules/units/presentation/property_spaces_screen.dart';
+import 'package:estora/modules/units/presentation/unit_detail_screen.dart';
 import 'support/mock/mock_server.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/services/providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Drives the section 94 acceptance path through the real widget tree.
@@ -60,7 +60,7 @@ void main() {
         // Shared with the test body, so assertions can read server state.
         mockServerProvider.overrideWithValue(server),
       ],
-      child: const MallApp(),
+      child: const EstoraApp(),
     );
   }
 
@@ -123,7 +123,7 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
 
     // Section 44: current property, unit and outstanding balance.
-    expect(find.text('Sarit Mall'), findsOneWidget);
+    expect(find.text('Sarit Estora'), findsOneWidget);
     expect(find.text('Unit SHOP-101'), findsOneWidget);
     expect(find.text('Active'), findsWidgets);
 
@@ -146,7 +146,7 @@ void main() {
     // Browse lists what the availability engine says can be booked, by
     // property; a card opens that property's spaces, read off the same
     // engine answer — blocks and sizes, not unit records.
-    await tester.tap(find.text('Sarit Mall').first);
+    await tester.tap(find.text('Sarit Estora').first);
     await tester.pumpAndSettle();
     expect(find.byType(PropertySpacesScreen), findsOneWidget);
 
@@ -197,7 +197,7 @@ void main() {
       await signIn(tester);
 
       await openBrowse(tester);
-      await tester.tap(find.text('Sarit Mall').first);
+      await tester.tap(find.text('Sarit Estora').first);
       await tester.pumpAndSettle();
 
       // The first Book is the main building's 5000 sq ft, of which two are

@@ -20,13 +20,13 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mall/core/error/result.dart';
-import 'package:mall/domain/entities/property.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/repositories/repositories.dart';
-import 'package:mall/services/remote/api_client.dart';
-import 'package:mall/services/remote/remote_repositories.dart';
-import 'package:mall/storage/token_store.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/domain/entities/property.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/repositories/repositories.dart';
+import 'package:estora/services/remote/api_client.dart';
+import 'package:estora/services/remote/remote_repositories.dart';
+import 'package:estora/storage/token_store.dart';
 
 const _phone = String.fromEnvironment('PROBE_PHONE');
 const _password = String.fromEnvironment('PROBE_PASSWORD');

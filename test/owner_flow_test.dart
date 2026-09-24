@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/owner.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/domain/repositories/repositories.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/owner.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/domain/repositories/repositories.dart';
 import 'support/mock/mock_repositories.dart';
 import 'support/mock/mock_server.dart';
 
@@ -185,7 +185,7 @@ void main() {
       await owners.createProperty(
         draft: PropertyDraft(
           name: 'Not Mine',
-          propertyType: PropertyType.mall,
+          propertyType: PropertyType.estora,
           city: 'Nairobi',
           country: 'Kenya',
           rentRatePerSqm: kesOf(10),

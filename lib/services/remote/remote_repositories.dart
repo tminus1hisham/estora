@@ -14,6 +14,7 @@ import '../../domain/entities/dashboard_summary.dart';
 import '../../domain/entities/lease.dart';
 import '../../domain/entities/owner.dart';
 import '../../domain/entities/property.dart';
+import '../../domain/entities/support_ticket.dart';
 import '../../domain/entities/tenant.dart';
 import '../../domain/entities/treasury.dart';
 import '../../domain/entities/unit.dart';
@@ -76,10 +77,16 @@ class AccountIdentity {
     return result;
   }
 
+  /// The signed-in account's own id — the `userId` a tenant record points
+  /// back at, and the `createdById` on anything the account raised. Null
+  /// when the account cannot be read.
+  Future<String?> userId() async =>
+      _identifier((await load()).valueOrNull?['userId']);
+
   /// The id the invoice and lease routes are keyed on: the **tenant
   /// record's** own `id`, never the signed-in account's.
   ///
-  /// The server keeps the two apart. `MallUsers` numbers the person who
+  /// The server keeps the two apart. `EstoraUsers` numbers the person who
   /// signs in; `Tenant` numbers the tenancy that is billed, and carries that
   /// person's `userId` as its link back — the record read from
   /// `/properties/get/all/tenants` as `{id: 13, userId: "65a5219e-…"}`.
@@ -1476,6 +1483,75 @@ class RemoteTreasuryRepository implements TreasuryRepository {
   Future<Result<void>> deleteBankPayment(String bankPaymentId) => _api.command(
     Endpoints.deleteBankPayment(bankPaymentId),
     method: 'DELETE',
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Support tickets
+// ---------------------------------------------------------------------------
+
+class RemoteSupportRepository implements SupportRepository {
+  RemoteSupportRepository(this._api, this._identity);
+
+  final ApiClient _api;
+  final AccountIdentity _identity;
+
+  /// The route takes no parameter, so the list is narrowed here to what this
+  /// account raised, the way the lease list is narrowed to its tenancy.
+  ///
+  /// Narrowed only where both sides are known: an account that cannot be
+  /// read, or a ticket that names no author, is left as the server sent it
+  /// rather than emptying the screen.
+  @override
+  Future<Result<List<SupportTicket>>> listTickets() async {
+    final me = await _identity.userId();
+
+    final result = await _api.get<List<SupportTicket>>(
+      Endpoints.tickets,
+      parse: (json) => rawListFromJson(json)
+          // Typed as an array, but an acknowledgement is not a ticket.
+          .where((item) => item['id'] != null)
+          .map(supportTicketFromJson)
+          .toList(growable: false),
+    );
+
+    return result.map(
+      (tickets) =>
+          tickets
+              .where(
+                (ticket) =>
+                    me == null ||
+                    ticket.createdById == null ||
+                    ticket.createdById == me,
+              )
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+    );
+  }
+
+  @override
+  Future<Result<void>> raiseTicket(TicketDraft draft) =>
+      _api.command(Endpoints.createTicket, body: ticketDraftToJson(draft));
+
+  @override
+  Future<Result<void>> updateTicket(String ticketId, TicketDraft draft) =>
+      _api.command(
+        Endpoints.updateTicket(ticketId),
+        method: 'PUT',
+        body: ticketDraftToJson(draft),
+      );
+
+  /// Status and remarks travel in the query string, as the contract has
+  /// them; the route takes no body.
+  @override
+  Future<Result<void>> closeTicket(
+    String ticketId, {
+    required TicketStatus status,
+    required String remarks,
+  }) => _api.command(
+    Endpoints.closeTicket(ticketId),
+    method: 'PUT',
+    query: {'status': status.api, 'remarks': remarks},
   );
 }
 

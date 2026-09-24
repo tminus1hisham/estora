@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mall/core/error/failure.dart';
-import 'package:mall/core/error/result.dart';
-import 'package:mall/core/theme/app_theme.dart';
-import 'package:mall/components/collection_columns.dart';
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/domain/entities/owner.dart';
-import 'package:mall/domain/entities/treasury.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
-import 'package:mall/domain/repositories/repositories.dart';
-import 'package:mall/modules/invoices/presentation/invoices_screen.dart';
-import 'package:mall/modules/leases/presentation/leases_screen.dart';
-import 'package:mall/modules/owner/presentation/owner_money_screen.dart';
-import 'package:mall/modules/treasury/presentation/bank_payments_screen.dart';
-import 'package:mall/modules/treasury/presentation/mpesa_transactions_screen.dart';
-import 'package:mall/services/demo/demo_fixtures.dart';
-import 'package:mall/services/demo/demo_repositories.dart';
-import 'package:mall/services/providers.dart';
+import 'package:estora/core/error/failure.dart';
+import 'package:estora/core/error/result.dart';
+import 'package:estora/core/theme/app_theme.dart';
+import 'package:estora/components/collection_columns.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/domain/entities/owner.dart';
+import 'package:estora/domain/entities/treasury.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
+import 'package:estora/domain/repositories/repositories.dart';
+import 'package:estora/modules/invoices/presentation/invoices_screen.dart';
+import 'package:estora/modules/leases/presentation/leases_screen.dart';
+import 'package:estora/modules/owner/presentation/owner_money_screen.dart';
+import 'package:estora/modules/treasury/presentation/bank_payments_screen.dart';
+import 'package:estora/modules/treasury/presentation/mpesa_transactions_screen.dart';
+import 'package:estora/services/demo/demo_fixtures.dart';
+import 'package:estora/services/demo/demo_repositories.dart';
+import 'package:estora/services/providers.dart';
 
 /// The `--dart-define=DEMO_DATA=true` fixtures.
 ///
@@ -60,10 +60,11 @@ void main() {
       // What a tenant meets first: the soonest-due invoice they can actually
       // pay. The deferred penalty is owed too, but falls due late enough that
       // it must not be the one in front.
-      final payable = fixtures.invoices.values
-          .where((invoice) => invoice.isPayable)
-          .toList()
-        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      final payable =
+          fixtures.invoices.values
+              .where((invoice) => invoice.isPayable)
+              .toList()
+            ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
       expect(payable, isNotEmpty);
 
       final focus = payable.first;

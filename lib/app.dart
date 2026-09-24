@@ -7,13 +7,13 @@ import 'core/theme/theme_mode_controller.dart';
 import 'navigation/app_router.dart';
 
 /// The tenant application root.
-class MallApp extends ConsumerWidget {
-  const MallApp({super.key});
+class EstoraApp extends ConsumerWidget {
+  const EstoraApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: 'Mall',
+      title: 'Estora',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

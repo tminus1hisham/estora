@@ -57,7 +57,7 @@ class AdaptiveAppFrame extends StatelessWidget {
                               const AppBrandMark(size: 40),
                               Gap.w12,
                               Text(
-                                'Mall',
+                                'Estora',
                                 style: theme.textTheme.headlineSmall,
                               ),
                             ],

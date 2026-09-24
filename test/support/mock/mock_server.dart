@@ -3,17 +3,18 @@ import 'dart:math';
 
 import 'package:uuid/uuid.dart';
 
-import 'package:mall/core/utils/money.dart';
-import 'package:mall/core/utils/phone_number.dart';
-import 'package:mall/domain/entities/billing.dart';
-import 'package:mall/domain/entities/booking.dart';
-import 'package:mall/domain/entities/dashboard_summary.dart';
-import 'package:mall/domain/entities/lease.dart';
-import 'package:mall/domain/entities/owner.dart';
-import 'package:mall/domain/entities/property.dart';
-import 'package:mall/domain/entities/tenant.dart';
-import 'package:mall/domain/entities/unit.dart';
-import 'package:mall/domain/enums/domain_enums.dart';
+import 'package:estora/core/utils/money.dart';
+import 'package:estora/core/utils/phone_number.dart';
+import 'package:estora/domain/entities/billing.dart';
+import 'package:estora/domain/entities/booking.dart';
+import 'package:estora/domain/entities/dashboard_summary.dart';
+import 'package:estora/domain/entities/lease.dart';
+import 'package:estora/domain/entities/owner.dart';
+import 'package:estora/domain/entities/property.dart';
+import 'package:estora/domain/entities/support_ticket.dart';
+import 'package:estora/domain/entities/tenant.dart';
+import 'package:estora/domain/entities/unit.dart';
+import 'package:estora/domain/enums/domain_enums.dart';
 import 'agreement_template.dart';
 import 'mock_back_office.dart';
 import 'mock_records.dart';
@@ -139,6 +140,101 @@ class MockServer {
   };
 
   DateTime get now => _clock();
+
+  // -- Support tickets ------------------------------------------------------
+
+  /// Keyed by id. Numbered from 1, as the real table is.
+  final Map<String, SupportTicket> tickets = {};
+  int _ticketSeq = 0;
+
+  /// The signed-in account's tickets, newest first.
+  List<SupportTicket> listTickets() =>
+      tickets.values
+          .where((ticket) => ticket.createdById == currentUser?.id)
+          .toList()
+        ..sort((a, b) => int.parse(b.id).compareTo(int.parse(a.id)));
+
+  SupportTicket raiseTicket(TicketDraft draft) {
+    final ticket = _ticketFrom(
+      id: '${++_ticketSeq}',
+      draft: draft,
+      status: TicketStatus.open,
+      createdAt: now,
+    );
+    tickets[ticket.id] = ticket;
+    return ticket;
+  }
+
+  void updateTicket(String id, TicketDraft draft) {
+    final ticket = _ticket(id);
+    tickets[id] = _ticketFrom(
+      id: id,
+      draft: draft,
+      status: ticket.status,
+      createdAt: ticket.createdAt,
+    );
+  }
+
+  /// The closer's remark lands in `approvalRemarks`, attributed to them.
+  void closeTicket(String id, TicketStatus status, String remarks) {
+    final ticket = _ticket(id);
+    tickets[id] = _ticketFrom(
+      id: id,
+      draft: ticket.toDraft(),
+      status: status,
+      createdAt: ticket.createdAt,
+      remarks: remarks,
+    );
+  }
+
+  /// Answers a ticket from the desk's side, as a manager would.
+  void answerTicket(String id, String remarks, {TicketStatus? status}) {
+    final ticket = _ticket(id);
+    tickets[id] = _ticketFrom(
+      id: id,
+      draft: ticket.toDraft(),
+      status: status ?? ticket.status,
+      createdAt: ticket.createdAt,
+      remarks: remarks,
+      byDesk: true,
+    );
+  }
+
+  SupportTicket _ticket(String id) =>
+      tickets[id] ?? (throw MockNotFound('Ticket $id not found'));
+
+  SupportTicket _ticketFrom({
+    required String id,
+    required TicketDraft draft,
+    required TicketStatus status,
+    required DateTime createdAt,
+    String? remarks,
+    bool byDesk = false,
+  }) => SupportTicket(
+    id: id,
+    category: draft.category,
+    comment: draft.comment,
+    status: status,
+    propertyId: draft.propertyId,
+    propertyName: draft.propertyName,
+    unitId: draft.unitId,
+    attachments: draft.attachments,
+    approvalRemarks: remarks,
+    approvedByName: remarks == null
+        ? null
+        : byDesk
+        ? 'Support desk'
+        : currentTenant?.displayName,
+    approvedById: remarks == null
+        ? null
+        : byDesk
+        ? 'desk'
+        : currentUser?.id,
+    createdById: currentUser?.id,
+    createdByName: currentTenant?.displayName,
+    createdAt: createdAt,
+    updatedAt: now,
+  );
 
   String _id(String prefix) => '${prefix}_${_uuid.v4().substring(0, 8)}';
 
@@ -2335,7 +2431,7 @@ class MockServer {
     }
 
     // Vacancy, summarised per property. One line per empty unit would bury
-    // everything else on a mall with a slow quarter.
+    // everything else on a estora with a slow quarter.
     for (final property in owned) {
       final vacant = units.values
           .where(

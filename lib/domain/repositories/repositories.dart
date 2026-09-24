@@ -22,6 +22,7 @@ import '../entities/dashboard_summary.dart';
 import '../entities/lease.dart';
 import '../entities/owner.dart';
 import '../entities/property.dart';
+import '../entities/support_ticket.dart';
 import '../entities/tenant.dart';
 import '../entities/treasury.dart';
 import '../entities/unit.dart';
@@ -595,6 +596,30 @@ abstract interface class TreasuryRepository {
   Future<Result<void>> updateBankPayment(BankPayment payment);
 
   Future<Result<void>> deleteBankPayment(String bankPaymentId);
+}
+
+// ---------------------------------------------------------------------------
+// Support tickets
+// ---------------------------------------------------------------------------
+
+abstract interface class SupportRepository {
+  /// The tickets the caller may see, newest first.
+  Future<Result<List<SupportTicket>>> listTickets();
+
+  /// Files a ticket. The contract answers with a bare acknowledgement, so the
+  /// new ticket is read back with [listTickets] rather than returned here.
+  Future<Result<void>> raiseTicket(TicketDraft draft);
+
+  /// Replaces a ticket's type and comment. The contract takes the whole
+  /// request again, property and unit included.
+  Future<Result<void>> updateTicket(String ticketId, TicketDraft draft);
+
+  /// Moves a ticket to [status], with a note of why.
+  Future<Result<void>> closeTicket(
+    String ticketId, {
+    required TicketStatus status,
+    required String remarks,
+  });
 }
 
 // ---------------------------------------------------------------------------
