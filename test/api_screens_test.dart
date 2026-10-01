@@ -99,16 +99,17 @@ void main() {
       final propertyId = await firstPropertyId(tester);
       await open(
         tester,
-        Routes.blocks,
+        Routes.ownerProperty,
         pathParameters: {'propertyId': propertyId},
       );
-      expect(find.text('Blocks'), findsWidgets);
 
-      // Straight into the first block, which is where the units live.
-      await tester.tap(find.byIcon(Icons.dashboard_outlined).first);
+      // The blocks sit on the property; the first opens in a sheet.
+      final block = find.byIcon(Icons.chevron_right_rounded).first;
+      await tester.ensureVisible(block);
+      await tester.tap(block);
       await tester.pumpAndSettle();
 
-      expect(find.text('The block'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
     });
 
     testWidgets('the till lists what arrived and what is unallocated', (

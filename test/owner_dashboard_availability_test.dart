@@ -7,11 +7,13 @@ import 'package:estora/domain/entities/property.dart';
 import 'package:estora/domain/entities/unit.dart';
 import 'package:estora/domain/enums/domain_enums.dart';
 import 'package:estora/domain/repositories/repositories.dart';
-import 'package:estora/modules/home/presentation/available_home.dart';
+import 'package:estora/modules/units/application/unit_controller.dart';
 import 'package:estora/modules/owner/presentation/owner_live_dashboard.dart';
 import 'package:estora/services/providers.dart';
 
 class _Units extends Mock implements UnitRepository {}
+
+class _Properties extends Mock implements PropertyRepository {}
 
 Property property(String id) => Property(
   id: id,
@@ -35,9 +37,13 @@ UnitAvailability block(String propertyId, String blockId, int count) =>
 void main() {
   late _Units repository;
   ProviderContainer container(List<Property> properties) {
+    final propertyRepository = _Properties();
+    when(
+      () => propertyRepository.listProperties(),
+    ).thenAnswer((_) async => Ok(Page.single(properties)));
     final result = ProviderContainer(
       overrides: [
-        homePropertiesProvider.overrideWith((ref) async => properties),
+        propertyRepositoryProvider.overrideWithValue(propertyRepository),
         unitRepositoryProvider.overrideWithValue(repository),
       ],
     );
@@ -89,7 +95,8 @@ void main() {
       when(
         () => repository.listAvailability(),
       ).thenAnswer((_) async => Ok([block('1', 'a', 6)]));
-      expect(await scope.refresh(ownerDashboardAvailabilityProvider.future), {
+      await scope.read(availabilityProvider.notifier).refresh();
+      expect(await scope.read(ownerDashboardAvailabilityProvider.future), {
         '1': 6,
       });
     },

@@ -49,12 +49,15 @@ class OwnerMoneyScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final report = ref.watch(ownerReportProvider);
+    final reportProvider = ownerReportProvider(
+      ref.watch(reportPropertyProvider),
+    );
+    final report = ref.watch(selectedOwnerReportProvider);
     final selected = ref.watch(reportPropertyProvider);
     final properties = ref.watch(propertyListProvider).value ?? const [];
 
     Future<void> refresh() async {
-      await ref.refresh(ownerReportProvider.future).then<void>((_) {});
+      await ref.refresh(reportProvider.future).then<void>((_) {});
     }
 
     return Scaffold(
@@ -290,10 +293,7 @@ class _Money extends StatelessWidget {
 /// Every count is the report's own, so a tile and the collected figure are
 /// counted from the same records.
 class _LedgerTabs extends StatelessWidget {
-  const _LedgerTabs({
-    required this.report,
-    required this.abreast,
-  });
+  const _LedgerTabs({required this.report, required this.abreast});
 
   final OwnerReport report;
 

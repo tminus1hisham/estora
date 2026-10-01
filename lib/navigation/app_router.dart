@@ -55,7 +55,6 @@ import '../modules/properties/presentation/properties_screen.dart';
 import '../modules/properties/presentation/property_detail_screen.dart';
 import '../modules/structure/presentation/block_form_screen.dart';
 import '../modules/structure/presentation/block_screen.dart';
-import '../modules/structure/presentation/blocks_screen.dart';
 import '../modules/structure/presentation/unit_form_screen.dart';
 import '../modules/support/presentation/new_ticket_screen.dart';
 import '../modules/support/presentation/support_tickets_screen.dart';
@@ -656,16 +655,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         propertyId:
                             state.uri.queryParameters['propertyId'] ?? '',
                         unitId: state.pathParameters['unitId'],
-                      ),
-                    ),
-                  ),
-                  GoRoute(
-                    path: Routes.blocksPath,
-                    name: Routes.blocks,
-                    pageBuilder: (_, state) => lateralPage(
-                      state: state,
-                      child: BlocksScreen(
-                        propertyId: state.pathParameters['propertyId']!,
                       ),
                     ),
                   ),

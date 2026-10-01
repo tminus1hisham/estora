@@ -30,7 +30,9 @@ class NotificationListController extends AsyncNotifier<List<NotificationItem>> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
     ref.invalidate(unreadNotificationCountProvider);
   }
 

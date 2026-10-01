@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,18 +7,21 @@ import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_bottom_action_bar.dart';
 import '../../../components/app_media.dart';
 import '../../../components/app_skeleton.dart';
+import '../../../components/amount_text.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/occupancy_meter.dart';
+import '../../../components/record_group.dart';
 import '../../../components/section_card.dart';
 import '../../../components/state_views.dart';
 import '../../../components/status_chip.dart';
-import '../../../components/unit_status_strip.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/status_palette.dart';
 import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/unit.dart';
 import '../../../navigation/routes.dart';
 import '../../structure/application/structure_controller.dart';
+import '../../structure/presentation/block_screen.dart';
 import '../../units/application/unit_controller.dart';
 import '../application/property_controller.dart';
 
@@ -43,25 +47,15 @@ class PropertyDetailScreen extends ConsumerWidget {
         detail.value?.property.availableUnits;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(detail.value?.property.name ?? 'Property'),
-        actions: [
-          if (manager)
-            PopupMenuButton<String>(
-              tooltip: 'Manage property',
-              onSelected: (route) => context.pushNamed(
-                route,
-                pathParameters: {'propertyId': propertyId},
-              ),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: Routes.blocks, child: Text('Blocks')),
-              ],
-            ),
-        ],
-      ),
+      // Once loaded, the photograph is the app bar: see [_Body].
+      appBar: detail.hasValue ? null : AppBar(title: const Text('Property')),
       body: AppRefreshIndicator(
         onRefresh: () async {
-          if (manager) ref.invalidate(propertyOccupancyProvider(propertyId));
+          if (manager) {
+            ref
+              ..invalidate(propertyUnitsProvider(propertyId))
+              ..invalidate(propertyBlocksProvider(propertyId));
+          }
           await Future.wait<void>([
             ref
                 .refresh(propertyDetailProvider(propertyId).future)
@@ -88,28 +82,19 @@ class PropertyDetailScreen extends ConsumerWidget {
           ),
         },
       ),
-      // The owner goes on to the structure. A tenant's next step is a
-      // conversation, not a transaction: they tell the landlord what they
-      // are after and nothing is booked or paid on the way.
-      bottomNavigationBar: detail.hasValue
+      // The owner's blocks open in place, on this screen. A tenant's next
+      // step is a conversation, not a transaction: they tell the landlord
+      // what they are after and nothing is booked or paid on the way.
+      bottomNavigationBar: detail.hasValue && !manager
           ? AppBottomActionBar(
-              child: manager
-                  ? FilledButton.icon(
-                      onPressed: () => context.pushNamed(
-                        Routes.blocks,
-                        pathParameters: {'propertyId': propertyId},
-                      ),
-                      icon: const Icon(Icons.meeting_room_outlined),
-                      label: const Text('View blocks and units'),
-                    )
-                  : FilledButton.icon(
-                      onPressed: () => context.pushNamed(
-                        Routes.enquiry,
-                        pathParameters: {'propertyId': propertyId},
-                      ),
-                      icon: const Icon(Icons.send_outlined),
-                      label: const Text('Send enquiry'),
-                    ),
+              child: FilledButton.icon(
+                onPressed: () => context.pushNamed(
+                  Routes.enquiry,
+                  pathParameters: {'propertyId': propertyId},
+                ),
+                icon: const Icon(Icons.send_outlined),
+                label: const Text('Send enquiry'),
+              ),
             )
           : null,
     );
@@ -130,102 +115,162 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final property = detail.property;
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final topInset = MediaQuery.paddingOf(context).top;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-      children: [
-        AppMedia(
-          source: property.imageUrl,
-          aspectRatio: 16 / 10,
-          heroTag: 'property-${property.id}',
-          borderRadius: AppRadius.large,
-          semanticLabel: '${property.name} property',
-          fallbackIcon: Icons.location_city_rounded,
-        ),
-        Gap.h24,
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                property.name,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ),
-            Gap.w12,
-            StatusChip(
-              label: property.status.label,
-              tone: property.status.tone,
-            ),
-          ],
-        ),
-        Gap.h8,
-        Row(
-          children: [
-            Icon(
-              Icons.location_on_outlined,
-              size: 18,
-              color: scheme.onSurfaceVariant,
-            ),
-            Gap.w8,
-            Expanded(
-              child: Text(
-                property.locationLabel,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        // Edge to edge and under the status bar, like the tenant home, with
+        // the owner home's curved foot. It folds into a plain bar on scroll.
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 200,
+          automaticallyImplyLeading: false,
+          leading: Navigator.canPop(context)
+              ? Padding(
+                  padding: const EdgeInsets.all(Gap.sm),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppPalette.navy950.withValues(alpha: 0.36),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const BackButton(color: Colors.white),
+                  ),
+                )
+              : null,
+          backgroundColor: theme.scaffoldBackgroundColor,
+          flexibleSpace: LayoutBuilder(
+            builder: (context, constraints) => AnnotatedRegion(
+              // Light icons over the photograph, the theme's own once folded.
+              value: constraints.maxHeight > kToolbarHeight + topInset + Gap.lg
+                  ? SystemUiOverlayStyle.light
+                  : theme.brightness == Brightness.dark
+                  ? SystemUiOverlayStyle.light
+                  : SystemUiOverlayStyle.dark,
+              child: FlexibleSpaceBar(
+                background: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.elliptical(44, 36),
+                  ),
+                  child: AppMedia(
+                    source: property.imageUrl,
+                    aspectRatio: null,
+                    heroTag: 'property-${property.id}',
+                    semanticLabel: '${property.name} property',
+                    fallbackIcon: Icons.location_city_rounded,
+                    overlay: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: AppGradients.headerVeil,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
-        if (property.description != null) ...[
-          Gap.h16,
-          Text(
-            property.description!,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
           ),
-        ],
-        Gap.h24,
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.meeting_room_outlined,
-                value: available?.toString() ?? '—',
-                label: 'Available',
-                highlighted: true,
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.md, Gap.lg, Gap.xl),
+          sliver: SliverList.list(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      property.name,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  Gap.w12,
+                  StatusChip(
+                    label: property.status.label,
+                    tone: property.status.tone,
+                    dense: true,
+                  ),
+                ],
               ),
-            ),
-            Gap.w12,
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.domain_outlined,
-                value: property.totalUnits?.toString() ?? '—',
-                label: 'Blocks',
+              Gap.h4,
+              Row(
+                children: [
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 16,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  Gap.w8,
+                  Expanded(
+                    child: Text(
+                      property.locationLabel,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            if (property.totalArea != null) ...[
-              Gap.w12,
-              Expanded(
-                child: _MetricTile(
-                  icon: Icons.square_foot_rounded,
-                  value: property.totalArea!.toStringAsFixed(0),
-                  label: 'Square feet',
+              if (property.description != null) ...[
+                Gap.h8,
+                Text(
+                  property.description!,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              Gap.h12,
+              // Equal heights, so a label that wraps does not stagger the row.
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _MetricTile(
+                        icon: Icons.meeting_room_outlined,
+                        value: property.totalUnits?.toString() ?? '—',
+                        label: 'Total units',
+                        highlighted: true,
+                      ),
+                    ),
+                    Gap.w8,
+                    Expanded(
+                      child: _MetricTile(
+                        icon: Icons.domain_outlined,
+                        value: available?.toString() ?? '—',
+                        label: 'Available units',
+                      ),
+                    ),
+                    if (property.totalArea != null) ...[
+                      Gap.w8,
+                      Expanded(
+                        child: _MetricTile(
+                          icon: Icons.square_foot_rounded,
+                          value: formatArea(
+                            property.totalArea!.roundToDouble(),
+                          ),
+                          label: 'Square feet',
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              if (manager) ...[
+                Gap.h8,
+                _OccupancySection(
+                  propertyId: property.id,
+                  fallback: property.mix,
+                ),
+              ],
+              Gap.h8,
+              _AvailabilitySection(propertyId: property.id, manager: manager),
+              if (manager) ...[Gap.h16, _UnitsSection(propertyId: property.id)],
             ],
-          ],
+          ),
         ),
-        if (manager) ...[
-          Gap.h12,
-          _OccupancySection(propertyId: property.id, fallback: property.mix),
-        ],
-        Gap.h12,
-        _AvailabilitySection(propertyId: property.id),
       ],
     );
   }
@@ -233,24 +278,30 @@ class _Body extends StatelessWidget {
 
 /// What can be booked here today, block by block, straight from the
 /// availability engine — the same answer Browse gives, narrowed to this
-/// property.
+/// property. The owner sees every block, open or full, and taps one for its
+/// units.
 class _AvailabilitySection extends ConsumerWidget {
-  const _AvailabilitySection({required this.propertyId});
+  const _AvailabilitySection({required this.propertyId, required this.manager});
 
   final String propertyId;
+  final bool manager;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final availability = ref.watch(availabilityProvider);
+    final structure = manager
+        ? ref.watch(propertyBlocksProvider(propertyId))
+        : null;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    const padding = EdgeInsets.all(Gap.md);
 
-    if (availability.isLoading && !availability.hasValue) {
+    if ((availability.isLoading && !availability.hasValue) ||
+        (structure != null && structure.isLoading && !structure.hasValue)) {
       return const SectionCard(
         title: 'Available',
+        padding: padding,
         children: [
-          AppSkeleton(height: 18),
-          Gap.h12,
           AppSkeleton(height: 18),
           Gap.h12,
           AppSkeleton(height: 18, width: 160),
@@ -258,9 +309,11 @@ class _AvailabilitySection extends ConsumerWidget {
       );
     }
 
-    if (availability.hasError && !availability.hasValue) {
+    if ((availability.hasError && !availability.hasValue) ||
+        (structure != null && structure.hasError && !structure.hasValue)) {
       return SectionCard(
         title: 'Available',
+        padding: padding,
         children: [
           Text(
             'Availability could not be checked just now.',
@@ -272,8 +325,10 @@ class _AvailabilitySection extends ConsumerWidget {
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: TextButton(
-              onPressed: () =>
-                  ref.read(availabilityProvider.notifier).refresh(),
+              onPressed: () {
+                if (manager) ref.invalidate(propertyBlocksProvider(propertyId));
+                ref.read(availabilityProvider.notifier).refresh();
+              },
               child: const Text('Try again'),
             ),
           ),
@@ -281,14 +336,32 @@ class _AvailabilitySection extends ConsumerWidget {
       );
     }
 
-    final blocks = availability.requireValue.forProperty(propertyId);
+    final open = availability.requireValue.forProperty(propertyId);
+    final rows = <Widget>[
+      if (structure != null)
+        for (final block in structure.requireValue)
+          _BlockRow(
+            name: block.name,
+            detail: switch (open.where((b) => b.blockId == block.id)) {
+              final found when found.isNotEmpty => found.first.sizesLabel,
+              _ => 'None available',
+            },
+            onTap: () => showBlockSheet(context, block.id),
+          )
+      else
+        for (final block in open)
+          _BlockRow(name: block.blockName, detail: block.sizesLabel),
+    ];
 
-    if (blocks.isEmpty) {
+    if (rows.isEmpty) {
       return SectionCard(
         title: 'Available',
+        padding: padding,
         children: [
           Text(
-            'Nothing is open for booking here right now.',
+            manager
+                ? 'No blocks yet.'
+                : 'Nothing is open for booking here right now.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -299,6 +372,7 @@ class _AvailabilitySection extends ConsumerWidget {
 
     return SectionCard(
       title: 'Available',
+      padding: padding,
       trailing: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: Gap.md,
@@ -309,17 +383,138 @@ class _AvailabilitySection extends ConsumerWidget {
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Text(
-          '${blocks.count} available',
+          '${open.count} available',
           style: theme.textTheme.labelMedium?.copyWith(
             color: scheme.onPrimaryContainer,
           ),
         ),
       ),
+      children: rows,
+    );
+  }
+}
+
+/// Every unit in the property, owner only, narrowed by block name. The
+/// same records [_OccupancySection] counts, so the list and the meter agree.
+class _UnitsSection extends ConsumerStatefulWidget {
+  const _UnitsSection({required this.propertyId});
+
+  final String propertyId;
+
+  @override
+  ConsumerState<_UnitsSection> createState() => _UnitsSectionState();
+}
+
+class _UnitsSectionState extends ConsumerState<_UnitsSection> {
+  /// Null is "All".
+  String? _blockId;
+
+  @override
+  Widget build(BuildContext context) {
+    final units = ref.watch(propertyUnitsProvider(widget.propertyId));
+    final blocks =
+        ref.watch(propertyBlocksProvider(widget.propertyId)).value ?? const [];
+    final theme = Theme.of(context);
+
+    if (!units.hasValue) {
+      if (units.hasError) {
+        return SectionCard(
+          title: 'Units',
+          children: [
+            Text(
+              'The units could not be loaded just now.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Gap.h8,
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton(
+                onPressed: () =>
+                    ref.invalidate(propertyUnitsProvider(widget.propertyId)),
+                child: const Text('Try again'),
+              ),
+            ),
+          ],
+        );
+      }
+      return const SectionCard(
+        title: 'Units',
+        children: [AppSkeleton(height: 18), Gap.h12, AppSkeleton(height: 18)],
+      );
+    }
+
+    // A block deleted since it was picked falls back to "All".
+    final blockId = blocks.any((b) => b.id == _blockId) ? _blockId : null;
+    final shown = [
+      for (final unit in units.requireValue)
+        if (blockId == null || unit.buildingId == blockId) unit,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final block in blocks) ...[
-          _BlockRow(block: block),
-          if (block != blocks.last) Gap.h8,
+        if (blocks.isNotEmpty) ...[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: const Text('All'),
+                  selected: blockId == null,
+                  onSelected: (_) => setState(() => _blockId = null),
+                ),
+                for (final block in blocks) ...[
+                  Gap.w8,
+                  ChoiceChip(
+                    label: Text(
+                      block.name.isEmpty ? 'Unnamed block' : block.name,
+                    ),
+                    selected: blockId == block.id,
+                    onSelected: (selected) =>
+                        setState(() => _blockId = selected ? block.id : null),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Gap.h12,
         ],
+        if (shown.isEmpty)
+          SectionCard(
+            title: 'Units',
+            children: [
+              Text(
+                blockId == null
+                    ? 'No units yet.'
+                    : 'No units in this block yet.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          )
+        else
+          RecordGroup(
+            heading: '${shown.length} ${shown.length == 1 ? 'unit' : 'units'}',
+            children: [
+              for (final unit in shown)
+                RecordRow(
+                  icon: Icons.grid_view_rounded,
+                  iconColor: context.statusColors.resolve(unit.status.tone),
+                  title: unit.unitNumber,
+                  subtitle: [
+                    if (blockId == null && unit.buildingName != null)
+                      unit.buildingName!,
+                    unit.category.label,
+                    if (unit.areaLabel != null) unit.areaLabel!,
+                  ].join(' · '),
+                  amount: AmountText(unit.baseRent, align: TextAlign.end),
+                  caption: unit.status.label,
+                ),
+            ],
+          ),
       ],
     );
   }
@@ -327,47 +522,62 @@ class _AvailabilitySection extends ConsumerWidget {
 
 /// A block and the sizes it has to let — "North Wing · 480 sq ft × 10".
 class _BlockRow extends StatelessWidget {
-  const _BlockRow({required this.block});
+  const _BlockRow({required this.name, required this.detail, this.onTap});
 
-  final UnitAvailability block;
+  final String name;
+  final String detail;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.domain_outlined, size: 17, color: scheme.primary),
-        Gap.w8,
-        Expanded(
-          child: Text(
-            block.blockName.isEmpty ? 'Unnamed block' : block.blockName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: text.labelMedium,
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.small,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Gap.sm),
+        child: Row(
+          children: [
+            Icon(Icons.domain_outlined, size: 17, color: scheme.primary),
+            Gap.w8,
+            Expanded(
+              child: Text(
+                name.isEmpty ? 'Unnamed block' : name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.labelMedium,
+              ),
+            ),
+            Gap.w8,
+            Flexible(
+              child: Text(
+                detail,
+                textAlign: TextAlign.end,
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
+            if (onTap != null) ...[
+              Gap.w4,
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ],
         ),
-        Gap.w8,
-        Flexible(
-          child: Text(
-            block.bySize.map(_sizeLabel).join(', '),
-            textAlign: TextAlign.end,
-            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ),
-      ],
+      ),
     );
   }
+}
 
-  static String _sizeLabel(UnitAvailabilitySize size) {
-    if (size.size == 0) return '× ${size.count}';
-    final area = size.size == size.size.roundToDouble()
-        ? size.size.toInt().toString()
-        : size.size.toString();
-    return '$area sq ft × ${size.count}';
-  }
+extension on UnitAvailability {
+  /// "480 sq ft × 10, 1,200 sq ft × 2".
+  String get sizesLabel => bySize
+      .map((s) => s.size == 0 ? '× ${s.count}' : '${s.label} × ${s.count}')
+      .join(', ');
 }
 
 extension on List<UnitAvailability> {
@@ -420,7 +630,7 @@ class _OccupancySection extends ConsumerWidget {
             alignment: AlignmentDirectional.centerStart,
             child: TextButton(
               onPressed: () =>
-                  ref.invalidate(propertyOccupancyProvider(propertyId)),
+                  ref.invalidate(propertyUnitsProvider(propertyId)),
               child: const Text('Try again'),
             ),
           ),
@@ -445,11 +655,14 @@ class _OccupancySection extends ConsumerWidget {
 
     return SectionCard(
       title: 'Occupancy',
-      children: [
-        OccupancyMeter(mix: mix, label: 'Units let'),
-        Gap.h16,
-        UnitStatusStrip(mix: mix),
-      ],
+      padding: const EdgeInsets.all(Gap.md),
+      trailing: Text(
+        mix.occupancyLabel,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      children: [OccupancyMeter(mix: mix, dense: true)],
     );
   }
 }
@@ -470,6 +683,9 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final muted = highlighted
+        ? scheme.onPrimaryContainer.withValues(alpha: 0.72)
+        : scheme.onSurfaceVariant;
     return AppSurfaceCard(
       padding: const EdgeInsets.all(Gap.md),
       color: highlighted ? scheme.primaryContainer : null,
@@ -479,24 +695,30 @@ class _MetricTile extends StatelessWidget {
         children: [
           Icon(
             icon,
-            size: 19,
+            size: 20,
             color: highlighted ? scheme.onPrimaryContainer : scheme.primary,
           ),
-          Gap.h12,
+          Gap.h8,
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(value, style: Theme.of(context).textTheme.titleLarge),
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: AppTypography.medium,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
           ),
           Gap.h4,
+          // Wraps rather than clips: "Available" over "units" on a phone.
           Text(
             label,
             maxLines: 2,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: highlighted
-                  ? scheme.onPrimaryContainer.withValues(alpha: 0.72)
-                  : scheme.onSurfaceVariant,
-            ),
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: muted),
           ),
         ],
       ),

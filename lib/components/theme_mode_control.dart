@@ -9,14 +9,19 @@ import '../core/theme/theme_mode_controller.dart';
 /// A segmented button rather than a single dark-mode switch: "System" is a
 /// real third choice, and a switch cannot express following the platform.
 class ThemeModeControl extends ConsumerWidget {
-  const ThemeModeControl({super.key});
+  const ThemeModeControl({
+    super.key,
+    this.padding = const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
+  });
+
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(themeModeProvider);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.md),
+      padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

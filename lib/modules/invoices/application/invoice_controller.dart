@@ -4,6 +4,7 @@ import '../../../core/error/result.dart';
 import '../../../domain/entities/billing.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
+import '../../owner/application/owner_controller.dart';
 import 'billing_property_filter.dart';
 
 /// Which invoices the list is showing.
@@ -44,7 +45,9 @@ class InvoiceListController extends AsyncNotifier<List<Invoice>> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 }
 
@@ -65,18 +68,16 @@ final filteredInvoicesProvider = Provider<AsyncValue<List<Invoice>>>((ref) {
   });
 });
 
-final invoiceDetailProvider = FutureProvider.family<Invoice, String>((
-  ref,
-  invoiceId,
-) async {
-  final result = await ref
-      .watch(invoiceRepositoryProvider)
-      .getInvoice(invoiceId);
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-});
+final invoiceDetailProvider = FutureProvider.autoDispose
+    .family<Invoice, String>((ref, invoiceId) async {
+      final result = await ref
+          .watch(invoiceRepositoryProvider)
+          .getInvoice(invoiceId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
 
 /// One tenant's invoices, read by somebody who is not that tenant.
 ///
@@ -134,6 +135,7 @@ class InvoiceActions {
   }
 
   void _invalidate(String invoiceId) {
+    _ref.invalidate(ownerReportProvider);
     _ref.invalidate(invoiceDetailProvider(invoiceId));
     _ref.invalidate(invoiceListProvider);
   }

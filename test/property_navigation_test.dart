@@ -107,13 +107,16 @@ void main() {
       expect(find.text('Shops beside the river'), findsOneWidget);
       expect(find.text('Nairobi, Kenya'), findsOneWidget);
       expect(find.text('12'), findsOneWidget);
-      expect(find.text('View blocks and units'), findsOneWidget);
+      expect(find.text('Total units'), findsOneWidget);
+      expect(find.text('2,400'), findsOneWidget);
+      // The blocks live on this screen now; there is no page to go to.
+      expect(find.text('View blocks and units'), findsNothing);
       expect(tester.takeException(), isNull);
       final requestsBeforeRefresh = paths
           .where((path) => path == Endpoints.property('7'))
           .length;
       record['description'] = 'Updated property description';
-      await tester.drag(find.byType(ListView).last, const Offset(0, 450));
+      await tester.drag(find.byType(CustomScrollView).last, const Offset(0, 450));
       await tester.pumpAndSettle();
       expect(
         paths.where((path) => path == Endpoints.property('7')).length,

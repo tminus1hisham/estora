@@ -53,7 +53,23 @@ class AppMedia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget media = Stack(fit: StackFit.expand, children: [_image, ?overlay]);
+    Widget media = LayoutBuilder(
+      builder: (context, constraints) {
+        // Bucket widths to avoid new cache entries for every layout pixel.
+        // Hero flights retain enough detail for the expanded destination.
+        final logicalWidth = heroTag == null
+            ? constraints.maxWidth
+            : max(constraints.maxWidth, MediaQuery.sizeOf(context).width);
+        final pixels = logicalWidth * MediaQuery.devicePixelRatioOf(context);
+        final decodeWidth = pixels.isFinite && pixels > 0
+            ? (pixels / 64).ceil() * 64
+            : null;
+        return Stack(
+          fit: StackFit.expand,
+          children: [_image(decodeWidth), ?overlay],
+        );
+      },
+    );
 
     media = ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
@@ -87,18 +103,19 @@ class AppMedia extends StatelessWidget {
     );
   }
 
-  Widget get _image {
+  Widget _image(int? decodeWidth) {
     final value = source?.trim();
     if (value == null || value.isEmpty) {
-      return _placeholder;
+      return _placeholder(decodeWidth);
     }
 
     if (_isRemote) {
       return Image.network(
         value,
+        cacheWidth: decodeWidth,
         fit: fit,
         excludeFromSemantics: true,
-        errorBuilder: (_, _, _) => _placeholder,
+        errorBuilder: (_, _, _) => _placeholder(decodeWidth),
         loadingBuilder: (context, child, progress) => progress == null
             ? child
             : const AppSkeleton(height: double.infinity),
@@ -108,15 +125,19 @@ class AppMedia extends StatelessWidget {
 
     return Image.asset(
       value,
+      cacheWidth: decodeWidth,
       fit: fit,
       excludeFromSemantics: true,
-      errorBuilder: (_, _, _) => _placeholder,
+      errorBuilder: (_, _, _) => _placeholder(decodeWidth),
       frameBuilder: _fadeInFrame,
     );
   }
 
-  Widget get _placeholder =>
-      _PropertyPlaceholder(fit: fit, fallbackIcon: fallbackIcon);
+  Widget _placeholder(int? decodeWidth) => _PropertyPlaceholder(
+    fit: fit,
+    fallbackIcon: fallbackIcon,
+    decodeWidth: decodeWidth,
+  );
 
   Widget _fadeInFrame(
     BuildContext context,
@@ -135,7 +156,13 @@ class AppMedia extends StatelessWidget {
 }
 
 class _PropertyPlaceholder extends StatefulWidget {
-  const _PropertyPlaceholder({required this.fit, required this.fallbackIcon});
+  const _PropertyPlaceholder({
+    required this.fit,
+    required this.fallbackIcon,
+    this.decodeWidth,
+  });
+
+  final int? decodeWidth;
 
   final BoxFit fit;
   final IconData fallbackIcon;
@@ -146,11 +173,11 @@ class _PropertyPlaceholder extends StatefulWidget {
 
 class _PropertyPlaceholderState extends State<_PropertyPlaceholder> {
   static const _assets = [
-    'assets/images/property_placeholder.png',
-    'assets/images/property_placeholder_2.png',
-    'assets/images/property_placeholder_3.png',
-    'assets/images/property_placeholder_4.png',
-    'assets/images/property_placeholder_5.png',
+    'assets/images/property_placeholder.webp',
+    'assets/images/property_placeholder_2.webp',
+    'assets/images/property_placeholder_3.webp',
+    'assets/images/property_placeholder_4.webp',
+    'assets/images/property_placeholder_5.webp',
   ];
 
   late final _asset = _assets[Random().nextInt(_assets.length)];
@@ -158,6 +185,7 @@ class _PropertyPlaceholderState extends State<_PropertyPlaceholder> {
   @override
   Widget build(BuildContext context) => Image.asset(
     _asset,
+    cacheWidth: widget.decodeWidth,
     fit: widget.fit,
     excludeFromSemantics: true,
     errorBuilder: (_, _, _) => _MediaFallback(icon: widget.fallbackIcon),

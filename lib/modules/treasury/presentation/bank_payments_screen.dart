@@ -92,21 +92,36 @@ class _PaymentList extends StatelessWidget {
           constraints: const BoxConstraints(
             maxWidth: AppLayout.maxReadingWidth,
           ),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-            children: [
-              if (pending.isNotEmpty) ...[
-                RecordGroup(
-                  heading: 'Awaiting review',
-                  children: [for (final row in pending) _PaymentRow(row)],
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.xxl,
                 ),
-                Gap.h16,
-              ],
-              if (reconciled.isNotEmpty)
-                RecordGroup(
-                  heading: 'Reconciled',
-                  children: [for (final row in reconciled) _PaymentRow(row)],
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    if (pending.isNotEmpty) ...[
+                      SliverRecordGroup(
+                        heading: 'Awaiting review',
+                        itemCount: pending.length,
+                        itemBuilder: (_, index) => _PaymentRow(pending[index]),
+                      ),
+                      const SliverToBoxAdapter(child: Gap.h16),
+                    ],
+                    if (reconciled.isNotEmpty)
+                      SliverRecordGroup(
+                        heading: 'Reconciled',
+                        itemCount: reconciled.length,
+                        itemBuilder: (_, index) =>
+                            _PaymentRow(reconciled[index]),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),

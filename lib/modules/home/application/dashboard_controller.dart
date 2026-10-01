@@ -34,6 +34,8 @@ class DashboardController extends AsyncNotifier<DashboardSummary> {
   /// screen while the refresh runs, so pulling to refresh does not blank the
   /// tenant's balance for half a second.
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 }

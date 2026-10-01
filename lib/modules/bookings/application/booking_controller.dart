@@ -6,6 +6,7 @@ import '../../../core/utils/idempotency_key.dart';
 import '../../../domain/entities/billing.dart';
 import '../../../domain/entities/booking.dart';
 import '../../../services/providers.dart';
+import '../../owner/application/owner_controller.dart';
 import '../../home/application/dashboard_controller.dart';
 import '../../units/application/unit_controller.dart';
 
@@ -41,22 +42,22 @@ class BookingListController extends AsyncNotifier<List<Booking>> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 }
 
-final bookingDetailProvider = FutureProvider.family<Booking, String>((
-  ref,
-  bookingId,
-) async {
-  final result = await ref
-      .watch(bookingRepositoryProvider)
-      .getBooking(bookingId);
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-});
+final bookingDetailProvider = FutureProvider.autoDispose
+    .family<Booking, String>((ref, bookingId) async {
+      final result = await ref
+          .watch(bookingRepositoryProvider)
+          .getBooking(bookingId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
 
 /// Creates bookings and submits requirement documents.
 final bookingActionsProvider = Provider<BookingActions>(
@@ -240,6 +241,7 @@ class BookingActions {
   /// Anything that changes availability or the tenant's position invalidates
   /// the browse list and the home summary.
   void _invalidateAfterChange({String? unitId}) {
+    _ref.invalidate(ownerReportProvider);
     if (unitId != null) {
       _ref.invalidate(unitDetailProvider(unitId));
       _ref.invalidate(bookingQuoteProvider(unitId));

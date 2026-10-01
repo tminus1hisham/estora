@@ -62,18 +62,32 @@ class AccountIdentity {
   final SharedPreferences? _prefs;
   Json? _account;
   String? _tenantId;
+  Future<Result<Json>>? _loading;
+  Future<Result<String>>? _resolvingTenant;
+  int _generation = 0;
 
   static const _savedKey = 'auth.account';
 
-  Future<Result<Json>> load({bool refresh = false}) async {
+  Future<Result<Json>> load({bool refresh = false}) {
     final cached = _account;
-    if (cached != null && !refresh) return Ok(cached);
+    if (cached != null && !refresh) return Future.value(Ok(cached));
+    final generation = _generation;
+    return _loading ??= _load(generation).whenComplete(() {
+      if (generation == _generation) _loading = null;
+    });
+  }
 
+  Future<Result<Json>> _load(int generation) async {
     final result = await _api.get<Json>(
       Endpoints.account,
       parse: (json) => json,
     );
-    if (result case Ok(:final value)) await remember(value);
+    if (generation != _generation) return const Err(UnauthorizedFailure());
+    if (result case Ok(:final value)) {
+      _account = value;
+      await _prefs?.setString(_savedKey, jsonEncode(value));
+    }
+    if (generation != _generation) return const Err(UnauthorizedFailure());
     return result;
   }
 
@@ -106,26 +120,27 @@ class AccountIdentity {
   /// rather than failing the statement. An account none of the three names
   /// has no tenancy to bill, which is a [NotFoundFailure] — read by the
   /// screens as an empty statement, not as a route that failed.
-  Future<Result<String>> tenantId() async {
+  Future<Result<String>> tenantId() {
     final cached = _tenantId;
-    if (cached != null) return Ok(cached);
+    if (cached != null) return Future.value(Ok(cached));
+    final generation = _generation;
+    return _resolvingTenant ??= _resolveTenant(generation).whenComplete(() {
+      if (generation == _generation) _resolvingTenant = null;
+    });
+  }
 
+  Future<Result<String>> _resolveTenant(int generation) async {
     final account = await load();
+    if (generation != _generation) return const Err(UnauthorizedFailure());
     if (account case Err<Json>(:final failure)) return Err(failure);
     final self = (account as Ok<Json>).value;
-
-    final named = _identifier(self['tenantId']);
-    if (named != null) return Ok(_tenantId = named);
-
-    final registered = await _registeredTenantId(self);
-    if (registered != null) return Ok(_tenantId = registered);
-
-    final booked = await _bookedTenantId(self);
-    if (booked != null) return Ok(_tenantId = booked);
-
-    return const Err<String>(
-      NotFoundFailure('This account has no tenant record yet.'),
-    );
+    var id = _identifier(self['tenantId']);
+    id ??= await _registeredTenantId(self);
+    if (generation != _generation) return const Err(UnauthorizedFailure());
+    id ??= await _bookedTenantId(self);
+    if (generation != _generation) return const Err(UnauthorizedFailure());
+    if (id != null) return Ok(_tenantId = id);
+    return const Err(NotFoundFailure('This account has no tenant record yet.'));
   }
 
   /// The tenant record this account signs in as, from the tenant directory.
@@ -202,8 +217,7 @@ class AccountIdentity {
   /// Ends the account's tenure here: the session is over, or belongs to
   /// someone else now.
   Future<void> forget() async {
-    _account = null;
-    _tenantId = null;
+    expire();
     await _prefs?.remove(_savedKey);
   }
 
@@ -212,6 +226,9 @@ class AccountIdentity {
   /// The saved copy is kept. It is a launch-time fallback, and a name edited
   /// yesterday is a better account to restore than none at all.
   void expire() {
+    _generation++;
+    _loading = null;
+    _resolvingTenant = null;
     _account = null;
     _tenantId = null;
   }
@@ -224,6 +241,7 @@ class AccountIdentity {
   /// route that would name its account does not answer. [saved] is what
   /// [RemoteAuthRepository.restoreSession] falls back on.
   Future<void> remember(Json account) async {
+    expire();
     _account = account;
     await _prefs?.setString(_savedKey, jsonEncode(account));
   }
@@ -1900,23 +1918,7 @@ class RemoteOwnerRepository implements OwnerRepository {
   /// the server's, not a narrowing of what was already fetched.
   @override
   Future<Result<OwnerReport>> getReport({String? propertyId}) async {
-    final List<String> propertyIds;
-    if (propertyId != null) {
-      propertyIds = [propertyId];
-    } else {
-      final properties = await _api.get<List<Property>>(
-        Endpoints.properties,
-        parse: (json) => listFromJson(json, propertyFromJson),
-      );
-      if (properties case Err<List<Property>>(:final failure)) {
-        return Err(failure);
-      }
-      propertyIds = [
-        for (final property in properties.valueOrNull!) property.id,
-      ];
-    }
-
-    final received = await _api.get<List<MpesaTransaction>>(
+    final receivedFuture = _api.get<List<MpesaTransaction>>(
       propertyId == null
           ? Endpoints.ownerReport
           : Endpoints.mpesaPaymentsByProperty(propertyId),
@@ -1928,6 +1930,59 @@ class RemoteOwnerRepository implements OwnerRepository {
         _ => listFromJson(json, mpesaTransactionFromJson),
       },
     );
+    final bankFuture = _api.get<List<BankPayment>>(
+      Endpoints.bankPayments,
+      parse: (json) => listFromJson(json, bankPaymentFromJson),
+    );
+    final invoicesFuture = () async {
+      final List<String> propertyIds;
+      if (propertyId != null) {
+        propertyIds = [propertyId];
+      } else {
+        final properties = await _api.get<List<Property>>(
+          Endpoints.properties,
+          parse: (json) => listFromJson(json, propertyFromJson),
+        );
+        if (properties case Err<List<Property>>(:final failure)) {
+          return Err<List<Invoice>>(failure);
+        }
+        propertyIds = [
+          for (final property in properties.valueOrNull!) property.id,
+        ];
+      }
+
+      final invoices = <Invoice>[];
+      // Four at a time keeps large portfolios from flooding the API.
+      for (var offset = 0; offset < propertyIds.length; offset += 4) {
+        final pages = await Future.wait(
+          propertyIds
+              .skip(offset)
+              .take(4)
+              .map(
+                (id) => _api.get<List<Invoice>>(
+                  Endpoints.propertyInvoices(id),
+                  parse: (json) => listFromJson(json, invoiceFromJson),
+                ),
+              ),
+        );
+        for (final page in pages) {
+          switch (page) {
+            case Err<List<Invoice>>(:final failure):
+              return Err<List<Invoice>>(failure);
+            case Ok<List<Invoice>>(:final value):
+              invoices.addAll(value);
+          }
+        }
+      }
+      return Ok(invoices);
+    }();
+    final (received, invoiceResult, bank) = await (
+      receivedFuture,
+      invoicesFuture,
+      bankFuture,
+    ).wait;
+    if (invoiceResult case Err<List<Invoice>>(:final failure))
+      return Err(failure);
     // The by-property route answers a property with no arrivals with a 400
     // "Mpesa payment not found." rather than an empty list (live, 2026-09-24).
     final List<MpesaTransaction> arrivals;
@@ -1942,33 +1997,13 @@ class RemoteOwnerRepository implements OwnerRepository {
         return Err(failure);
     }
 
-    final invoices = <Invoice>[];
-    for (final id in propertyIds) {
-      final page = await _api.get<List<Invoice>>(
-        Endpoints.propertyInvoices(id),
-        parse: (json) => listFromJson(json, invoiceFromJson),
-      );
-      switch (page) {
-        case Err<List<Invoice>>(:final failure):
-          return Err(failure);
-        case Ok<List<Invoice>>(:final value):
-          invoices.addAll(value);
-      }
-    }
-
-    // The owner-wide bank list, the one the Bank tile opens onto, cut to the
-    // property in view.
-    final bank = await _api.get<List<BankPayment>>(
-      Endpoints.bankPayments,
-      parse: (json) => listFromJson(json, bankPaymentFromJson),
-    );
     if (bank case Err<List<BankPayment>>(:final failure)) return Err(failure);
 
     return Ok(
       OwnerReport(
         propertyId: propertyId,
         received: arrivals,
-        invoices: invoices,
+        invoices: invoiceResult.valueOrNull!,
         banked: [
           for (final payment in bank.valueOrNull!)
             if (propertyId == null || payment.propertyId == propertyId) payment,

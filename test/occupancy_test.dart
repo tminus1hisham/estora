@@ -11,7 +11,6 @@ import 'package:estora/domain/enums/domain_enums.dart';
 import 'package:estora/modules/owner/presentation/owner_properties_screen.dart';
 import 'package:estora/modules/owner/presentation/owner_property_screen.dart';
 import 'package:estora/modules/structure/presentation/block_screen.dart';
-import 'package:estora/modules/structure/presentation/blocks_screen.dart';
 import 'package:estora/navigation/routes.dart';
 import 'package:estora/services/models/api_mappers.dart';
 import 'package:estora/services/providers.dart';
@@ -238,12 +237,6 @@ void main() {
             ),
           ),
           GoRoute(
-            path: '/properties/:propertyId/blocks',
-            name: Routes.blocks,
-            builder: (_, state) =>
-                BlocksScreen(propertyId: state.pathParameters['propertyId']!),
-          ),
-          GoRoute(
             path: '/blocks/:blockId',
             name: Routes.blockDetail,
             builder: (_, state) =>
@@ -266,8 +259,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The card: counted from the units the list embeds, no extra call.
-      expect(find.text('58%'), findsOneWidget);
-      expect(find.text('7 of 12 let'), findsOneWidget);
+      expect(find.text('58% let'), findsOneWidget);
       expect(paths, isNot(contains(Endpoints.propertyUnits('7'))));
 
       // The property: counted from its own unit records.
@@ -275,29 +267,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(paths, contains(Endpoints.propertyUnits('7')));
       expect(find.text('Occupancy'), findsOneWidget);
-      expect(find.text('58%'), findsOneWidget);
+      expect(find.text('58% let'), findsOneWidget);
       expect(find.text('7 of 12 let'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // The blocks: the same count, split.
-      await tester.tap(find.text('View blocks and units'));
-      await tester.pumpAndSettle();
-      expect(find.text('75% let'), findsOneWidget);
-      expect(find.text('6 of 8 let'), findsOneWidget);
-      expect(find.text('25% let'), findsOneWidget);
-      expect(find.text('1 of 4 let'), findsOneWidget);
-      // One property-wide call serves the whole list.
-      expect(
-        paths.where((path) => path == Endpoints.propertyUnits('7')).length,
-        1,
-      );
+      // The blocks sit on the property screen, every one of them, open or
+      // full — and again as the unit list's filter chips.
+      expect(find.text('North Wing'), findsNWidgets(2));
+      expect(find.text('South Wing'), findsNWidgets(2));
+      expect(find.text('None available'), findsNWidgets(2));
 
-      // One block: counted from the units listed beneath it.
-      await tester.tap(find.text('North Wing'));
+      // The units line up beneath, narrowed by block name.
+      final southChip = find.widgetWithText(ChoiceChip, 'South Wing');
+      await tester.ensureVisible(southChip);
       await tester.pumpAndSettle();
+      expect(find.text('12 UNITS'), findsOneWidget);
+      await tester.tap(southChip);
+      await tester.pumpAndSettle();
+      expect(find.text('4 UNITS'), findsOneWidget);
+      await tester.ensureVisible(find.text('North Wing').first);
+      await tester.pumpAndSettle();
+
+      // One block, in a sheet: counted from the units listed beneath it.
+      await tester.tap(find.text('North Wing').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.text('75%'), findsOneWidget);
       expect(find.text('6 of 8 let'), findsOneWidget);
-      expect(find.text('Occupancy'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

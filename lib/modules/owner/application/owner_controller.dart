@@ -8,6 +8,7 @@ import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
 import '../../../services/providers.dart';
 import '../../properties/application/property_controller.dart';
+import '../../units/application/unit_controller.dart';
 
 /// Section 88. The owner's position, fetched in one call.
 ///
@@ -32,7 +33,9 @@ class OwnerPortfolioController extends AsyncNotifier<OwnerPortfolio> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 }
 
@@ -41,8 +44,8 @@ class OwnerPortfolioController extends AsyncNotifier<OwnerPortfolio> {
 /// Kept separate from the portfolio rather than read out of it, so the detail
 /// screen can be refreshed on its own and deep-linked into without the whole
 /// portfolio having been loaded first.
-final propertyPerformanceProvider =
-    FutureProvider.family<PropertyPerformance, String>((ref, propertyId) async {
+final propertyPerformanceProvider = FutureProvider.autoDispose
+    .family<PropertyPerformance, String>((ref, propertyId) async {
       final result = await ref
           .read(ownerRepositoryProvider)
           .getPropertyPerformance(propertyId);
@@ -53,21 +56,19 @@ final propertyPerformanceProvider =
     });
 
 /// What a repricing would move, for the confirmation to name.
-final repricingImpactProvider = FutureProvider.family<RepricingImpact, String>((
-  ref,
-  propertyId,
-) async {
-  final result = await ref
-      .read(ownerRepositoryProvider)
-      .getRepricingImpact(propertyId);
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-});
+final repricingImpactProvider = FutureProvider.autoDispose
+    .family<RepricingImpact, String>((ref, propertyId) async {
+      final result = await ref
+          .read(ownerRepositoryProvider)
+          .getRepricingImpact(propertyId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
 
 /// Every unit in a property, with who is in it.
-final rentRollProvider = FutureProvider.family<List<RentRollEntry>, String>((
+final rentRollProvider = FutureProvider.autoDispose.family<List<RentRollEntry>, String>((
   ref,
   propertyId,
 ) async {
@@ -89,16 +90,16 @@ final ownerTenanciesProvider = FutureProvider<List<OwnerTenancy>>((ref) async {
   };
 });
 
-final ownerTenancyProvider = FutureProvider.family<OwnerTenancy, String>((
-  ref,
-  leaseId,
-) async {
-  final result = await ref.read(ownerRepositoryProvider).getTenancy(leaseId);
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-});
+final ownerTenancyProvider = FutureProvider.autoDispose
+    .family<OwnerTenancy, String>((ref, leaseId) async {
+      final result = await ref
+          .read(ownerRepositoryProvider)
+          .getTenancy(leaseId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
 
 /// What came in, what is owed, and what is due out.
 final ownerLedgerProvider = FutureProvider<OwnerLedger>((ref) async {
@@ -149,8 +150,10 @@ class ReportPropertyController extends Notifier<String?> {
 /// on a property: the filter is the server's, not the app's. The previous
 /// answer is kept while the next one loads, so the screen changes figures
 /// rather than blanking between properties.
-final ownerReportProvider = FutureProvider<OwnerReport>((ref) async {
-  final propertyId = ref.watch(reportPropertyProvider);
+final ownerReportProvider = FutureProvider.family<OwnerReport, String?>((
+  ref,
+  propertyId,
+) async {
   final result = await ref
       .read(ownerRepositoryProvider)
       .getReport(propertyId: propertyId);
@@ -158,6 +161,12 @@ final ownerReportProvider = FutureProvider<OwnerReport>((ref) async {
     Ok(:final value) => value,
     Err(:final failure) => throw failure,
   };
+}, retry: (_, _) => null);
+
+// Preserve the previous selection while a new property's report loads.
+final selectedOwnerReportProvider = FutureProvider<OwnerReport>((ref) {
+  final propertyId = ref.watch(reportPropertyProvider);
+  return ref.watch(ownerReportProvider(propertyId).future);
 }, retry: (_, _) => null);
 
 final ownerActionsProvider = Provider<OwnerActions>(OwnerActions.new);
@@ -245,6 +254,7 @@ class OwnerActions {
   /// Anything that moves a rent moves the rent roll, so the portfolio and the
   /// property both have to be re-read rather than patched in place.
   void _invalidate({String? propertyId}) {
+    _ref.invalidate(availabilityProvider);
     _ref.invalidate(propertyListProvider);
     _ref.invalidate(ownerPortfolioProvider);
     _ref.invalidate(ownerTenanciesProvider);

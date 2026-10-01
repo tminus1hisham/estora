@@ -86,6 +86,7 @@ class TreasuryActions {
           accountNumber: accountNumber,
         );
     if (result.isOk) {
+      _ref.invalidate(ownerReportProvider);
       _ref.invalidate(mpesaTransactionsProvider);
       _ref.invalidate(mpesaSearchResultProvider);
       // Reconciling a payment can settle an invoice, so what the tenant owes

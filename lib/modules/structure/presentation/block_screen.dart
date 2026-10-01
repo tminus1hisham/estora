@@ -48,10 +48,49 @@ class BlockScreen extends ConsumerWidget {
   }
 }
 
+/// The same block and its units, raised over the property screen.
+Future<void> showBlockSheet(BuildContext context, String blockId) =>
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        maxChildSize: 1,
+        builder: (context, controller) => Consumer(
+          builder: (context, ref, _) {
+            final block = ref.watch(blockProvider(blockId));
+            return switch (block) {
+              AsyncLoading() when !block.hasValue => const AppSkeletonList(),
+              AsyncError(:final error) => ErrorView(
+                failure: error is Failure
+                    ? error
+                    : UnknownFailure(error.toString()),
+                onRetry: () async {
+                  await ref
+                      .refresh(blockProvider(blockId).future)
+                      .then<void>((_) {});
+                },
+              ),
+              _ => _BlockBody(
+                block: block.requireValue,
+                controller: controller,
+              ),
+            };
+          },
+        ),
+      ),
+    );
+
 class _BlockBody extends ConsumerWidget {
-  const _BlockBody({required this.block});
+  const _BlockBody({required this.block, this.controller});
 
   final Building block;
+
+  /// Set when the body sits in [showBlockSheet], which drags by it.
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,10 +109,16 @@ class _BlockBody extends ConsumerWidget {
             maxWidth: AppLayout.maxReadingWidth,
           ),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, 96),
+            controller: controller,
+            padding: EdgeInsets.fromLTRB(
+              Gap.lg,
+              controller == null ? Gap.sm : 0,
+              Gap.lg,
+              controller == null ? 96 : Gap.xl,
+            ),
             children: [
               SectionCard(
-                title: 'The block',
+                title: controller == null ? 'The block' : block.name,
                 trailing: StatusChip(
                   label: block.status.label,
                   tone: block.status.tone,
@@ -93,7 +138,7 @@ class _BlockBody extends ConsumerWidget {
                   if (block.totalArea != null)
                     DetailRow(
                       label: 'Total area',
-                      value: '${_trim(block.totalArea!)} sq ft',
+                      value: '${formatArea(block.totalArea!)} sq ft',
                     ),
                   if (block.totalUnits != null)
                     DetailRow(label: 'Units', value: '${block.totalUnits}'),
@@ -134,10 +179,6 @@ class _BlockBody extends ConsumerWidget {
       ),
     );
   }
-
-  static String _trim(double value) => value == value.roundToDouble()
-      ? value.toInt().toString()
-      : value.toStringAsFixed(1);
 }
 
 /// How much of the block is let, counted from the units listed beneath it —
@@ -168,9 +209,7 @@ class _UnitList extends StatelessWidget {
     if (units.isEmpty) {
       return const SectionCard(
         title: 'Units',
-        children: [
-          Text('No units in this block yet.'),
-        ],
+        children: [Text('No units in this block yet.')],
       );
     }
 

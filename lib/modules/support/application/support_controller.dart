@@ -39,7 +39,9 @@ class SupportTicketController extends AsyncNotifier<List<SupportTicket>> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 
   Future<Result<void>> raise(TicketDraft draft) =>

@@ -175,6 +175,17 @@ class BuildingDraft {
 
 /// Section 14.
 class Floor {
+  /// Floors are a count on a block, not separate server records.
+  static List<Floor> fromCount(String buildingId, int count) => [
+    for (var level = 0; level < count; level++)
+      Floor(
+        id: '$buildingId:$level',
+        buildingId: buildingId,
+        name: level == 0 ? 'Ground floor' : 'Floor $level',
+        floorNumber: level,
+      ),
+  ];
+
   const Floor({
     required this.id,
     required this.buildingId,

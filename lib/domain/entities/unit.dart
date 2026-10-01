@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart' show NumberFormat;
+
 import '../../core/utils/money.dart';
 import '../enums/domain_enums.dart';
 
@@ -125,10 +127,11 @@ class Unit {
   /// `50 × 100 m²`
   String? get dimensionsLabel {
     if (length == null || width == null) return null;
-    return '${_trim(length!)} × ${_trim(width!)}';
+    return '${formatArea(length!)} × ${formatArea(width!)}';
   }
 
-  String? get areaLabel => area == null ? null : '${_trim(area!)} $areaUnit';
+  String? get areaLabel =>
+      area == null ? null : '${formatArea(area!)} $areaUnit';
 
   /// `KES 30 / m²`, or null if this rent was not derived from a rate.
   String? get rateLabel {
@@ -144,11 +147,10 @@ class Unit {
 
   List<UnitRequirement> get mandatoryRequirements =>
       requirements.where((r) => r.isMandatory).toList(growable: false);
-
-  static String _trim(double value) => value == value.roundToDouble()
-      ? value.toInt().toString()
-      : value.toString();
 }
+
+/// `1,200` or `480.5` — an area with its thousands grouped.
+String formatArea(double value) => NumberFormat.decimalPattern().format(value);
 
 /// Section 48's availability engine, answered for one block.
 ///
@@ -191,10 +193,7 @@ class UnitAvailabilitySize {
   /// whose units carry no area, and is shown as a count alone.
   String get label {
     if (size == 0) return 'Any size';
-    final area = size == size.roundToDouble()
-        ? size.toInt().toString()
-        : size.toString();
-    return '$area sq ft';
+    return '${formatArea(size)} sq ft';
   }
 }
 

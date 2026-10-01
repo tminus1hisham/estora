@@ -8,6 +8,7 @@ import '../../../services/providers.dart';
 final propertyListProvider =
     AsyncNotifierProvider<PropertyListController, List<Property>>(
       PropertyListController.new,
+      retry: (_, _) => null,
     );
 
 class PropertyListController extends AsyncNotifier<List<Property>> {
@@ -21,38 +22,45 @@ class PropertyListController extends AsyncNotifier<List<Property>> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 }
 
 /// A single property, with its buildings and floors for the unit filter.
-final propertyDetailProvider = FutureProvider.family<PropertyDetail, String>((
-  ref,
-  propertyId,
-) async {
-  final repository = ref.watch(propertyRepositoryProvider);
+final propertyDetailProvider = FutureProvider.autoDispose
+    .family<PropertyDetail, String>((ref, propertyId) async {
+      final repository = ref.watch(propertyRepositoryProvider);
 
-  final propertyResult = await repository.getProperty(propertyId);
-  if (propertyResult case Err(:final failure)) throw failure;
+      final (propertyResult, buildingsResult) = await (
+        repository.getProperty(propertyId),
+        repository.listBuildings(propertyId),
+      ).wait;
+      if (propertyResult case Err(:final failure)) throw failure;
 
-  final buildingsResult = await repository.listBuildings(propertyId);
-  final buildings = buildingsResult.valueOrNull ?? const <Building>[];
+      final buildings = buildingsResult.valueOrNull ?? const <Building>[];
 
-  // Floors hang off buildings, so they need one call each. Fetched in parallel
-  // rather than in sequence, since a estora can have several wings.
-  final floorLists = await Future.wait(
-    buildings.map((b) => repository.listFloors(b.id)),
-  );
+      // Most blocks already carry their floor count. Only incomplete list
+      // records need an individual block read.
+      final floorLists = await Future.wait(
+        buildings.map(
+          (b) async => b.numberOfFloors == null
+              ? (await repository.listFloors(b.id)).valueOrNull ??
+                    const <Floor>[]
+              : Floor.fromCount(b.id, b.numberOfFloors!),
+        ),
+      );
 
-  return PropertyDetail(
-    property: propertyResult.value,
-    buildings: buildings,
-    floorsByBuilding: {
-      for (var i = 0; i < buildings.length; i++)
-        buildings[i].id: floorLists[i].valueOrNull ?? const <Floor>[],
-    },
-  );
-}, retry: (_, _) => null);
+      return PropertyDetail(
+        property: propertyResult.value,
+        buildings: buildings,
+        floorsByBuilding: {
+          for (var i = 0; i < buildings.length; i++)
+            buildings[i].id: floorLists[i],
+        },
+      );
+    }, retry: (_, _) => null);
 
 class PropertyDetail {
   const PropertyDetail({

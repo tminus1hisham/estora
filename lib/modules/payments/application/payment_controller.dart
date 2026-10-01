@@ -7,6 +7,7 @@ import '../../../core/utils/money.dart';
 import '../../../domain/entities/billing.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
+import '../../owner/application/owner_controller.dart';
 import '../../bookings/application/booking_controller.dart';
 import '../../home/application/dashboard_controller.dart';
 import '../../invoices/application/invoice_controller.dart';
@@ -28,7 +29,9 @@ class PaymentHistoryController extends AsyncNotifier<List<Payment>> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 }
 
@@ -143,6 +146,7 @@ class PaymentActions {
 
 /// Everything that shows an invoice's balance, re-read after it moved.
 void _invalidateAfterSettlement(Ref ref, String invoiceId) {
+  ref.invalidate(ownerReportProvider);
   ref.invalidate(invoiceListProvider);
   ref.invalidate(invoiceDetailProvider(invoiceId));
   ref.invalidate(paymentHistoryProvider);
@@ -184,49 +188,48 @@ class PaymentWatch {
 /// observations that ends when the payment reaches a terminal state or when
 /// polling times out. Re-reading the provider restarts the sequence, which is
 /// what the manual "check again" button does.
-final paymentStatusProvider = StreamProvider.family<PaymentWatch, String>((
-  ref,
-  paymentId,
-) async* {
-  final repository = ref.watch(paymentRepositoryProvider);
-  final startedAt = DateTime.now();
+final paymentStatusProvider = StreamProvider.autoDispose
+    .family<PaymentWatch, String>((ref, paymentId) async* {
+      final repository = ref.watch(paymentRepositoryProvider);
+      final startedAt = DateTime.now();
 
-  var disposed = false;
-  ref.onDispose(() => disposed = true);
+      var disposed = false;
+      ref.onDispose(() => disposed = true);
 
-  while (!disposed) {
-    final result = await repository.getPayment(paymentId);
-    if (disposed) return;
+      while (!disposed) {
+        final result = await repository.getPayment(paymentId);
+        if (disposed) return;
 
-    final payment = switch (result) {
-      Ok(:final value) => value,
-      Err(:final failure) => throw failure,
-    };
+        final payment = switch (result) {
+          Ok(:final value) => value,
+          Err(:final failure) => throw failure,
+        };
 
-    final timedOut =
-        DateTime.now().difference(startedAt) > AppConfig.paymentPollTimeout;
+        final timedOut =
+            DateTime.now().difference(startedAt) > AppConfig.paymentPollTimeout;
 
-    if (payment.status.isTerminal) {
-      yield PaymentWatch(
-        payment: payment,
-        isPolling: false,
-        hasTimedOut: false,
-      );
-      await _onSettled(ref, payment);
-      return;
-    }
+        if (payment.status.isTerminal) {
+          await _onSettled(ref, payment);
+          if (disposed) return;
+          yield PaymentWatch(
+            payment: payment,
+            isPolling: false,
+            hasTimedOut: false,
+          );
+          return;
+        }
 
-    yield PaymentWatch(
-      payment: payment,
-      isPolling: !timedOut,
-      hasTimedOut: timedOut,
-    );
+        yield PaymentWatch(
+          payment: payment,
+          isPolling: !timedOut,
+          hasTimedOut: timedOut,
+        );
 
-    if (timedOut) return;
+        if (timedOut) return;
 
-    await Future<void>.delayed(AppConfig.paymentPollInterval);
-  }
-});
+        await Future<void>.delayed(AppConfig.paymentPollInterval);
+      }
+    });
 
 /// Everything downstream of a payment settling.
 ///
@@ -239,11 +242,12 @@ Future<void> _onSettled(Ref ref, Payment payment) async {
     await ref.read(paymentActionsProvider).completeIntent(payment.invoiceId!);
   }
 
-  if (payment.status != PaymentStatus.success) return;
+  if (!ref.mounted || payment.status != PaymentStatus.success) return;
 
   if (payment.invoiceId != null) {
     _invalidateAfterSettlement(ref, payment.invoiceId!);
   } else {
+    ref.invalidate(ownerReportProvider);
     ref.invalidate(invoiceListProvider);
     ref.invalidate(paymentHistoryProvider);
     ref.invalidate(bookingListProvider);
@@ -253,20 +257,18 @@ Future<void> _onSettled(Ref ref, Payment payment) async {
 }
 
 /// The receipt for a settled payment (section 40).
-final receiptForPaymentProvider = FutureProvider.family<Receipt, String>((
-  ref,
-  paymentId,
-) async {
-  final result = await ref
-      .watch(receiptRepositoryProvider)
-      .getReceiptForPayment(paymentId);
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-});
+final receiptForPaymentProvider = FutureProvider.autoDispose
+    .family<Receipt, String>((ref, paymentId) async {
+      final result = await ref
+          .watch(receiptRepositoryProvider)
+          .getReceiptForPayment(paymentId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
 
-final receiptProvider = FutureProvider.family<Receipt, String>((
+final receiptProvider = FutureProvider.autoDispose.family<Receipt, String>((
   ref,
   receiptId,
 ) async {

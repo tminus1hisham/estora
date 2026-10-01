@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../components/app_refresh_indicator.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../components/theme_mode_control.dart';
 import '../../../domain/enums/domain_enums.dart';
 import '../../../services/providers.dart';
 import '../../../services/update/app_update_service.dart';
@@ -164,9 +163,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.only(bottom: Gap.xxl),
           children: [
-            _SectionHeader('Appearance'),
-            const ThemeModeControl(),
-
             // const Divider(),
             // _SectionHeader('Notifications'),
             // // Section 49's channels.
@@ -204,7 +200,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             // ),
 
             if (_biometricAvailable) ...[
-              const Divider(),
               _SectionHeader('Security'),
               SwitchListTile(
                 value: _biometricEnabled,
@@ -218,9 +213,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
+              const Divider(),
             ],
 
-            const Divider(),
             _SectionHeader('About'),
             const ListTile(title: Text('Version'), trailing: Text('1.0.0')),
             // The app asks Play on its own at launch. This is for the tenant who

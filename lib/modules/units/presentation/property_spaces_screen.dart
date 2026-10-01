@@ -104,6 +104,10 @@ class _SpacesList extends ConsumerWidget {
       );
     }
 
+    final sizes = {
+      for (final block in blocks)
+        block.blockId: block.bySize.where((size) => size.count > 0).toList(),
+    };
     final count = blocks.fold(0, (sum, block) => sum + block.count);
 
     return AppRefreshIndicator(
@@ -113,37 +117,52 @@ class _SpacesList extends ConsumerWidget {
           constraints: const BoxConstraints(
             maxWidth: AppLayout.maxReadingWidth,
           ),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-            children: [
-              PageHeader(
-                eyebrow: 'Available now',
-                title: blocks.first.propertyName,
-                subtitle:
-                    '$count ${count == 1 ? 'space is' : 'spaces are'} '
-                    'available today. Send an enquiry and the landlord will '
-                    'get back to you.',
-                compact: true,
-              ),
-              Gap.h16,
-              for (final block in blocks) ...[
-                RecordGroup(
-                  heading: block.blockName.isEmpty
-                      ? 'Unnamed block'
-                      : block.blockName,
-                  trailing: Text(
-                    '${block.count} available',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.xxl,
+                ),
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: PageHeader(
+                        eyebrow: 'Available now',
+                        title: blocks.first.propertyName,
+                        subtitle:
+                            '$count ${count == 1 ? 'space is' : 'spaces are'} '
+                            'available today. Send an enquiry and the landlord will '
+                            'get back to you.',
+                        compact: true,
+                      ),
                     ),
-                  ),
-                  children: [
-                    for (final size in block.bySize)
-                      if (size.count > 0) _SizeRow(size: size),
+                    for (final block in blocks) ...[
+                      const SliverToBoxAdapter(child: Gap.h16),
+                      SliverRecordGroup(
+                        heading: block.blockName.isEmpty
+                            ? 'Unnamed block'
+                            : block.blockName,
+                        trailing: Text(
+                          '${block.count} available',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                        itemCount: sizes[block.blockId]!.length,
+                        itemBuilder: (_, index) =>
+                            _SizeRow(size: sizes[block.blockId]![index]),
+                      ),
+                    ],
                   ],
                 ),
-                if (block != blocks.last) Gap.h16,
-              ],
+              ),
             ],
           ),
         ),

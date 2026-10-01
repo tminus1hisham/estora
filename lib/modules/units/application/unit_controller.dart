@@ -62,6 +62,7 @@ class UnitFilterController extends Notifier<UnitFilter> {
 final availabilityProvider =
     AsyncNotifierProvider<AvailabilityController, List<UnitAvailability>>(
       AvailabilityController.new,
+      retry: (_, _) => null,
     );
 
 class AvailabilityController extends AsyncNotifier<List<UnitAvailability>> {
@@ -76,7 +77,9 @@ class AvailabilityController extends AsyncNotifier<List<UnitAvailability>> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 }
 
@@ -84,7 +87,7 @@ class AvailabilityController extends AsyncNotifier<List<UnitAvailability>> {
 ///
 /// Watches the filter, so a filter change refetches. Availability is decided
 /// by the server's engine (section 48), not by filtering a status field here.
-final unitListProvider = FutureProvider.family<List<Unit>, String>((
+final unitListProvider = FutureProvider.autoDispose.family<List<Unit>, String>((
   ref,
   propertyId,
 ) async {
@@ -98,7 +101,7 @@ final unitListProvider = FutureProvider.family<List<Unit>, String>((
   };
 });
 
-final unitDetailProvider = FutureProvider.family<Unit, String>((
+final unitDetailProvider = FutureProvider.autoDispose.family<Unit, String>((
   ref,
   unitId,
 ) async {
@@ -111,15 +114,15 @@ final unitDetailProvider = FutureProvider.family<Unit, String>((
 
 /// Section 19's effective-dated pricing, shown on the unit detail screen so a
 /// tenant can see a scheduled increase before committing.
-final unitPricingProvider = FutureProvider.family<List<UnitPricing>, String>((
-  ref,
-  unitId,
-) async {
-  final result = await ref.watch(unitRepositoryProvider).listPricing(unitId);
-  return result.valueOrNull ?? const <UnitPricing>[];
-});
+final unitPricingProvider = FutureProvider.autoDispose
+    .family<List<UnitPricing>, String>((ref, unitId) async {
+      final result = await ref
+          .watch(unitRepositoryProvider)
+          .listPricing(unitId);
+      return result.valueOrNull ?? const <UnitPricing>[];
+    });
 
-final unitTypesProvider = FutureProvider.family<List<UnitType>, String>((
+final unitTypesProvider = FutureProvider.autoDispose.family<List<UnitType>, String>((
   ref,
   propertyId,
 ) async {

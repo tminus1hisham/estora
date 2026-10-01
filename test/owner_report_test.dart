@@ -176,11 +176,14 @@ void main() {
       expect(report.invoices.single.id, '200');
       expect(s.paths, isNot(contains(Endpoints.ownerReport)));
       expect(s.paths, isNot(contains(Endpoints.properties)));
-      expect(s.paths, [
-        Endpoints.mpesaPaymentsByProperty('2'),
-        Endpoints.propertyInvoices('2'),
-        Endpoints.bankPayments,
-      ]);
+      expect(
+        s.paths,
+        unorderedEquals([
+          Endpoints.mpesaPaymentsByProperty('2'),
+          Endpoints.propertyInvoices('2'),
+          Endpoints.bankPayments,
+        ]),
+      );
     });
 
     test('reads a property with no arrivals as none, not a failure', () async {

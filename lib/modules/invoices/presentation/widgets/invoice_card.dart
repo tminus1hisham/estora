@@ -13,7 +13,6 @@ import '../../../../core/utils/date_format.dart';
 import '../../../../domain/entities/billing.dart';
 import '../../../../domain/enums/domain_enums.dart';
 import '../../application/billing_property_filter.dart';
-import 'invoice_sheet.dart';
 import 'pay_invoice.dart';
 
 /// One invoice, as a frosted pane with its status down a tinted rail.
@@ -173,33 +172,31 @@ class InvoiceCard extends ConsumerWidget {
     // The rail's word says what the chip says; it is decoration for the eye,
     // so screen readers hear the status once and its size is held steady.
     const railWidth = 32.0;
-    return GlassTap(
-      scale: 0.98,
-      onTap: () => showInvoiceSheet(context, invoice),
-      child: FrostedPane(
-        padding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: railWidth,
-              child: ExcludeSemantics(
-                child: _Rail(label: label, color: color),
-              ),
+    // Tapping the card opens nothing for now; showInvoiceSheet is kept for
+    // when it comes back.
+    return FrostedPane(
+      padding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: railWidth,
+            child: ExcludeSemantics(
+              child: _Rail(label: label, color: color),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                railWidth + Gap.md,
-                12,
-                Gap.md,
-                12,
-              ),
-              child: body,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              railWidth + Gap.md,
+              12,
+              Gap.md,
+              12,
             ),
-          ],
-        ),
+            child: body,
+          ),
+        ],
       ),
     );
   }

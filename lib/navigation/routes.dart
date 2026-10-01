@@ -134,9 +134,6 @@ class Routes {
   // knows which property it belongs to, and repeating that in the path would
   // mean every link needed both ids to hand.
 
-  static const blocks = 'blocks';
-  static const blocksPath = ':propertyId/blocks';
-
   static const blockDetail = 'block-detail';
   static const blockDetailPath = 'block/:blockId';
 

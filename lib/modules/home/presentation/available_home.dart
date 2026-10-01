@@ -10,26 +10,16 @@ import 'widgets/premium_home.dart';
 import 'widgets/tenant_welcome.dart';
 import '../../../components/app_reveal.dart';
 import '../../../core/error/failure.dart';
-import '../../../core/error/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/property.dart';
 import '../../../navigation/routes.dart';
-import '../../../services/providers.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../properties/application/property_controller.dart';
 import '../../invoices/application/invoice_controller.dart';
 import 'widgets/recent_invoices.dart';
 
-// Separate from the browse search so a search never filters the home page.
-final homePropertiesProvider = FutureProvider.autoDispose<List<Property>>((
-  ref,
-) async {
-  ref.watch(authControllerProvider.select((state) => state.user?.id));
-  final result = await ref.watch(propertyRepositoryProvider).listProperties();
-  return switch (result) {
-    Ok(:final value) => value.items,
-    Err(:final failure) => throw failure,
-  };
-}, retry: (_, _) => null);
+// Home and the directory share the same unfiltered, session-lived list.
+final homePropertiesProvider = propertyListProvider;
 
 /// Home content supported by the published property and invoice operations.
 /// A section failure leaves the greeting and navigation usable.

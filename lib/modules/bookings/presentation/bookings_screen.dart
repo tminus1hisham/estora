@@ -92,32 +92,46 @@ class _BookingList extends ConsumerWidget {
           constraints: const BoxConstraints(
             maxWidth: AppLayout.maxReadingWidth,
           ),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.sm, Gap.lg, Gap.xxl),
-            children: [
-              _BookingOverview(
-                total: bookings.length,
-                open: openCount,
-                needsAction: actionCount,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  Gap.lg,
+                  Gap.sm,
+                  Gap.lg,
+                  Gap.xxl,
+                ),
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _BookingOverview(
+                        total: bookings.length,
+                        open: openCount,
+                        needsAction: actionCount,
+                      ),
+                    ),
+                    if (live.isNotEmpty) ...[
+                      const SliverToBoxAdapter(child: Gap.h24),
+                      SliverRecordGroup(
+                        heading: 'In progress',
+                        itemCount: live.length,
+                        itemBuilder: (_, index) =>
+                            _BookingRow(booking: live[index]),
+                      ),
+                    ],
+                    if (past.isNotEmpty) ...[
+                      const SliverToBoxAdapter(child: Gap.h24),
+                      SliverRecordGroup(
+                        heading: 'Closed',
+                        itemCount: past.length,
+                        itemBuilder: (_, index) =>
+                            _BookingRow(booking: past[index]),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (live.isNotEmpty) ...[
-                Gap.h24,
-                RecordGroup(
-                  heading: 'In progress',
-                  children: [
-                    for (final booking in live) _BookingRow(booking: booking),
-                  ],
-                ),
-              ],
-              if (past.isNotEmpty) ...[
-                Gap.h24,
-                RecordGroup(
-                  heading: 'Closed',
-                  children: [
-                    for (final booking in past) _BookingRow(booking: booking),
-                  ],
-                ),
-              ],
             ],
           ),
         ),

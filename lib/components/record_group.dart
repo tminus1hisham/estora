@@ -11,6 +11,97 @@ import 'surface_atoms.dart';
 /// 40-unit leading tile: 16 of card padding, the tile, then its 12-unit gap.
 const double kRecordRowInset = 68;
 
+/// The same grouped surface as [RecordGroup], with rows built on demand.
+class SliverRecordGroup extends StatelessWidget {
+  const SliverRecordGroup({
+    required this.itemCount,
+    required this.itemBuilder,
+    this.heading,
+    this.trailing,
+    super.key,
+  });
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final String? heading;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SliverMainAxisGroup(
+      slivers: [
+        if (heading != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.xs, 0, Gap.xs, Gap.sm),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      heading!.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                  if (trailing != null) ...[Gap.w8, trailing!],
+                ],
+              ),
+            ),
+          ),
+        DecoratedSliver(
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.large,
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.45),
+            ),
+            boxShadow: AppElevation.lifted(
+              scheme.shadow,
+              brightness: scheme.brightness,
+            ),
+          ),
+          sliver: SliverList.builder(
+            itemCount: itemCount,
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(
+                left: 1,
+                right: 1,
+                top: index == 0 ? 1 : 0,
+                bottom: index == itemCount - 1 ? 1 : 0,
+              ),
+              child: Material(
+                color: scheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.vertical(
+                  top: index == 0 ? AppRadius.large.topLeft : Radius.zero,
+                  bottom: index == itemCount - 1
+                      ? AppRadius.large.bottomLeft
+                      : Radius.zero,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    if (index > 0)
+                      const Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: kRecordRowInset,
+                        ),
+                        child: Hairline(),
+                      ),
+                    itemBuilder(context, index),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// A heading and the rows it covers, drawn as one surface.
 ///
 /// The alternative — a card per entry — is what most of this app used to do,

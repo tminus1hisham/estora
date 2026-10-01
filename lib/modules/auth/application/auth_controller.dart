@@ -23,6 +23,7 @@ import '../../notifications/application/notification_controller.dart';
 import '../../payments/application/payment_controller.dart';
 import '../../properties/application/property_controller.dart';
 import '../../units/application/unit_controller.dart';
+import '../../support/application/support_controller.dart';
 
 class BiometricUnlockResult {
   const BiometricUnlockResult._({required this.succeeded, this.message});
@@ -241,6 +242,7 @@ class AuthController extends Notifier<AuthState> {
 
       DebugLog.write('auth', 'Session restored: ${_describeSession(value)}');
       state = AuthState(stage: AuthStage.authenticated, session: value);
+      _invalidateTenantState();
       return;
     }
 
@@ -311,6 +313,7 @@ class AuthController extends Notifier<AuthState> {
           'Code accepted; signed in as ${_describeSession(value)}',
         );
         state = AuthState(stage: AuthStage.authenticated, session: value);
+        _invalidateTenantState();
         return true;
       }(),
       Err(:final failure) => () {
@@ -339,6 +342,7 @@ class AuthController extends Notifier<AuthState> {
           'Signed in with a password as ${_describeSession(value)}',
         );
         state = AuthState(stage: AuthStage.authenticated, session: value);
+        _invalidateTenantState();
         return true;
       }(),
       Err(:final failure) => () {
@@ -481,6 +485,10 @@ class AuthController extends Notifier<AuthState> {
     ref.invalidate(mpesaSearchProvider);
     ref.invalidate(mpesaSearchResultProvider);
     ref.invalidate(bankPaymentsProvider);
+    ref.invalidate(propertyUnitsProvider);
+    ref.invalidate(supportTicketsProvider);
+    ref.invalidate(ticketFilterProvider);
+    ref.invalidate(ticketSpacesProvider);
     ref.invalidate(propertyBlocksProvider);
     ref.invalidate(blockProvider);
     ref.invalidate(blockUnitsProvider);
@@ -491,6 +499,7 @@ class AuthController extends Notifier<AuthState> {
     ref.invalidate(propertyListProvider);
     ref.invalidate(propertyDetailProvider);
     ref.invalidate(unitFilterProvider);
+    ref.invalidate(availabilityProvider);
     ref.invalidate(unitListProvider);
     ref.invalidate(unitDetailProvider);
     ref.invalidate(unitPricingProvider);

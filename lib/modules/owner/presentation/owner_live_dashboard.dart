@@ -7,48 +7,32 @@ import '../../../components/app_skeleton.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/collection_columns.dart';
 import '../../../components/state_views.dart';
-import '../../../core/error/result.dart';
-import '../../../domain/entities/owner.dart';
 import '../../../domain/entities/property.dart';
+import '../../../domain/entities/owner.dart';
 import '../../../navigation/routes.dart';
-import '../../../services/providers.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../home/presentation/available_home.dart';
+import '../../units/application/unit_controller.dart';
 import 'widgets/owner_dashboard_widgets.dart';
+import '../application/owner_controller.dart';
 
 // Home always describes the entire portfolio, regardless of Revenue's filter.
-final ownerDashboardReportProvider = FutureProvider.autoDispose<OwnerReport>((
-  ref,
-) async {
-  ref.watch(authControllerProvider.select((state) => state.user?.id));
-  final result = await ref.watch(ownerRepositoryProvider).getReport();
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-}, retry: (_, _) => null);
+final ownerDashboardReportProvider = ownerReportProvider(null);
 
 // The property list can omit its units. Ask the availability engine for the
 // bookable counts, and restrict its platform-wide answer to this portfolio.
 final ownerDashboardAvailabilityProvider =
     FutureProvider.autoDispose<Map<String, int>>((ref) async {
-      final repository = ref.watch(unitRepositoryProvider);
       final properties = await ref.watch(homePropertiesProvider.future);
       final counts = {for (final property in properties) property.id: 0};
       if (counts.isEmpty) return counts;
-      final result = await repository.listAvailability();
-      switch (result) {
-        case Err(:final failure):
-          throw failure;
-        case Ok(:final value):
-          for (final block in value) {
-            if (counts.containsKey(block.propertyId)) {
-              counts[block.propertyId] =
-                  counts[block.propertyId]! + block.count;
-            }
-          }
-          return counts;
+      final availability = await ref.watch(availabilityProvider.future);
+      for (final block in availability) {
+        if (counts.containsKey(block.propertyId)) {
+          counts[block.propertyId] = counts[block.propertyId]! + block.count;
+        }
       }
+      return counts;
     }, retry: (_, _) => null);
 
 class OwnerLiveDashboard extends ConsumerWidget {
@@ -62,6 +46,7 @@ class OwnerLiveDashboard extends ConsumerWidget {
     final name = ref.watch(authControllerProvider).user?.firstName;
     Future<void> refresh() async {
       await Future.wait([
+        ref.read(availabilityProvider.notifier).refresh(),
         ref
             .refresh(homePropertiesProvider.future)
             .then<void>((_) {}, onError: (Object _) {}),
@@ -162,7 +147,7 @@ class OwnerLiveDashboard extends ConsumerWidget {
                                 : 'Ready for a new tenant',
                             onTap: availability.hasError
                                 ? () => ref.invalidate(
-                                    ownerDashboardAvailabilityProvider,
+                                    availabilityProvider,
                                   )
                                 : () => context.goNamed(Routes.ownerProperties),
                           ),

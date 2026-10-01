@@ -302,9 +302,6 @@ class _BlockRow extends StatelessWidget {
 
   static String _sizeLabel(UnitAvailabilitySize size) {
     if (size.size == 0) return '× ${size.count}';
-    final area = size.size == size.size.roundToDouble()
-        ? size.size.toInt().toString()
-        : size.size.toString();
-    return '$area sq ft × ${size.count}';
+    return '${size.label} × ${size.count}';
   }
 }

@@ -46,10 +46,13 @@ class OwnerInvoicesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final report = ref.watch(ownerReportProvider);
+    final reportProvider = ownerReportProvider(
+      ref.watch(reportPropertyProvider),
+    );
+    final report = ref.watch(selectedOwnerReportProvider);
 
     Future<void> refresh() async {
-      await ref.refresh(ownerReportProvider.future).then<void>((_) {});
+      await ref.refresh(reportProvider.future).then<void>((_) {});
     }
 
     return Scaffold(

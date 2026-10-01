@@ -326,9 +326,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final image = tester.widget<Image>(find.byType(Image));
-      expect(image.image, isA<AssetImage>());
+      expect(image.image, isA<ResizeImage>());
       expect(
-        (image.image as AssetImage).assetName,
+        ((image.image as ResizeImage).imageProvider as AssetImage).assetName,
         'assets/images/property_sarit_mall.jpg',
       );
       expect(find.bySemanticsLabel('Sarit Mall exterior'), findsOneWidget);
@@ -356,19 +356,20 @@ void main() {
         final placeholder = find.byWidgetPredicate(
           (widget) =>
               widget is Image &&
-              widget.image is AssetImage &&
-              (widget.image as AssetImage).assetName.contains(
-                'property_placeholder',
-              ),
+              widget.image is ResizeImage &&
+              ((widget.image as ResizeImage).imageProvider as AssetImage)
+                  .assetName
+                  .contains('property_placeholder'),
         );
         expect(placeholder, findsOneWidget);
-        final selected = tester.widget<Image>(placeholder).image as AssetImage;
+        final selected = tester.widget<Image>(placeholder).image;
+        final asset = (selected as ResizeImage).imageProvider as AssetImage;
         expect(
-          selected.assetName,
+          asset.assetName,
           isIn([
-            'assets/images/property_placeholder.png',
+            'assets/images/property_placeholder.webp',
             for (var i = 2; i <= 5; i++)
-              'assets/images/property_placeholder_$i.png',
+              'assets/images/property_placeholder_$i.webp',
           ]),
         );
         tester.element(find.byType(AppMedia)).markNeedsBuild();

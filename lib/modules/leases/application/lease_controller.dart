@@ -23,11 +23,13 @@ class LeaseListController extends AsyncNotifier<List<Lease>> {
   }
 
   Future<void> refresh() async {
-    state = await AsyncValue.guard(build);
+    final scope = ref;
+    final next = await AsyncValue.guard(build);
+    if (scope.mounted) state = next;
   }
 }
 
-final leaseDetailProvider = FutureProvider.family<Lease, String>((
+final leaseDetailProvider = FutureProvider.autoDispose.family<Lease, String>((
   ref,
   leaseId,
 ) async {
@@ -45,16 +47,16 @@ final leaseDetailProvider = FutureProvider.family<Lease, String>((
 /// actually read — if the agreement were regenerated in between, the server
 /// would reject the stale hash rather than record a signature against wording
 /// nobody saw.
-final leaseAgreementProvider = FutureProvider.family<LeaseAgreement, String>((
-  ref,
-  leaseId,
-) async {
-  final result = await ref.watch(leaseRepositoryProvider).getAgreement(leaseId);
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-});
+final leaseAgreementProvider = FutureProvider.autoDispose
+    .family<LeaseAgreement, String>((ref, leaseId) async {
+      final result = await ref
+          .watch(leaseRepositoryProvider)
+          .getAgreement(leaseId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
 
 final leaseActionsProvider = Provider<LeaseActions>((ref) => LeaseActions(ref));
 

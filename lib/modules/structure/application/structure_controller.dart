@@ -11,20 +11,18 @@ import '../../properties/application/property_controller.dart';
 import '../../units/application/unit_controller.dart';
 
 /// The blocks a property is divided into.
-final propertyBlocksProvider = FutureProvider.family<List<Building>, String>((
-  ref,
-  propertyId,
-) async {
-  final result = await ref
-      .read(propertyStructureRepositoryProvider)
-      .listBlocks(propertyId);
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-});
+final propertyBlocksProvider = FutureProvider.autoDispose
+    .family<List<Building>, String>((ref, propertyId) async {
+      final result = await ref
+          .read(propertyStructureRepositoryProvider)
+          .listBlocks(propertyId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
 
-final blockProvider = FutureProvider.family<Building, String>((
+final blockProvider = FutureProvider.autoDispose.family<Building, String>((
   ref,
   blockId,
 ) async {
@@ -37,37 +35,45 @@ final blockProvider = FutureProvider.family<Building, String>((
   };
 });
 
-final blockUnitsProvider = FutureProvider.family<List<Unit>, String>((
-  ref,
-  blockId,
-) async {
-  final result = await ref
-      .read(propertyStructureRepositoryProvider)
-      .listBlockUnits(blockId);
-  return switch (result) {
-    Ok(:final value) => value,
-    Err(:final failure) => throw failure,
-  };
-});
+final blockUnitsProvider = FutureProvider.autoDispose
+    .family<List<Unit>, String>((ref, blockId) async {
+      final result = await ref
+          .read(propertyStructureRepositoryProvider)
+          .listBlockUnits(blockId);
+      return switch (result) {
+        Ok(:final value) => value,
+        Err(:final failure) => throw failure,
+      };
+    });
 
-/// How a property's units are let, whole and by block.
-///
-/// Counted from the unit records rather than read off the property, because
-/// the contract publishes no occupancy figure and the block list needs the
-/// split anyway. One call for the whole property; the block screen counts
-/// from the units it has already fetched.
-final propertyOccupancyProvider =
-    FutureProvider.family<PropertyOccupancy, String>((ref, propertyId) async {
+/// Every unit in a property, let or not — one call, read by the property
+/// screen's unit list and counted by [propertyOccupancyProvider]. Invalidate
+/// this, not the occupancy, to refetch both.
+final propertyUnitsProvider = FutureProvider.autoDispose
+    .family<List<Unit>, String>((ref, propertyId) async {
       final result = await ref
           .read(unitRepositoryProvider)
           .listUnits(
             filter: UnitFilter(propertyId: propertyId, availableOnly: false),
           );
       return switch (result) {
-        Ok(:final value) => PropertyOccupancy.of(value.items),
+        Ok(:final value) => value.items,
         Err(:final failure) => throw failure,
       };
     });
+
+/// How a property's units are let, whole and by block.
+///
+/// Counted from the unit records rather than read off the property, because
+/// the contract publishes no occupancy figure and the block list needs the
+/// split anyway. The block screen counts from the units it has already
+/// fetched.
+final propertyOccupancyProvider = FutureProvider.autoDispose
+    .family<PropertyOccupancy, String>(
+      (ref, propertyId) async => PropertyOccupancy.of(
+        await ref.watch(propertyUnitsProvider(propertyId).future),
+      ),
+    );
 
 /// Writes against the shape of a property.
 final structureActionsProvider = Provider<StructureActions>(
@@ -183,9 +189,10 @@ class StructureActions {
   }
 
   void _invalidateProperty(String propertyId) {
+    _ref.invalidate(ownerReportProvider);
     _ref.invalidate(propertyBlocksProvider(propertyId));
     _ref.invalidate(propertyDetailProvider(propertyId));
-    _ref.invalidate(propertyOccupancyProvider(propertyId));
+    _ref.invalidate(propertyUnitsProvider(propertyId));
     _ref.invalidate(propertyListProvider);
     _ref.invalidate(propertyPerformanceProvider(propertyId));
     _ref.invalidate(ownerPortfolioProvider);
@@ -193,6 +200,7 @@ class StructureActions {
 
   void _invalidateUnits(String propertyId, String? blockId) {
     if (blockId != null) _ref.invalidate(blockUnitsProvider(blockId));
+    _ref.invalidate(availabilityProvider);
     _ref.invalidate(unitListProvider);
     _ref.invalidate(rentRollProvider(propertyId));
     _invalidateProperty(propertyId);

@@ -171,7 +171,9 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(OwnerShell)),
     );
-    final report = container.read(ownerReportProvider).requireValue;
+    final report = container
+        .read(ownerReportProvider(container.read(reportPropertyProvider)))
+        .requireValue;
     expect(report.hasArrears, isTrue);
     final band = report
         .ageingAt(DateTime.now())
@@ -232,7 +234,9 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(OwnerShell)),
     );
-    final report = container.read(ownerReportProvider).requireValue;
+    final report = container
+        .read(ownerReportProvider(container.read(reportPropertyProvider)))
+        .requireValue;
 
     // The tiles sit under the collected card, past the fold on a phone.
     await tester.scrollUntilVisible(
@@ -353,7 +357,9 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(OwnerShell)),
     );
-    final report = container.read(ownerReportProvider).requireValue;
+    final report = container
+        .read(ownerReportProvider(container.read(reportPropertyProvider)))
+        .requireValue;
     final owed = report.outstandingInvoices;
     expect(owed, isNotEmpty);
 
@@ -442,7 +448,13 @@ void main() {
         .requireValue
         .singleWhere((property) => property.name == 'ABC Business Centre');
     expect(container.read(reportPropertyProvider), abc.id);
-    expect(container.read(ownerReportProvider).requireValue.propertyId, abc.id);
+    expect(
+      container
+          .read(ownerReportProvider(container.read(reportPropertyProvider)))
+          .requireValue
+          .propertyId,
+      abc.id,
+    );
     expect(find.text('COLLECTED THIS MONTH'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

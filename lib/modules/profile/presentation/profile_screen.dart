@@ -7,6 +7,7 @@ import '../../../components/app_refresh_indicator.dart';
 import '../../../components/app_reveal.dart';
 import '../../../components/app_surface_card.dart';
 import '../../../components/section_card.dart';
+import '../../../components/theme_mode_control.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_format.dart';
 import '../../../navigation/routes.dart';
@@ -54,6 +55,12 @@ class ProfileScreen extends ConsumerWidget {
                 value: profile!.address,
               ),
           ],
+        ),
+        Gap.h16,
+        const _Panel(
+          title: 'Appearance',
+          subtitle: 'Light, dark, or follow your device.',
+          children: [ThemeModeControl(padding: EdgeInsets.zero)],
         ),
         if (profile != null &&
             (tenant?.tenantType.isOrganisation ?? false)) ...[

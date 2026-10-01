@@ -74,7 +74,7 @@ class OwnerAccountScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'MANAGER ACCOUNT',
+                    'PREMIUM . ACCOUNT',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: scheme.primary,
                       fontWeight: AppTypography.bold,

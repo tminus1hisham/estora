@@ -206,18 +206,7 @@ Json buildingDraftToJson(BuildingDraft draft) => {
 /// is a rendering of what the server said, not a second source of truth: no id
 /// here is ever sent back.
 List<Floor> floorsFromBlock(Json json) {
-  final blockId = _str(json['id']);
-  final count = _int(json['numberOfFloors']);
-  if (count <= 0) return const <Floor>[];
-  return [
-    for (var level = 0; level < count; level++)
-      Floor(
-        id: '$blockId:$level',
-        buildingId: blockId,
-        name: level == 0 ? 'Ground floor' : 'Floor $level',
-        floorNumber: level,
-      ),
-  ];
+  return Floor.fromCount(_str(json['id']), _int(json['numberOfFloors']));
 }
 
 Floor floorFromJson(Json json) => Floor(
