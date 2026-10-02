@@ -15,7 +15,7 @@ public static class TenantPortalNativeIcon
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
-# The mark: a navy arcade on a warm stone tile, brass on the centre pier.
+# The mark: four rounded units on warm stone, brass on the upper-right unit.
 # Geometry is normalised to a 512 artboard and shared with
 # assets/branding/tenant_portal_mark.svg and lib/components/app_brand_mark.dart.
 $navy = [System.Drawing.Color]::FromArgb(255, 10, 26, 48)
@@ -48,29 +48,6 @@ function New-RoundedRectPath {
         90
     )
     $path.AddArc([single] $X, [single] ($Y + $H - $d), [single] $d, [single] $d, 90, 90)
-    $path.CloseFigure()
-    return $path
-}
-
-function New-ArcadePath {
-    # Outer piers of 48, a centre pier of 64 and two bays of 84, cut as one
-    # outline so the arches are true negative space. Arc sweeps are negative
-    # because GDI+ measures positive angles clockwise on a y-down canvas, and
-    # each arch climbs from its right springing point over the crown to its
-    # left one.
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $path.StartFigure()
-    $path.AddLine(92, 118, 420, 118)
-    $path.AddLine(420, 118, 420, 394)
-    $path.AddLine(420, 394, 372, 394)
-    $path.AddLine(372, 394, 372, 220)
-    $path.AddArc(288, 178, 84, 84, 0, -180)
-    $path.AddLine(288, 220, 288, 394)
-    $path.AddLine(288, 394, 224, 394)
-    $path.AddLine(224, 394, 224, 220)
-    $path.AddArc(140, 178, 84, 84, 0, -180)
-    $path.AddLine(140, 220, 140, 394)
-    $path.AddLine(140, 394, 92, 394)
     $path.CloseFigure()
     return $path
 }
@@ -129,22 +106,12 @@ function New-BrandBitmap {
         $scale = $Size * $MarkScale / 512.0
         $graphics.ScaleTransform([single] $scale, [single] $scale)
 
-        $navyBrush = New-Object System.Drawing.SolidBrush($navy)
-        try {
-            $arcade = New-ArcadePath
-            try { $graphics.FillPath($navyBrush, $arcade) } finally { $arcade.Dispose() }
-        }
-        finally {
-            $navyBrush.Dispose()
-        }
-
-        # The load-bearing centre pier.
-        $brassBrush = New-Object System.Drawing.SolidBrush($brass)
-        try {
-            $graphics.FillRectangle($brassBrush, 224, 118, 64, 276)
-        }
-        finally {
-            $brassBrush.Dispose()
+        foreach ($unit in @(@(84, 84), @(262, 84), @(84, 262), @(262, 262))) {
+            $color = if ($unit[0] -eq 262 -and $unit[1] -eq 84) { $brass } else { $navy }
+            $brush = New-Object System.Drawing.SolidBrush($color)
+            $path = New-RoundedRectPath -X $unit[0] -Y $unit[1] -W 166 -H 166 -R 42
+            try { $graphics.FillPath($brush, $path) }
+            finally { $path.Dispose(); $brush.Dispose() }
         }
 
         if ($null -ne $clipPath) {
@@ -304,4 +271,4 @@ finally {
     $icoStream.Dispose()
 }
 
-Write-Output "Generated $($appIconTargets.Count + 5) PNG assets and the Windows ICO from the Estora arcade mark."
+Write-Output "Generated $($appIconTargets.Count + 5) PNG assets and the Windows ICO from the Estora connected units mark."
