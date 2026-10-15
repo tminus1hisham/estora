@@ -145,6 +145,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await ref.read(authControllerProvider.notifier).logout();
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'Your Estora account will be permanently deleted and you will be '
+          'signed out. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            child: const Text('Delete account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    final result = await ref
+        .read(authControllerProvider.notifier)
+        .deleteAccount();
+    // On success the router's redirect takes over, as with sign out.
+    final failure = result.failureOrNull;
+    if (failure == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(failure.message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final channels = ref.watch(notificationChannelsProvider);
@@ -239,6 +279,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
                 icon: const Icon(Icons.logout_rounded),
                 label: const Text('Sign out'),
+              ),
+            ),
+            Center(
+              child: TextButton(
+                onPressed: _confirmDeleteAccount,
+                style: TextButton.styleFrom(foregroundColor: scheme.error),
+                child: const Text('Delete account'),
               ),
             ),
           ],

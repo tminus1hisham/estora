@@ -429,6 +429,17 @@ class AuthController extends Notifier<AuthState> {
     _invalidateTenantState();
   }
 
+  /// App Store guideline 5.1.1(v): an account created in the app must be
+  /// deletable from it. Signs out once the server has removed the account.
+  Future<Result<void>> deleteAccount() async {
+    final user = state.user;
+    if (user == null) return const Ok(null);
+    DebugLog.write('auth', 'Deleting account for user ${user.id}');
+    final result = await ref.read(accessRepositoryProvider).deleteUser(user.id);
+    if (result.isOk) await logout();
+    return result;
+  }
+
   /// What a session amounts to, in one line.
   ///
   /// The role and the two records decide which shell the account lands in, so

@@ -235,14 +235,21 @@ void main() {
     expect(find.byType(AppBrandMark), findsNothing);
     expect(tester.takeException(), isNull);
 
-    // The lower actions remain reachable rather than being clipped by the
-    // compact viewport or the accessibility text scale.
+    // The lowest action stays reachable rather than being clipped by the
+    // compact viewport or the accessibility text scale. (The "Create an
+    // account" footer is switched off in login_screen.dart for now.)
     await tester.scrollUntilVisible(
-      find.text('Create an account'),
+      find.text('Sign in'),
       160,
-      scrollable: find.byType(Scrollable).first,
+      // The page's own scroller; `Scrollable.first` can be a text field's.
+      scrollable: find
+          .descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
-    expect(find.text('Create an account'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

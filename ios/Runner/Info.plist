@@ -16,6 +16,10 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>Estora</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Estora lets you attach photos and documents to bookings and your tenancy file.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to unlock your Estora account securely.</string>
 	<key>CFBundlePackageType</key>

@@ -129,14 +129,19 @@ class _HomeTopBarState extends State<HomeTopBar> {
               children: [
                 const AppBrandMark(size: 36),
                 Gap.w12,
-                Text(
-                  'Estora',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: foreground,
-                    letterSpacing: -0.5,
+                // Expanded, not a Spacer: at large text sizes on a small phone
+                // the wordmark would otherwise push the bell off the edge.
+                Expanded(
+                  child: Text(
+                    'Estora',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: foreground,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 _NotificationBell(
                   unread: widget.unread,
                   blend: c,
